@@ -1,0 +1,92 @@
+---
+title: "fia-regen"
+author: "Solomon Dobrowski, Sean Parks, Caitlin Littlefield"
+date: "January 7, 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+### Set-up
+
+#### Document config
+This document was created in R markdown with the following configuration settings:
+```{r doc setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Workspace set-up
+Install packages and call libraries.
+```{r workspace setup, echo=TRUE, message=FALSE, warning=FALSE}
+
+# Install packages if not already installed
+required.packages <- c("ggplot2", "raster", "sp", "rgdal", "dplyr",
+                       "tidyverse", "maptools", "rgeos", 
+                       "party", "vcd", "maps", "mgcv", "tmap")
+new.packages <- required.packages[!(required.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)>0) install.packages(new.packages)
+rm(required.packages, new.packages)
+
+# Libraries
+library(ggplot2)
+library(raster)
+library(sp)
+library(rgdal)
+library(dplyr)
+library(tidyverse)
+library(maptools)
+library(rgeos)
+library(party)
+library(vcd)
+library(maps)
+library(mgcv)
+library(tmap)
+
+# Turn off scientific notation
+options(scipen=999) 
+```
+
+Set working directory.
+```{r directory, include=TRUE}
+# Set directory to input data
+wd <- setwd("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/RMRS")
+# wd <- setwd("D:/Shared/BackedUp/Caitlin/RMRS") # If on goshawk
+```
+
+###Data
+
+####Load data
+```{r directory, include=TRUE}
+climate <- read.csv('SP_ClimateLayers.csv')
+cond.seed <- read.csv('SP_COND_All_Joinseed.csv')  ### seedling data
+cond.tree<-read.csv('SP_COND_All_JoinTree.csv')    ### tree data
+# above won't load; I think combined into this
+cond.tree.seed <- read.csv('SP_COND_TREE_SEED.csv')
+mtbs <- read.csv('SP_MTBSSeverity_84_15.csv')      ### fire severity data
+# above won't load -- try diff named csv
+mtbs <- read.csv('SP_MTBS_CMBJoin.csv')
+plot.data <- read.csv('SP_PLOT_data.csv')               ## plot data
+time.since.fire <- read.csv('SP_MTBSTimeSinceFire.csv') # time since fire data
+# above won't load -- try diff named csv, even tho this is what's in older script
+time.since.fire <- read.csv('SP_TimeSinceFire.csv') 
+
+
+# Quick peak: plot lat/long
+plot(plot.data$LON_FS, plot.data$LAT_FS, pch=19, cex=0.1)
+# CO, OR, WA missing; WY "sparse"
+# How many pts each? (lu states from FIADB manual)
+count(plot, STATECD) %>% as.data.frame() %>% print
+# STATECD     n
+# 1        4 19867 AZ
+# 2        6    12 CA
+# 3        8 16114 CO
+# 4       16 11040 ID
+# 5       30 22263 MT
+# 6       32 14659 NV
+# 7       35 15879 NM
+# 8       38   177 ND
+# 9       46    32 SD
+# 10      49 15898 UT
+# 11      53    13 WA
+# 12      56  5381 WY
+```
