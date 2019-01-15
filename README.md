@@ -1,2 +1,2 @@
 # fia-regen
-Post-fire regeneration probabilities on FIA plost in interior West.
+Post-fire regeneration predictors on FIA plost in interior West.
