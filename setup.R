@@ -3,7 +3,7 @@
 ###########
 
 #####################################
-# Set working directory to input data
+## Set working directory to input data
 wd <- setwd("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/RMRS")
 # wd <- setwd("D:/Shared/BackedUp/Caitlin/RMRS") # If working from within goshawk
 wd <- setwd("C:/Users/clittlef/Dropbox/RMRS/fia-regen/data") # If working with/within dropbox
