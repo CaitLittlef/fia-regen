@@ -184,4 +184,4 @@ data.burned.samp <- data.burned %>%
   select(PLOTID, LATEST.INVYR, LATEST.FIRE) %>%
   distinct() # 1971 records of latest inventory post-most recent burn
 
-
+test
