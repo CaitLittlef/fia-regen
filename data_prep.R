@@ -32,6 +32,18 @@ count(plot, STATECD)
 # 11      53    13 WA
 # 12      56  5381 WY
 
+## Alt: 
+plot %>%
+  group_by(STATECD) %>%
+  summarize(n=n())
+
+
+## Confirm there are no dupe plots
+plot %>% 
+  group_by(CN) %>% 
+  filter(n()>1) %>% # could stop here, or generate summary...
+  summarize(n=n()) # to see that no, there are no dupes
+
 
 ## Assign ID unique to plot AND yr; ID unqiue to plot, that's same across yrs.
 attach(cond.tree.seed)
