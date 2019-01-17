@@ -144,44 +144,51 @@ rm(moo, doo)
 
 
 
-
-
 #####################################
-## MTBS
+## MTBS 
 #####################################
 ## Generate unique ID for mtbs plots
 mtbs$PLOTID<-paste(mtbs$PLOT,mtbs$STATECD,mtbs$COUNTYCD,sep='_')
-mtbs <- mtbs %>% select(PLOTID, everything())
+mtbs <- mtbs %>%
+  rename(FIRE.YR = Year) %>%
+  filter(! FIRE.YR == 0) %>%  # Some records missing fire year
+  select(PLOTID, everything())
 
 ## Which of the plots burned?
-data.burned <- inner_join(data, mtbs, by = "PLOTID") #3536 plots
-data.burned <- rename(data.burned, FIRE.YR = Year)
+data.burned <- inner_join(data, mtbs, by = "PLOTID") #3510 plots
+
+
+## ID reburns.
+reburns <- data.burned %>%
+  group_by(PLOTID) %>%
+  mutate(NUM.BURNS = n()) %>%
+  filter(NUM.BURNS > 1) %>%
+  select(PLOTID, FIRE.YR, NUM.BURNS) %>%
+  distinct() # 1158 plots had reburns
 
 
 ## How many were sampled after burned (one or more times, one or more burns)?
 data.burned %>%
   filter(INVYR > FIRE.YR) %>%
-  count(PLOTID) # 1992 plots sampled post-burn (incl. some multiple samples)
-
-
-## How many were sampled twice after burn?
-# Recall group_by un-group for final delivery so have to count()
+  count(PLOTID) # 1971 plots sampled after a burn/burns
 data.burned %>%
   filter(INVYR > FIRE.YR) %>%
-  group_by(PLOTID) %>%
-  mutate(FREQ.BURN.SAMP = n()) %>%
-  filter(FREQ.BURN.SAMP > 1) %>%
-  count(PLOTID) # 442 plots were sampled multiple times post-burn
+  count(PLOTID) %>%
+  filter(n>1) # 437 sampled more than once after a burn/burns
 
+  
 
-## List plots that burned and were sampled after -- keep latest visit
+## List plots that burned and were sampled after.
+# Keeping latest visit, latest fire.
+# May want to keep ANY visit that happened after a fire but before any reburn.
+# But for now, stick with a single record for each plot.
 data.burned.samp <- data.burned %>%
-  filter(INVYR > FIRE.YR) %>%
   group_by(PLOTID) %>%
-  mutate(LATEST.INVYR = max(INVYR)) %>%
-  mutate(LATEST.FIRE = max(FIRE.YR)) %>% # Nix reburns (saw at least 1)
-  filter(LATEST.FIRE > 0) %>% # at 1992 (matches above) til X these zeros
-  select(PLOTID, LATEST.INVYR, LATEST.FIRE) %>%
-  distinct() # 1971 records of latest inventory post-most recent burn
+  filter(INVYR > FIRE.YR) %>%
+  filter(FIRE.YR == max(FIRE.YR)) %>%
+  filter(INVYR == max(INVYR)) # 2016 records
+if(all(data.burned.samp$INVYR > data.burned.samp$FIRE.YR)) cat("all visits are AFTER fire")
 
-test
+
+## For consistency with Solomon's code...
+data.clean <- data.burned.samp
