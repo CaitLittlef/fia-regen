@@ -7,14 +7,14 @@
 plot <- read.csv('SP_PLOT_data.csv')                  ## plot data
 cond.tree.seed <- read.csv('SP_COND_TREE_SEED.csv')   ## seedling & tree data
 climate <- read.csv('SP_ClimateLayers.csv')           ## ClimateWNA data
-# prism.1971.2000 <- read.csv('SP_Prism_71_00.csv')   ## PRISM norms 1971-2000
-# prism.1981.2010 <- read.csv('SP_Prism_81_10.csv')   ## PRISM norms 1981-2010
+prism.1971.2000 <- read.csv('SP_Prism_71_00.csv')   ## PRISM norms 1971-2000
+prism.1981.2010 <- read.csv('SP_Prism_81_10.csv')   ## PRISM norms 1981-2010
 mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate monitoring branch (NOAA)
 time.since.fire <- read.csv('SP_TimeSinceFire.csv')   ## time since fire; NIMS=Nat Info Mgmt System
 
 
 ## Quick peek
-plot(plot.data$LON_FS, plot.data$LAT_FS, pch=19, cex=0.1)
+plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.1)
 # CO, OR, not present; WY "sparse"
 # How many pts each? 
 count(plot, STATECD)
@@ -36,14 +36,13 @@ count(plot, STATECD)
 
 
 #####################################
-## CONDITION SELETIONS
+## CONDITION SELECTIONS
 #####################################
 
 ## Confirm there are no dupe plots
 plot %>% 
   group_by(CN) %>% 
-  filter(n()>1) %>% # could stop here, or generate summary...
-  summarize(n=n()) # to see that no, there are no dupes
+  filter(n()>1) # no dupes
 
 
 ## Drop field types that aren't forested
@@ -90,8 +89,8 @@ data <- merge(cond.tree.seed,
               plot[,c("CN", "LAT_FS", "LON_FS", "ELEV")],
               by.x ='PLT_CN', by.y='CN')
 plot(data$LON_FS, data$LAT_FS, pch=19, cex=0.1)
-
-
+data <- distinct(data)
+if(any(duplicated(data))) cat("YOU'VE BEEN DUPED!!")
 
 
 
@@ -136,10 +135,12 @@ plots.rev <- doo %>%
          YR.3RD = nth(INVYR, 3)) %>% # select 3rd instance
   select(-INVYR) %>%
   distinct() # needed b/c plots have same # records as visits
-dim(plots.rev) # 5892
+dim(plots.rev) # 5829
 
 # Clean-up
 rm(moo, doo)
+
+
 
 
 
@@ -155,7 +156,7 @@ mtbs <- mtbs %>%
   select(PLOTID, everything())
 
 ## Which of the plots burned?
-data.burned <- inner_join(data, mtbs, by = "PLOTID") #3510 plots
+data.burned <- inner_join(data, mtbs, by = "PLOTID") #3483 plots
 
 
 ## ID reburns.
@@ -164,21 +165,20 @@ reburns <- data.burned %>%
   mutate(NUM.BURNS = n()) %>%
   filter(NUM.BURNS > 1) %>%
   select(PLOTID, FIRE.YR, NUM.BURNS) %>%
-  distinct() # 1158 plots had reburns
+  distinct() # 1152 plots had reburns
 
 
 ## How many were sampled after burned (one or more times, one or more burns)?
 data.burned %>%
   filter(INVYR > FIRE.YR) %>%
-  count(PLOTID) # 1971 plots sampled after a burn/burns
+  count(PLOTID) # 1961 plots sampled after a burn/burns
 data.burned %>%
   filter(INVYR > FIRE.YR) %>%
   count(PLOTID) %>%
-  filter(n>1) # 437 sampled more than once after a burn/burns
+  filter(n>1) # 428 sampled more than once after a burn/burns
 
-  
 
-## List plots that burned and were sampled after.
+## List plots that burned and were sampled after burn
 # Keeping latest visit, latest fire.
 # May want to keep ANY visit that happened after a fire but before any reburn.
 # But for now, stick with a single record for each plot.
@@ -187,8 +187,47 @@ data.burned.samp <- data.burned %>%
   filter(INVYR > FIRE.YR) %>%
   filter(FIRE.YR == max(FIRE.YR)) %>%
   filter(INVYR == max(INVYR)) # 2016 records
-if(all(data.burned.samp$INVYR > data.burned.samp$FIRE.YR)) cat("all visits are AFTER fire")
+if(all(data.burned.samp$INVYR > data.burned.samp$FIRE.YR)) cat("All visits are AFTER fire")
+if(any(duplicated(data.burned.samp))) cat("YOU'VE BEEN DUPED!!") # 2000
 
-
-## For consistency with Solomon's code...
+## For consistency with orig code...
 data.clean <- data.burned.samp
+
+## Create years since var
+data.clean$YEAR.DIFF <- (data.clean$INVYR - data.clean$FIRE.YR)
+data.clean <- data.clean %>% select(PLOTID, UNIQUEID, INVYR, FIRE.YR, YEAR.DIFF, everything())
+hist(data.clean$YEAR.DIFF)
+
+## Lots ~Yellowstone, Idaho
+map('state', region = c('cali', 'oreg', 'wash','idaho','monta','wyo','utah','ariz','new mex','colo'))
+points(data.clean$LON_FS, data.clean$LAT_FS,pch=1,cex=sqrt(data.clean$YEAR.DIFF))
+legend("bottomleft",c("time since fire = 4 years","time since fire = 16 years"),pch=c(1,1), pt.cex=c(2,4))
+
+
+
+
+
+
+#####################################
+## CLIMATE 
+#####################################
+## Assign IDs
+# nb some records have >1 inventory yrs, but cliamte data are identical --> drop INVYR
+climate$PLOTID <- paste(climate$PLOT_NIMS,climate$STATECD,climate$COUNTYCD,sep='_')
+climate <- climate %>%
+  select(PLOTID, everything(),-INVYR, -STATECD, -COUNTYCD, -PLOT_NIMS) %>%
+  distinct() # still look to be some dupes
+
+prism.1981.2010$PLOTID<-paste(prism.1981.2010$PLOT,prism.1981.2010$STATECD,prism.1981.2010$COUNTYCD,sep='_')
+prism <- prism.1981.2010 %>%
+  select(PLOTID, everything(), -STATECD, -COUNTYCD, -PLOT) %>%
+  distinct()
+
+data.all <- data.clean %>%
+  left_join(climate, by = "PLOTID") %>%
+  left_join(prism, by = "PLOTID")
+
+if(any(duplicated(data.all))) cat("YOU'VE BEEN DUPED!!") # 2000
+
+
+
