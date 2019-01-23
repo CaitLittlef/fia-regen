@@ -7,10 +7,10 @@
 plot <- read.csv('SP_PLOT_data.csv')                  ## plot data
 cond.tree.seed <- read.csv('SP_COND_TREE_SEED.csv')   ## seedling & tree data
 climate <- read.csv('SP_ClimateLayers.csv')           ## ClimateWNA data
-prism.1971.2000 <- read.csv('SP_Prism_71_00.csv')   ## PRISM norms 1971-2000
-prism.1981.2010 <- read.csv('SP_Prism_81_10.csv')   ## PRISM norms 1981-2010
+prism.1971.2000 <- read.csv('SP_Prism_71_00.csv')     ## PRISM norms 1971-2000
+prism.1981.2010 <- read.csv('SP_Prism_81_10.csv')     ## PRISM norms 1981-2010
 mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate monitoring branch (NOAA)
-time.since.fire <- read.csv('SP_TimeSinceFire.csv')   ## time since fire; NIMS=Nat Info Mgmt System
+# time.since.fire <- read.csv('SP_TimeSinceFire.csv')   ## time since fire; NIMS=Nat Info Mgmt System
 
 
 ## Quick peek
@@ -45,7 +45,7 @@ plot %>%
   filter(n()>1) # no dupes
 
 
-## Drop field types that aren't forested
+## Drop field types that aren't forested or have NA
 # FLDTYPCD assigned by crew; 3-dig code per type
 # Also shouldn't have: 
 # 980 Tropical hardwoods group
@@ -56,8 +56,7 @@ any(cond.tree.seed$FLDTYPCD>979) # TRUE
 cond.tree.seed %>% 
   filter(FLDTYPCD > 979) %>%
   group_by(FLDTYPCD) %>% 
-  summarize(n=n()) # only one record -- delete it.
-# Per manual, 995 = other exotic hardwoods. DELETE.
+  summarize(n=n()) # Per manual, 995 = other exotic hardwoods. DELETE.
 cond.tree.seed <- filter(cond.tree.seed, ! is.na(FLDTYPCD) | FLDTYPCD > 979)
 
 
@@ -160,12 +159,12 @@ data.burned <- inner_join(data, mtbs, by = "PLOTID") #3483 plots
 
 
 ## ID reburns.
-reburns <- data.burned %>%
-  group_by(PLOTID) %>%
-  mutate(NUM.BURNS = n()) %>%
-  filter(NUM.BURNS > 1) %>%
-  select(PLOTID, FIRE.YR, NUM.BURNS) %>%
-  distinct() # 1152 plots had reburns
+# reburns <- data.burned %>%
+#   group_by(PLOTID) %>%
+#   mutate(NUM.BURNS = n()) %>%
+#   filter(NUM.BURNS > 1) %>%
+#   select(PLOTID, FIRE.YR, NUM.BURNS) %>%
+#   distinct() # 1152 plots had reburns
 
 
 ## How many were sampled after burned (one or more times, one or more burns)?
@@ -192,6 +191,7 @@ if(any(duplicated(data.burned.samp))) cat("YOU'VE BEEN DUPED!!") # 2000
 
 ## For consistency with orig code...
 data.clean <- data.burned.samp
+rm(data, data.burned, data.burned.samp)
 
 ## Create years since var
 data.clean$YEAR.DIFF <- (data.clean$INVYR - data.clean$FIRE.YR)
@@ -202,8 +202,6 @@ hist(data.clean$YEAR.DIFF)
 map('state', region = c('cali', 'oreg', 'wash','idaho','monta','wyo','utah','ariz','new mex','colo'))
 points(data.clean$LON_FS, data.clean$LAT_FS,pch=1,cex=sqrt(data.clean$YEAR.DIFF))
 legend("bottomleft",c("time since fire = 4 years","time since fire = 16 years"),pch=c(1,1), pt.cex=c(2,4))
-
-
 
 
 
@@ -229,5 +227,5 @@ data.all <- data.clean %>%
 
 if(any(duplicated(data.all))) cat("YOU'VE BEEN DUPED!!") # 2000
 
-
+rm(prism.1971.2000, prism.1981.2010)
 
