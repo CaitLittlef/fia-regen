@@ -15,45 +15,32 @@ data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv")
 # 847 Quercus rugosa
 
 
-temp <- data %>%
+## Create p/a regen var for maj spp
+data <- data %>%
   mutate(PIEDregen = ifelse(data$TPASeed106Ac >0, 1, 0),
          PIPOregen = ifelse(data$TPASeed122Ac >0, 1, 0),
          PSMEregen = ifelse(data$TPASeed202Ac >0, 1, 0))
-temp$PIEDregen[is.na(temp$PIEDregen)] <- 0
-temp$PIPOregen[is.na(temp$PIPOregen)] <- 0
-temp$PSMEregen[is.na(temp$PSMEregen)] <- 0
+data$PIEDregen[is.na(data$PIEDregen)] <- 0
+data$PIPOregen[is.na(data$PIPOregen)] <- 0
+data$PSMEregen[is.na(data$PSMEregen)] <- 0
 
+mean(data$PIEDregen) # 0.01826484
+mean(data$PIPOregen) # 0.06950786
+mean(data$PSMEregen) # 0.1212582
 
+## Keep records where adult present
+data.pied <- data %>%
+  filter(BALive_106 >0 | BADeadStanding_106 >0 | BAMortStanding_106 >0 | BAMortDown_106 >0)
+data.pipo <- data %>%
+  filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0)
+data.psme <- data %>%
+  filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0)
 
-data$PIEDregen
-temp <- data$TPASeed122Ac %>%
-  ifelse(>0, 1, 0) %>%
-  replace
-data$PIPOregen
-data$PSMEregen
+####### START HERE AND CONVERT BA NAs TO ZERO ############
+data$PIEDregen[is.na(data$PIEDregen)] <- 0
+data$PIPOregen[is.na(data$PIPOregen)] <- 0
+data$PSMEregen[is.na(data$PSMEregen)] <- 0
 
-
-########### species specific analysis #######################
-#### species codes ########
-
-## ponderosa pine = 122
-## douglas fir = 202
-## pinyon pine = 106
-
-## convert regen counts to presence absence
-bloo<-ifelse(data.clim$TPASeed122Ac >0,1,0)
-bloo2<-replace(bloo,is.na(bloo),0)
-
-data.clim$PIPOregen<-bloo2
-hist(data.clim$PIPOregen)
-mean(data.clim$PIPOregen)  # prevalence is 0.069
-
-bloo<-ifelse(data.clim$TPASeed202Ac >0,1,0)
-bloo2<-replace(bloo,is.na(bloo),0)
-
-data.clim$PSMEregen<-bloo2
-hist(data.clim$PSMEregen)
-mean(data.clim$PSMEregen)  # prevalence is 0.12
 
 ## subset data to where there is adult species present
 #data.pipo<-subset(data.clim,data.clim$BALive_122 < 300 )
