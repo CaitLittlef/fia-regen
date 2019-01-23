@@ -13,6 +13,9 @@ mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate m
 # time.since.fire <- read.csv('SP_TimeSinceFire.csv')   ## time since fire; NIMS=Nat Info Mgmt System
 
 
+
+
+
 ## Quick peek
 plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.1)
 # CO, OR, not present; WY "sparse"
@@ -185,7 +188,7 @@ data.burned.samp <- data.burned %>%
   group_by(PLOTID) %>%
   filter(INVYR > FIRE.YR) %>%
   filter(FIRE.YR == max(FIRE.YR)) %>%
-  filter(INVYR == max(INVYR)) # 2016 records
+  filter(INVYR == max(INVYR))
 if(all(data.burned.samp$INVYR > data.burned.samp$FIRE.YR)) cat("All visits are AFTER fire")
 if(any(duplicated(data.burned.samp))) cat("YOU'VE BEEN DUPED!!") # 2000
 
@@ -211,21 +214,30 @@ legend("bottomleft",c("time since fire = 4 years","time since fire = 16 years"),
 #####################################
 ## Assign IDs
 # nb some records have >1 inventory yrs, but cliamte data are identical --> drop INVYR
-climate$PLOTID <- paste(climate$PLOT_NIMS,climate$STATECD,climate$COUNTYCD,sep='_')
+climate$PLOTID <- paste(climate$PLOT_NIMS,
+                        climate$STATECD,
+                        climate$COUNTYCD,
+                        sep='_')
 climate <- climate %>%
   select(PLOTID, everything(),-INVYR, -STATECD, -COUNTYCD, -PLOT_NIMS) %>%
   distinct() # still look to be some dupes
 
-prism.1981.2010$PLOTID<-paste(prism.1981.2010$PLOT,prism.1981.2010$STATECD,prism.1981.2010$COUNTYCD,sep='_')
+prism.1981.2010$PLOTID <- paste(prism.1981.2010$PLOT,
+                                prism.1981.2010$STATECD,
+                                prism.1981.2010$COUNTYCD,sep='_')
 prism <- prism.1981.2010 %>%
   select(PLOTID, everything(), -STATECD, -COUNTYCD, -PLOT) %>%
   distinct()
 
+## Join plot data to climate data
 data.all <- data.clean %>%
   left_join(climate, by = "PLOTID") %>%
   left_join(prism, by = "PLOTID")
 
-if(any(duplicated(data.all))) cat("YOU'VE BEEN DUPED!!") # 2000
+## N.b., there are still some essentially duplicate records...
+# b/c duff/litter values differ subtely.
+# Here, keep distinct UNIQUEID values -- the first row if not distinct.
+data.all <- distinct(data.all, UNIQUEID, .keep_all = TRUE)
 
-rm(prism.1971.2000, prism.1981.2010)
+if(any(duplicated(data.all$UNIQUEID))) cat("YOU'VE BEEN DUPED!!") # 1971
 
