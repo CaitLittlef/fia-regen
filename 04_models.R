@@ -15,45 +15,48 @@ data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv")
 # 847 Quercus rugosa
 
 
+## Convert all NAs in BA or TPA to zero
+# Use caret ^ to specify start of string
+BA.cols <- grep(pattern="^BA", x=colnames(data), value=TRUE)
+TPA.cols <- grep(pattern="^TPA", x=colnames(data), value=TRUE)
+data[BA.cols][is.na(data[BA.cols])] <- 0
+data[TPA.cols][is.na(data[TPA.cols])] <- 0
+
+
 ## Create p/a regen var for maj spp
 data <- data %>%
   mutate(PIEDregen = ifelse(data$TPASeed106Ac >0, 1, 0),
          PIPOregen = ifelse(data$TPASeed122Ac >0, 1, 0),
          PSMEregen = ifelse(data$TPASeed202Ac >0, 1, 0))
-data$PIEDregen[is.na(data$PIEDregen)] <- 0
-data$PIPOregen[is.na(data$PIPOregen)] <- 0
-data$PSMEregen[is.na(data$PSMEregen)] <- 0
 
 mean(data$PIEDregen) # 0.01826484
 mean(data$PIPOregen) # 0.06950786
 mean(data$PSMEregen) # 0.1212582
 
+
+
 ## Keep records where adult present
 data.pied <- data %>%
-  filter(BALive_106 >0 | BADeadStanding_106 >0 | BAMortStanding_106 >0 | BAMortDown_106 >0)
+  filter(BALive_106 >0 | BADeadStanding_106 >0 | BAMortStanding_106 >0 | BAMortDown_106 >0) %>%
+  dplyr::rename(BALive_pied = BALive_106)
 data.pipo <- data %>%
-  filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0)
+  filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0) %>%
+  dplyr::rename(BALive_pipo = BALive_122)  
 data.psme <- data %>%
-  filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0)
-
-####### START HERE AND CONVERT BA NAs TO ZERO ############
-data$PIEDregen[is.na(data$PIEDregen)] <- 0
-data$PIPOregen[is.na(data$PIPOregen)] <- 0
-data$PSMEregen[is.na(data$PSMEregen)] <- 0
+  filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0) %>%
+  dplyr::rename(BALive_psme = BALive_202)
 
 
-## subset data to where there is adult species present
-#data.pipo<-subset(data.clim,data.clim$BALive_122 < 300 )
-data.pipo<-subset(data.clim,data.clim$BALive_122 > 0 | data.clim$BADeadStanding_122 >0 | data.clim$BAMortStanding_122 >0 | data.clim$BAMortDown_122 >0 )
-data.psme<-subset(data.clim,data.clim$BALive_202 > 0 | data.clim$BADeadStanding_202 >0 | data.clim$BAMortStanding_202 >0 | data.clim$BAMortDown_202 >0 )
 
-dim(data.pipo)  #553 plots
-dim(data.psme)  #724
+## Check for outliers; BA sq ft/acre
+max(data.pied$BALive_pied) # 124
+max(data.pipo$BALive_pipo) # 458 seems high
+hist(data.pipo$BALive_pipo)
+data.pipo  <-data.pipo[data.pipo$BALive_pipo < 300,]
+max(data.psme$BALive_psme) # 228
 
 
-### calculate time elapsed between fire and sampling
-data.pipo$time.since.fire<-data.pipo$INVYR - data.pipo$Year
-data.psme$time.since.fire<-data.psme$INVYR - data.psme$Year
+
 
 ## category for year of fire. Pre 2000 and post 2000
 data.pipo$fireyr.cat<-ifelse(data.pipo$Year<2000,"early","late")
@@ -65,18 +68,8 @@ data.pipo<-subset(data.pipo,data.pipo$diff.year<50)
 dim(data.pipo)  #553 plots
 hist(data.pipo$time.since.fire)
 
-## convert NA values for PIPO basal area to 0
-data.pipo$BA.pipo.live<-replace(data.pipo$BALive_122,is.na(data.pipo$BALive_122),0)
-hist(data.pipo$BA.pipo.live) #### outlying value BA >500
 
-data.psme$BA.psme.live<-replace(data.psme$BALive_202,is.na(data.psme$BALive_202),0)
-hist(data.psme$BA.psme.live) #### outlying value BA >500
 
-# drop outlying value
-data.pipo<-data.pipo[data.pipo$BA.pipo.live<300,]
-
-## convert NA values for total basal area to 0
-data.pipo$BA.total.live<-replace(data.pipo$BALiveTot,is.na(data.pipo$BALiveTot),0)
 
 ## convert NA values for duff and litter to 0
 data.pipo$duff<-replace(data.pipo$DUFF_DEPTH,is.na(data.pipo$DUFF_DEPTH),0)
