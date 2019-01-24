@@ -235,7 +235,7 @@ data.all <- data.clean %>%
   left_join(prism, by = "PLOTID")
 
 ## N.b., there are still some essentially duplicate records...
-# b/c duff/litter values differ subtely.
+# b/c duff/litter values differ subtely. 
 # Here, keep distinct UNIQUEID values -- the first row if not distinct.
 data.all <- distinct(data.all, UNIQUEID, .keep_all = TRUE)
 
