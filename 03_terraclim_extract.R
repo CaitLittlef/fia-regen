@@ -52,17 +52,25 @@ def.data <-do.call(cbind,lapply(output,data.frame))
 # Pull orig output element names and assign as col names in this df
 colnames(def.data) <- names(output)
 
+
+
 ## Re-link to PLOT ID ********** THIS FEELS SKETCHY **************
 def.data$PLOTID <- data.all$PLOTID
 def.data <- def.data %>%
   select(PLOTID, everything())
 
+
+
 ## Save as csv
 # write.csv(def.data,"def_z_n1971.csv")
+
+
   
 ## Append to existing plot data
 data.all <- data.all %>%
   left_join(def.data, by = "PLOTID")
+
+
 
 ## Save as csv
 # write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971.csv")
