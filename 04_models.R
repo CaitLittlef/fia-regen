@@ -21,6 +21,9 @@ BA.cols <- grep(pattern="^BA", x=colnames(data), value=TRUE)
 TPA.cols <- grep(pattern="^TPA", x=colnames(data), value=TRUE)
 data[BA.cols][is.na(data[BA.cols])] <- 0
 data[TPA.cols][is.na(data[TPA.cols])] <- 0
+data$DUFF_DEPTH[is.na(data$DUFF_DEPTH)] <- 0
+data$LITTER_DEPTH[is.na(data$LITTER_DEPTH)] <- 0
+
 
 
 ## Create p/a regen var for maj spp
@@ -28,7 +31,6 @@ data <- data %>%
   mutate(PIEDregen = ifelse(data$TPASeed106Ac >0, 1, 0),
          PIPOregen = ifelse(data$TPASeed122Ac >0, 1, 0),
          PSMEregen = ifelse(data$TPASeed202Ac >0, 1, 0))
-
 mean(data$PIEDregen) # 0.01826484
 mean(data$PIPOregen) # 0.06950786
 mean(data$PSMEregen) # 0.1212582
@@ -57,23 +59,6 @@ max(data.psme$BALive_psme) # 228
 
 
 
-
-## category for year of fire. Pre 2000 and post 2000
-data.pipo$fireyr.cat<-ifelse(data.pipo$Year<2000,"early","late")
-
-data.pipo$fireyr.cat<-factor(data.pipo$fireyr.cat)
-
-## some fires are missing Year
-data.pipo<-subset(data.pipo,data.pipo$diff.year<50)
-dim(data.pipo)  #553 plots
-hist(data.pipo$time.since.fire)
-
-
-
-
-## convert NA values for duff and litter to 0
-data.pipo$duff<-replace(data.pipo$DUFF_DEPTH,is.na(data.pipo$DUFF_DEPTH),0)
-data.pipo$litter<-replace(data.pipo$LITTER_DEPTH,is.na(data.pipo$LITTER_DEPTH),0)
 
 ########################################
 ### what is the fire severity?
