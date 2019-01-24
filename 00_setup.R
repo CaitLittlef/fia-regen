@@ -34,7 +34,7 @@ library(maps)
 library(mgcv)
 library(tmap)
 
-
+# rm(GCtorture)
 
 #####################################
 # Turn off scientific notation
