@@ -195,73 +195,30 @@ if(any(duplicated(data.burned.samp))) cat("YOU'VE BEEN DUPED!!") # 2000
 
 
 ## Assign burn severity to each record
-# Pull out burn severity columns; keep only those with 4 digits (year); $=end
+# Pull out burn severity columns; keep only those with 4 digits (year); .=any character; $=end
 mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.burned.samp), value=TRUE)
 moo <- data.burned.samp[mtbs.cols] %>% as.data.frame() # weird class change; force df    
 moo$FIRE.YR <- data.burned.samp$FIRE.YR
 
-# Return burn severity from year of fire
+# Return severity from year of fire
 # Not sure why I need composite index calling for all rows...
 # but excluding it duplicates burn sev variables.
-moo$BURN.SEV <-
+moo$FIRE.SEV <-
   moo[cbind(
     seq_len(nrow(moo)),
     match(paste0(moo$FIRE.YR),
           substr(names(moo),6,9))
   )]
 
+data.burned.samp$FIRE.SEV <- moo$FIRE.SEV
+data.burned.samp <- as.data.frame(data.burned.samp)
 
-########## START HERE!
-
-########################################
-### what is the fire severity?
-###################################
-
-# extract subset of total dataframe to work with
-data.mtbs<-data.pipo[,218:246]
-var.name<-names(data.mtbs)
-yr.ind<-data.pipo$Year
-
-#function to return MTBS fire severity for year of fire match
-year.match<-function(x,data){
-  yr<-grep(x,data)
-  fluf<-data.mtbs[i,yr]
-  return(fluf)
-}
-
-year.match(ty,var.name)  
-
-#run function across loop
-fire.sev<-numeric(length(yr.ind))
-
-for (i in 1:length(fire.sev)){
-  temp.year<-yr.ind[i]
-  out<-year.match(temp.year,var.name)
-  fire.sev[i]<-out
-}
-
-#drop category 5 and 6 and replace with NA
-ind<-which(fire.sev==5 | fire.sev==6)
-fire.sev<-replace(fire.sev,ind,values=NA)
-data.pipo$fire.sev<-fire.sev
-
-
-## is remaining live BA and fire severity correlated?
-cor(data.pipo$fire.sev,data.pipo$BA.total.live,method="spearman",na.rm=T)
-cor.test(data.pipo$fire.sev,data.pipo$BA.total.live,method="spearman")
-###############################################3
-
-
-
-
-
-
-
-
-
-
-
-
+# Replace cat 5 & 6 with NA
+count(data.burned.samp, FIRE.SEV)
+data.burned.samp$FIRE.SEV[data.burned.samp$FIRE.SEV == 5 | data.burned.samp$FIRE.SEV == 6] <- NA
+# Alt: 
+# data.burned.samp$FIRE.SEV <- na_if(data.burned.samp$FIRE.SEV, 6)
+count(data.burned.samp, FIRE.SEV)
 
 
 
@@ -278,7 +235,7 @@ legend("bottomleft",c("time since fire = 4 years","time since fire = 16 years"),
 
 ## For consistency with orig code...
 data.clean <- data.burned.samp
-rm(data, data.burned, data.burned.samp)
+rm(data, data.burned, data.burned.samp, moo, mtbs.cols)
 
 
 #####################################
