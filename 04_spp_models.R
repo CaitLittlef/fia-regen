@@ -1,25 +1,14 @@
+data.pied <- read.csv("data.pied.csv") ; data.pied$X <- NULL
+data.pipo <- read.csv("data.pipo.csv") ; data.pipo$X <- NULL
+data.psme <- read.csv("data.psme.csv") ; data.psme$X <- NULL
 
-#####################################################################
-##### model species specific regen where there was a burn and plot was visited after
-############################################################################
+## Consider transformations
+hist(data.pipo$YEAR.DIFF)
+hist(data.pipo$YEAR.DIFF^0.5)
+hist(data.pipo$BALive_pipo)
+hist(data.pipo$BALive_pipo^0.5) 
 
-install.packages("party")
-library(party)
 
-install.packages("vcd")
-library(vcd)
-
-## transform predictors
-#data.pipo$time.since.trans<-data.pipo$diff.year^0.25
-#data.pipo$trans.live.BA <- data.pipo$BALive_122^0.25
-data.pipo$regen<-as.factor(data.pipo$PIPOregen)
-#data.pipo$precip<-data.pipo$MAP_1995^0.5
-data.pipo$BA.pipo.live.tran<-data.pipo$BA.pipo.live^0.5
-hist(data.pipo$BA.pipo.live)
-hist(data.pipo$BA.pipo.live.tran)
-
-data.pipo$time.since.fire.tran<-data.pipo$time.since.fire^0.3
-hist(data.pipo$time.since.fire.tran)
 ##### fit MOB model
 
 tree.mob<-mob(regen~BA.pipo.live.tran+resid.yr|time.since.fire+BA.total.live+CMD_1995+MAP_1995+fire.sev+Year+duff+litter,data=data.pipo,model=glinearModel,family= binomial(link=logit),control = mob_control(minsplit = 30))
