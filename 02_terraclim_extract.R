@@ -61,14 +61,93 @@ def.data <- def.data %>%
 
 
 
+#########################################
 ## Save as csv
 # write.csv(def.data,"def_z_n1971.csv")
 
 
-  
+#########################################  
 ## Append to existing plot data
 data.all <- data.all %>%
   left_join(def.data, by = "PLOTID")
+
+
+
+######################################### 
+## Create avg z-score for yrs 0-3 post-fire, MAY-SEPT
+# Pull out def columns; ^=beginning; .=any character; $=end
+def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(data.all), value=TRUE)
+foo <- data.all[def59.cols] %>% as.data.frame() # weird class change; force df    
+foo$FIRE.YR <- data.all$FIRE.YR
+
+# Return avg of def 0-3 yrs post-fire. Vars get duped if I don't have seq_len()
+foo$def59_z_0 <- 
+  foo[cbind(
+    seq_len(nrow(foo)),
+    match(paste0(foo$FIRE.YR),
+          substr(names(foo),5,8))
+    )]
+  
+foo$def59_z_1 <- 
+  foo[cbind(
+    seq_len(nrow(foo)),
+    match(paste0(foo$FIRE.YR),
+          substr(names(foo),5,8))+1
+  )]
+
+foo$def59_z_2 <- 
+  foo[cbind(
+    seq_len(nrow(foo)),
+    match(paste0(foo$FIRE.YR),
+          substr(names(foo),5,8))+2
+  )]
+
+foo$def59_z_3 <- 
+  foo[cbind(
+    seq_len(nrow(foo)),
+    match(paste0(foo$FIRE.YR),
+          substr(names(foo),5,8))+3
+  )]
+
+
+## Create avg z-score for yrs 0-3 post-fire, JUNE-AUG
+# Pull out def columns; ^=beginning; .=any character; $=end
+def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(data.all), value=TRUE)
+boo <- data.all[def68.cols] %>% as.data.frame() # weird class change; force df    
+boo$FIRE.YR <- data.all$FIRE.YR
+
+# Return avg of def 0-3 yrs post-fire. Vars get duped if I don't have seq_len()
+boo$def68_z_0 <- 
+  boo[cbind(
+    seq_len(nrow(boo)),
+    match(paste0(boo$FIRE.YR),
+          substr(names(boo),5,8))
+  )]
+
+boo$def68_z_1 <- 
+  boo[cbind(
+    seq_len(nrow(boo)),
+    match(paste0(boo$FIRE.YR),
+          substr(names(boo),5,8))+1
+  )]
+
+boo$def68_z_2 <- 
+  boo[cbind(
+    seq_len(nrow(boo)),
+    match(paste0(boo$FIRE.YR),
+          substr(names(boo),5,8))+2
+  )]
+
+boo$def68_z_3 <- 
+  boo[cbind(
+    seq_len(nrow(boo)),
+    match(paste0(boo$FIRE.YR),
+          substr(names(boo),5,8))+3
+  )]
+
+
+
+
 
 
 
