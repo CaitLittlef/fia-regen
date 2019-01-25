@@ -1,4 +1,5 @@
 data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv")
+data$X <- NULL # In case there's weird X col added
 
 ## Spp in data ********* WHY THESE?? GET PICO?? ***********
 
@@ -58,39 +59,10 @@ data.pipo  <-data.pipo[data.pipo$BALive_pipo < 300,]
 max(data.psme$BALive_psme) # 228
 
 
-
-
-########################################
-### what is the fire severity?
-###################################
-
-# extract subset of total dataframe to work with
-data.mtbs<-data.pipo[,218:246]
-var.name<-names(data.mtbs)
-yr.ind<-data.pipo$Year
-
-#function to return MTBS fire severity for year of fire match
-year.match<-function(x,data){
-  yr<-grep(x,data)
-  fluf<-data.mtbs[i,yr]
-  return(fluf)
-}
-
-year.match(ty,var.name)  
-
-#run function across loop
-fire.sev<-numeric(length(yr.ind))
-
-for (i in 1:length(fire.sev)){
-  temp.year<-yr.ind[i]
-  out<-year.match(temp.year,var.name)
-  fire.sev[i]<-out
-}
-
-#drop category 5 and 6 and replace with NA
-ind<-which(fire.sev==5 | fire.sev==6)
-fire.sev<-replace(fire.sev,ind,values=NA)
-data.pipo$fire.sev<-fire.sev
+detach(data.pipo)
+plot(BALive_pipo ~ FIRE.SEV)
+cor.test(data.pipo$FIRE.SEV, data.pipo$BALive_pipo, method = "pearson")
+data.clean$FIRE.
 
 
 ## is remaining live BA and fire severity correlated?
