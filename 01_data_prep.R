@@ -270,3 +270,5 @@ data.all <- distinct(data.all, UNIQUEID, .keep_all = TRUE)
 
 if(any(duplicated(data.all$UNIQUEID))) cat("YOU'VE BEEN DUPED!!") # 1971
 
+rm(data.clean)
+
