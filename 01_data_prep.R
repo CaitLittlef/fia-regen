@@ -218,6 +218,7 @@ count(data.burned.samp, FIRE.SEV)
 data.burned.samp$FIRE.SEV[data.burned.samp$FIRE.SEV == 5 | data.burned.samp$FIRE.SEV == 6] <- NA
 # Alt: 
 # data.burned.samp$FIRE.SEV <- na_if(data.burned.samp$FIRE.SEV, 6)
+
 count(data.burned.samp, FIRE.SEV)
 
 
