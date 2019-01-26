@@ -52,32 +52,15 @@ def.data <-do.call(cbind,lapply(output,data.frame))
 # Pull orig output element names and assign as col names in this df
 colnames(def.data) <- names(output)
 
-
-
-## Re-link to PLOT ID ********** THIS FEELS SKETCHY **************
 def.data$PLOTID <- data.all$PLOTID
-def.data <- def.data %>%
-  select(PLOTID, everything())
+def.data$FIRE.YR <- data.all$FIRE.YR
 
 
-
-#########################################
-## Save as csv
-# write.csv(def.data,"def_z_n1971.csv")
-
-
-#########################################  
-## Append to existing plot data
-data.all <- data.all %>%
-  left_join(def.data, by = "PLOTID")
-
-
-
-######################################### 
+###################################### Someday put the following in nested loops...
 ## Create avg z-score for yrs 0-3 post-fire, MAY-SEPT
 # Pull out def columns; ^=beginning; .=any character; $=end
-def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(data.all), value=TRUE)
-foo <- data.all[def59.cols] %>% as.data.frame() # weird class change; force df    
+def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
+foo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
 foo$FIRE.YR <- data.all$FIRE.YR
 
 # Return avg of def 0-3 yrs post-fire. Vars get duped if I don't have seq_len()
@@ -109,11 +92,14 @@ foo$def59_z_3 <-
           substr(names(foo),5,8))+3
   )]
 
+foo <- foo %>%
+  mutate(def59_z_03 = rowMeans(select(.,starts_with("def59")), na.rm = TRUE))
+
 
 ## Create avg z-score for yrs 0-3 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
-def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(data.all), value=TRUE)
-boo <- data.all[def68.cols] %>% as.data.frame() # weird class change; force df    
+def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(def.data), value=TRUE)
+boo <- def.data[def68.cols] %>% as.data.frame() # weird class change; force df    
 boo$FIRE.YR <- data.all$FIRE.YR
 
 # Return avg of def 0-3 yrs post-fire. Vars get duped if I don't have seq_len()
@@ -145,12 +131,55 @@ boo$def68_z_3 <-
           substr(names(boo),5,8))+3
   )]
 
+boo <- boo %>%
+  mutate(def68_z_03 = rowMeans(select(.,starts_with("def68")), na.rm = TRUE))
+
+def.data$def59_z_0 <- foo$def59_z_0
+def.data$def59_z_1 <- foo$def59_z_1
+def.data$def59_z_2 <- foo$def59_z_2
+def.data$def59_z_3 <- foo$def59_z_3
+def.data$def59_z_03 <- foo$def59_z_03
+
+def.data$def68_z_0 <- boo$def68_z_0
+def.data$def68_z_1 <- boo$def68_z_1
+def.data$def68_z_2 <- boo$def68_z_2
+def.data$def68_z_3 <- boo$def68_z_3
+def.data$def68_z_03 <- boo$def68_z_03
 
 
 
-
-
-
+#########################################
 ## Save as csv
-# write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971.csv")
+sapply(def.data, class) # make sure all are real cols, not lists
+# write.csv(def.data,"def_z_n1971.csv")
+
+
+
+#########################################  
+## Append to existing plot data
+data.all <- data.all %>%
+  left_join(def.data, by = "PLOTID")
+
+
+######################################### 
+## Save as csv
+sapply(data.all, class) # make sure all are real cols, not lists
+write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971.csv")
+
+## Tidy up
 rm(rst, pts, pts.trans, FIA.CRS, output, i, loop.ready)
+
+
+
+
+
+## Re-link to PLOT ID********** THIS FEELS SKETCHY **************
+def.data$PLOTID <- data.all$PLOTID
+def.data$FIRE.YR <- data.all$FIRE.YR
+
+
+
+
+#########################################
+## Save as csv
+# write.csv(def.data,"def_z_n1971.csv")
