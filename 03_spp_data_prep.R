@@ -29,12 +29,12 @@ data$LITTER_DEPTH[is.na(data$LITTER_DEPTH)] <- 0
 
 ## Create p/a regen var for maj spp
 data <- data %>%
-  mutate(PIEDregen = ifelse(data$TPASeed106Ac >0, 1, 0),
-         PIPOregen = ifelse(data$TPASeed122Ac >0, 1, 0),
-         PSMEregen = ifelse(data$TPASeed202Ac >0, 1, 0))
-mean(data$PIEDregen) # 0.01826484
-mean(data$PIPOregen) # 0.06950786
-mean(data$PSMEregen) # 0.1212582
+  mutate(regen_pied = ifelse(data$TPASeed106Ac >0, 1, 0),
+         regen_pipo = ifelse(data$TPASeed122Ac >0, 1, 0),
+         regen_psme = ifelse(data$TPASeed202Ac >0, 1, 0))
+mean(data$regen_pied) # 0.01826484
+mean(data$regen_pipo) # 0.06950786
+mean(data$regen_psme) # 0.1212582
 
 
 
