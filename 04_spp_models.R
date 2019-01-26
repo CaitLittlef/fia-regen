@@ -2,11 +2,65 @@ data.pied <- read.csv("data.pied.csv") ; data.pied$X <- NULL
 data.pipo <- read.csv("data.pipo.csv") ; data.pipo$X <- NULL
 data.psme <- read.csv("data.psme.csv") ; data.psme$X <- NULL
 
+## Make sure FIRE.SEV is factor
+data.pied$FIRE.SEV <- as.factor(data.pied$FIRE.SEV)
+data.pipo$FIRE.SEV <- as.factor(data.pipo$FIRE.SEV)
+data.psme$FIRE.SEV <- as.factor(data.psme$FIRE.SEV)
+
+
+
 ## Consider transformations
 hist(data.pipo$YEAR.DIFF)
 hist(data.pipo$YEAR.DIFF^0.5)
 hist(data.pipo$BALive_pipo)
 hist(data.pipo$BALive_pipo^0.5) 
+data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5 
+
+
+
+
+
+
+## Fit MOB 
+# An algorithm for model-based recursive partitioning...
+# yielding a tree with fitted models associated with each terminal node.
+# Partition model given before | with all following variables.
+# ^ But if you've created that initial model WITHOUT those vars, how can you??
+# Or are they all partitioned and THEN the model is constructed? I don't think so...
+
+# model is created (just like single group may be created in initial round of a CART) and then each of those additional variables is tested to see if that can shake the model up -- if there's a better one to be had if the predictor set (x) is subdivided based on those partition variable values
+
+# If a partitioning variable doesn't show up, that means it's not being used at all as a predcitor in this big picture (neither individual glms at nodes b/c that's just pre-| nor as partitioner (pre-|)?)
+
+tree.mob <- mob(regen_pipo ~ YEAR.DIFF
+                | YEAR.DIFF + BALive_pipo + BALiveTot
+                + def59_z_03 + def68_z_03
+                + CMD_1995 + MAP_1995
+                + FIRE.SEV,
+                data = data.pipo,
+                model = glinearModel, family = binomial(link = "logit"),
+                control = mob_control(minsplit = 50))
+plot(tree.mob, type = "extended")
+summary(tree.mob)
+print(tree.mob)
+
+## Calculate deviance explained
+
+glm.null.pipo <- glm(regen_pipo ~ 1,
+                    data = data.pipo,
+                    family=binomial(link=logit)) # deviance for null model
+glm.full.pipo <- glm(regen_pipo ~ BALive_pipo,
+                   data = data.pipo,
+                   family=binomial(link=logit)) ## deviance for glm model
+
+# tree model ###### HOW DO YOU GET DEVIANCE FROM A TREE?? #####
+(deviance(glm.null.pipo) - deviance(tree.mob))/deviance(glm.null.pipo) #0.09
+# non-tree mods
+(deviance(glm.null.pipo) - deviance(glm.full.pipo))/deviance(glm.null.pipo) #0.02
+
+
+
+
 
 
 ##### fit MOB model
@@ -31,8 +85,6 @@ rbPal <- colorRampPalette(c('grey','brown'))
 #This adds a column of color values
 # based on the y values
 
-## convert NA values for total basal area to 0
-data.pipo$TPASeed122Ac<-replace(data.pipo$TPASeed122Ac,is.na(data.pipo$TPASeed122Ac),0)
 
 
 plot(jitter(data.pipo$time.since.fire,2),jitter(data.pipo$Year,2),xlab="time since fire",ylab="Year of Fire")
