@@ -2,12 +2,6 @@ data.pied <- read.csv("data.pied.csv") ; data.pied$X <- NULL
 data.pipo <- read.csv("data.pipo.csv") ; data.pipo$X <- NULL
 data.psme <- read.csv("data.psme.csv") ; data.psme$X <- NULL
 
-## Make sure FIRE.SEV is factor
-data.pied$FIRE.SEV <- as.factor(data.pied$FIRE.SEV)
-data.pipo$FIRE.SEV <- as.factor(data.pipo$FIRE.SEV)
-data.psme$FIRE.SEV <- as.factor(data.psme$FIRE.SEV)
-
-
 
 ## Consider transformations
 hist(data.pipo$YEAR.DIFF)
@@ -17,12 +11,8 @@ hist(data.pipo$BALive_pipo^0.5)
 data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5 
 
 
-
-
-
-
 ## Fit MOB 
-# An algorithm for model-based recursive partitioning...
+# An algorithm for model-based recursive partitioning... a PARAMETRIC MODEL TREE
 # yielding a tree with fitted models associated with each terminal node.
 # Partition model given before | with all following variables.
 # ^ But if you've created that initial model WITHOUT those vars, how can you??
@@ -30,19 +20,53 @@ data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5
 
 # model is created (just like single group may be created in initial round of a CART) and then each of those additional variables is tested to see if that can shake the model up -- if there's a better one to be had if the predictor set (x) is subdivided based on those partition variable values
 
-# If a partitioning variable doesn't show up, that means it's not being used at all as a predcitor in this big picture (neither individual glms at nodes b/c that's just pre-| nor as partitioner (pre-|)?)
+# If a partitioning variable doesn't show up, that means it's not being used at all as a predcitor in this big picture (neither individual glms at nodes b/c that's just pre-| nor as partitioner (pre-|)?). 
 
-tree.mob <- mob(regen_pipo ~ YEAR.DIFF
+# Seems like that can't be the case b/c adding in additional potential partitioners changes model even if they don't show up as relevant partitioners. And turning partitioning variables on or off, even if it doesn't change tree stucture, changes p values...
+
+# Use if you can't fit a global model'
+
+# remove.packages("partykit")
+# install.packages("party")
+# library(party)
+
+################################################
+## PIPO
+tree.mob2 <- mob(regen_pipo ~ YEAR.DIFF
                 | YEAR.DIFF + BALive_pipo + BALiveTot
-                + def59_z_03 + def68_z_03
+                # + def59_z_03 #+ def68_z_03
+                + def59_z_0 #+ def68_z_0
+                # + def59_z_1 #+ def68_z_1
+                # + def59_z_2 #+ def68_z_2
+                # + def59_z_3 #+ def68_z_3
                 + CMD_1995 + MAP_1995
                 + FIRE.SEV,
                 data = data.pipo,
                 model = glinearModel, family = binomial(link = "logit"),
-                control = mob_control(minsplit = 50))
-plot(tree.mob, type = "extended")
-summary(tree.mob)
-print(tree.mob)
+                control = mob_control(minsplit = 62))
+
+plot(tree.mob)
+plot(tree.mob, terminal_panel = NULL)
+plot(tree.mob, tp_args = list(cdplot = FALSE))
+plot(tree.mob, terminal_panel = node_scatterplot(tree.mob))
+plot(tree.mob, terminal_panel = node_scatterplot)
+plot(tree.mob, terminal_panel = node_bivplot)
+plot(tree.mob, terminal_panel = node_bivplot(tree.mob, cdplot = FALSE))
+coef(tree.mob, node = 6)
+deviance(tree.mob)
+logLik(tree.mob)
+AIC(tree.mob)
+BIC(tree.mob)
+
+
+
+
+tree.mob
+plot(tree.mob, terminal_panel=node_density)
+plot(tree.mob, terminal_panel=node_scatterplot) # seems to be default
+plot(tree.mob, tp_args = list(fivenum = FALSE))
+plot(tree.mob, tp_args = list(cdplot = FALSE))
+
 
 ## Calculate deviance explained
 
@@ -63,6 +87,55 @@ glm.full.pipo <- glm(regen_pipo ~ BALive_pipo,
 
 
 
+
+################################################
+## PSME
+tree.mob <- mob(regen_psme ~ YEAR.DIFF
+                | BALive_psme + BALiveTot
+                # + def59_z_03 #+ def68_z_03
+                + def59_z_0 #+ def68_z_0
+                # + def59_z_1 #+ def68_z_1
+                # + def59_z_2 #+ def68_z_2
+                # + def59_z_3 #+ def68_z_3
+                + CMD_1995 + MAP_1995
+                + FIRE.SEV,
+                data = data.psme,
+                model = glinearModel, family = binomial(link = "logit"),
+                control = mob_control(minsplit = 30))
+
+plot(tree.mob)
+prettytree(tree.mob)
+tree.mob
+plot(tree.mob, terminal_panel=node_density)
+plot(tree.mob, terminal_panel=node_scatterplot) # seems to be default
+plot(tree.mob, tp_args = list(fivenum = FALSE))
+plot(tree.mob, tp_args = list(cdplot = FALSE))
+
+
+## Calculate deviance explained
+
+glm.null.pipo <- glm(regen_pipo ~ 1,
+                     data = data.pipo,
+                     family=binomial(link=logit)) # deviance for null model
+glm.full.pipo <- glm(regen_pipo ~ BALive_pipo,
+                     data = data.pipo,
+                     family=binomial(link=logit)) ## deviance for glm model
+
+# tree model ###### HOW DO YOU GET DEVIANCE FROM A TREE?? #####
+(deviance(glm.null.pipo) - deviance(tree.mob))/deviance(glm.null.pipo) #0.09
+# non-tree mods
+(deviance(glm.null.pipo) - deviance(glm.full.pipo))/deviance(glm.null.pipo) #0.02
+
+
+
+
+
+
+
+
+
+###########################################
+### SOLOMON'S CODE BELOW
 ##### fit MOB model
 
 tree.mob<-mob(regen~BA.pipo.live.tran+resid.yr|time.since.fire+BA.total.live+CMD_1995+MAP_1995+fire.sev+Year+duff+litter,data=data.pipo,model=glinearModel,family= binomial(link=logit),control = mob_control(minsplit = 30))
