@@ -1,5 +1,5 @@
 ## Set directory for climatic deficit z-scores
-def.dir <- "C:/Users/clittlef/Dropbox/RMRS/fia-regen/data/def_z"
+def.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/def_z"
 
 ## Compile all def z-scores as raster into a list
 def.list <- lapply(list.files(def.dir, pattern = ".tif$", full.names = TRUE),
@@ -180,6 +180,3 @@ def.data$FIRE.YR <- data.all$FIRE.YR
 
 
 
-#########################################
-## Save as csv
-# write.csv(def.data,"def_z_n1971.csv")
