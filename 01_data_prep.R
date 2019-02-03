@@ -90,6 +90,9 @@ dim(cond.tree.seed) # 27540
 data <- merge(cond.tree.seed,
               plot[,c("CN", "LAT_FS", "LON_FS", "ELEV")],
               by.x ='PLT_CN', by.y='CN')
+
+
+
 plot(data$LON_FS, data$LAT_FS, pch=19, cex=0.1)
 data <- distinct(data)
 if(any(duplicated(data))) cat("YOU'VE BEEN DUPED!!")
@@ -159,15 +162,24 @@ mtbs <- mtbs %>%
 
 ## Which of the plots burned?
 data.burned <- inner_join(data, mtbs, by = "PLOTID") #3483 plots
+class(data.burned)
 
 
+########################## CHECK THIS!! #######################
 ## ID reburns.
-# reburns <- data.burned %>%
-#   group_by(PLOTID) %>%
-#   mutate(NUM.BURNS = n()) %>%
-#   filter(NUM.BURNS > 1) %>%
-#   select(PLOTID, FIRE.YR, NUM.BURNS) %>%
-#   distinct() # 1152 plots had reburns
+reburns <- data.burned %>%
+  group_by(PLOTID) %>%
+  mutate(NUM.BURNS = n()) %>%
+  filter(NUM.BURNS > 1) %>%
+  select(PLOTID, FIRE.YR, NUM.BURNS) %>%
+  distinct() %>% # 1152 plots had reburns
+  as.data.frame()
+
+data.burned <- data.burned %>%
+  group_by(PLOTID)%>%
+  mutate(REBURN = ifelse(n() > 1, "Y", "N")) %>%
+  as.data.frame()
+###############################################################
 
 
 ## How many were sampled after burned (one or more times, one or more burns)?
@@ -227,7 +239,7 @@ count(data.burned.samp, FIRE.SEV)
 ## Create years since var
 data.burned.samp$YEAR.DIFF <- (data.burned.samp$INVYR - data.burned.samp$FIRE.YR)
 data.burned.samp <- data.burned.samp %>% select(PLOTID, UNIQUEID, INVYR, FIRE.YR, YEAR.DIFF, everything())
-hist(data.clean$YEAR.DIFF)
+hist(data.burned.samp$YEAR.DIFF)
 
 ## Lots ~Yellowstone, Idaho
 map('state', region = c('cali', 'oreg', 'wash','idaho','monta','wyo','utah','ariz','new mex','colo'))
@@ -271,5 +283,4 @@ data.all <- distinct(data.all, UNIQUEID, .keep_all = TRUE)
 
 if(any(duplicated(data.all$UNIQUEID))) cat("YOU'VE BEEN DUPED!!") # 1971
 
-rm(data.clean)
 
