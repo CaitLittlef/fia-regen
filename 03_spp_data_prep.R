@@ -36,6 +36,11 @@ mean(data$regen_pied) # 0.01826484
 mean(data$regen_pipo) # 0.06950786
 mean(data$regen_psme) # 0.1212582
 
+## Will want as factor for modelling
+data$regen_pied <- factor(data$regen_pied)
+data$regen_pipo <- factor(data$regen_pipo)
+data$regen_psme <- factor(data$regen_psme)
+
 
 
 ## Keep records where adult present
