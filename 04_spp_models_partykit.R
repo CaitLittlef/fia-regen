@@ -2,100 +2,168 @@ data.pied <- read.csv("data.pied.csv") ; data.pied$X <- NULL
 data.pipo <- read.csv("data.pipo.csv") ; data.pipo$X <- NULL
 data.psme <- read.csv("data.psme.csv") ; data.psme$X <- NULL
 
+currentDate <- Sys.Date()
+
+## Accurately characterize variables bc...
+# glmtree treats categorical and num differently.
+data.pied$regen_pied <- factor(data.pied$regen_pied, ordered = FALSE)
+data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
+data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
+data.pied$FIRE.SEV <- factor(data.pied$FIRE.SEV, ordered = TRUE)
+data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
+data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
+
 
 ## Consider transformations
 hist(data.pipo$YEAR.DIFF)
 hist(data.pipo$YEAR.DIFF^0.5)
 hist(data.pipo$BALive_pipo)
 hist(data.pipo$BALive_pipo^0.5) 
-data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5 
+data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5
+data.psme$BALive_psme_trans <- data.psme$BALive_psme^0.5 
 
 
-install.packages("partykit")
-library(partykit)
-# remove.packages("partykit")
-# install.packages("party")
-# library(party)
+colnames(data.pipo)
 
 ################################################
 ## PIPO
-tree.mob <- glmtree(regen_pipo ~ YEAR.DIFF
-                | YEAR.DIFF + BALive_pipo + BALiveTot
-                # + def59_z_03 #+ def68_z_03
+tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
+                | BALive_pipo + BALiveTot # using BA trans doesn't chng
+                # + def59_z_03 #+ def68_z_03 # on, MAP excluded; off, MAP included - why?
                 + def59_z_0 #+ def68_z_0
-                # + def59_z_1 #+ def68_z_1
-                # + def59_z_2 #+ def68_z_2
-                # + def59_z_3 #+ def68_z_3
+                + def59_z_1 #+ def68_z_1
+                + def59_z_2 #+ def68_z_2
+                # + def59_z_3 #+ def68_z_3 # on, MAP excluded; off, MAP included - why?
                 + CMD_1995 + MAP_1995
+                # + I(YEAR.DIFF) # on, MAP excluded; off, MAP included - why?
+                + REBURN # on, MAP excluded; off, MAP included - why?
                 + FIRE.SEV,
                 data = data.pipo,
-                family = binomial(link = "logit"))
-
-plot(tree.mob)
-tree.mob
-plot(tree.mob, terminal_panel=node_density)
-plot(tree.mob, terminal_panel=node_scatterplot) # seems to be default
-plot(tree.mob, tp_args = list(fivenum = FALSE))
-plot(tree.mob, tp_args = list(cdplot = FALSE))
-
+                family = binomial(link = "logit"),
+                minsplit = 50)
+## Output
+tree.mob.pipo
+tiff(paste0(out.dir,"pipo_BA-MAP-def_",currentDate,".tiff"),
+     width = 640, height = 480, units = "px")
+plot(tree.mob.pipo)
+dev.off()
 
 ## Calculate deviance explained
-
 glm.null.pipo <- glm(regen_pipo ~ 1,
                     data = data.pipo,
                     family=binomial(link=logit)) # deviance for null model
-glm.full.pipo <- glm(regen_pipo ~ BALive_pipo,
+glm.full.pipo <- glm(regen_pipo ~ YEAR.DIFF,
                    data = data.pipo,
                    family=binomial(link=logit)) ## deviance for glm model
-
-# tree model ###### HOW DO YOU GET DEVIANCE FROM A TREE?? #####
-(deviance(glm.null.pipo) - deviance(tree.mob))/deviance(glm.null.pipo) #0.09
-# non-tree mods
-(deviance(glm.null.pipo) - deviance(glm.full.pipo))/deviance(glm.null.pipo) #0.02
-
+# Tree model:
+(deviance(glm.null.pipo) - deviance(tree.mob.pipo))/deviance(glm.null.pipo)
+# Non-tree model:
+(deviance(glm.null.pipo) - deviance(glm.full.pipo))/deviance(glm.null.pipo)
 
 
+## Reburn
+# data.pipo.reburn <- data.pipo %>% filter(REBURN == "Y")
+# tree.mob.pipo.reburn <- glmtree(regen_pipo ~ YEAR.DIFF
+#                                 | BALive_pipo + BALiveTot 
+#                                 # + def59_z_03 #+ def68_z_03
+#                                 + def59_z_0 #+ def68_z_0
+#                                 + def59_z_1 #+ def68_z_1
+#                                 + def59_z_2 #+ def68_z_2
+#                                 + def59_z_3 #+ def68_z_3
+#                                 + CMD_1995 + MAP_1995
+#                                 # + I(YEAR.DIFF)
+#                                 # + REBURN,
+#                                 + FIRE.SEV,
+#                                 data = data.pipo.reburn,
+#                                 family = binomial(link = "logit"),
+#                                 minsplit = 50)
+# tree.mob.pipo.reburn
+# plot(tree.mob.pipo.reburn)
+# dev.off()
+## ^ one node if Y reburn; if N reburn, non-sensical -z-scores means greater likelihood
 
+## Where is it failing?
 
 
 
 ################################################
 ## PSME
-tree.mob <- mob(regen_psme ~ YEAR.DIFF
-                | BALive_psme + BALiveTot
-                # + def59_z_03 #+ def68_z_03
-                + def59_z_0 #+ def68_z_0
-                # + def59_z_1 #+ def68_z_1
-                # + def59_z_2 #+ def68_z_2
-                # + def59_z_3 #+ def68_z_3
-                + CMD_1995 + MAP_1995
-                + FIRE.SEV,
-                data = data.psme,
-                model = glinearModel, family = binomial(link = "logit"),
-                control = mob_control(minsplit = 30))
-
-plot(tree.mob)
-prettytree(tree.mob)
-tree.mob
-plot(tree.mob, terminal_panel=node_density)
-plot(tree.mob, terminal_panel=node_scatterplot) # seems to be default
-plot(tree.mob, tp_args = list(fivenum = FALSE))
-plot(tree.mob, tp_args = list(cdplot = FALSE))
-
+tree.mob.psme <- glmtree(regen_psme ~ YEAR.DIFF
+                         | BALive_psme + BALiveTot # using BA trans doesn't chng
+                         # + def59_z_03 #+ def68_z_03 # on, CMD less signif; - loglike same
+                         + def59_z_0 #+ def68_z_0
+                         # + def59_z_1 #+ def68_z_1 # on, CMD less signif; - loglike same
+                         + def59_z_2 #+ def68_z_2
+                         # + def59_z_3 #+ def68_z_3 # on, CMD less signif; - loglike same
+                         + CMD_1995 + MAP_1995
+                         # + I(YEAR.DIFF)
+                         # + REBURN # # on means CMD less signif; - loglike same
+                         + FIRE.SEV,
+                         data = data.psme,
+                         family = binomial(link = "logit"),
+                         minsplit = 50)
+## Output
+tree.mob.psme
+# tiff(paste0(out.dir,"psme_BA-CMD-SEV_",currentDate,".tiff"),
+#      width = 640, height = 480, units = "px")
+plot(tree.mob.psme)
+dev.off()
 
 ## Calculate deviance explained
-
-glm.null.pipo <- glm(regen_pipo ~ 1,
-                     data = data.pipo,
+glm.null.psme <- glm(regen_psme ~ 1,
+                     data = data.psme,
                      family=binomial(link=logit)) # deviance for null model
-glm.full.pipo <- glm(regen_pipo ~ BALive_pipo,
-                     data = data.pipo,
+glm.full.psme <- glm(regen_psme ~ YEAR.DIFF,
+                     data = data.psme,
                      family=binomial(link=logit)) ## deviance for glm model
+# Tree model:
+(deviance(glm.null.psme) - deviance(tree.mob.psme))/deviance(glm.null.psme)
+# Non-tree model:
+(deviance(glm.null.psme) - deviance(glm.full.psme))/deviance(glm.null.psme)
 
-# tree model ###### HOW DO YOU GET DEVIANCE FROM A TREE?? #####
-(deviance(glm.null.pipo) - deviance(tree.mob))/deviance(glm.null.pipo) #0.09
-# non-tree mods
-(deviance(glm.null.pipo) - deviance(glm.full.pipo))/deviance(glm.null.pipo) #0.02
+
+
+
+
+################################################
+## pied
+tree.mob.pied <- glmtree(regen_pied ~ YEAR.DIFF
+                         | BALive_pied + BALiveTot 
+                         # + def59_z_03 #+ def68_z_03 
+                         + def59_z_0 #+ def68_z_0
+                         # + def59_z_1 #+ def68_z_1 
+                         + def59_z_2 #+ def68_z_2
+                         # + def59_z_3 #+ def68_z_3 
+                         # + CMD_1995 + MAP_1995
+                         # + I(YEAR.DIFF)
+                         # + REBURN # 
+                         + FIRE.SEV,
+                         data = data.pied,
+                         family = binomial(link = "logit"),
+                         minsplit = 50)
+## Output
+tree.mob.pied
+tiff(paste0(out.dir,"pied_BA-CMD-SEV_",currentDate,".tiff"),
+     width = 640, height = 480, units = "px")
+plot(tree.mob.pied)
+dev.off()
+
+## Calculate deviance explained
+glm.null.pied <- glm(regen_pied ~ 1,
+                     data = data.pied,
+                     family=binomial(link=logit)) # deviance for null model
+glm.full.pied <- glm(regen_pied ~ YEAR.DIFF,
+                     data = data.pied,
+                     family=binomial(link=logit)) ## deviance for glm model
+# Tree model:
+(deviance(glm.null.pied) - deviance(tree.mob.pied))/deviance(glm.null.pied)
+# Non-tree model:
+(deviance(glm.null.pied) - deviance(glm.full.pied))/deviance(glm.null.pied)
+
+
+
+## Tidy
+remove(list = ls(pattern = "glm")) 
 
 
 
