@@ -26,13 +26,9 @@ data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5
 
 # Use if you can't fit a global model'
 
-# remove.packages("partykit")
-# install.packages("party")
-# library(party)
-
 ################################################
 ## PIPO
-tree.mob2 <- mob(regen_pipo ~ YEAR.DIFF
+tree.mob <- mob(regen_pipo ~ YEAR.DIFF
                 | YEAR.DIFF + BALive_pipo + BALiveTot
                 # + def59_z_03 #+ def68_z_03
                 + def59_z_0 #+ def68_z_0
@@ -43,7 +39,7 @@ tree.mob2 <- mob(regen_pipo ~ YEAR.DIFF
                 + FIRE.SEV,
                 data = data.pipo,
                 model = glinearModel, family = binomial(link = "logit"),
-                control = mob_control(minsplit = 62))
+                control = mob_control(minsplit = 50))
 
 plot(tree.mob)
 plot(tree.mob, terminal_panel = NULL)
