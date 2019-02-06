@@ -238,7 +238,7 @@ count(data.burned.samp, FIRE.SEV)
 
 ## Create years since var
 data.burned.samp$YEAR.DIFF <- (data.burned.samp$INVYR - data.burned.samp$FIRE.YR)
-data.burned.samp <- data.burned.samp %>% select(PLOTID, UNIQUEID, INVYR, FIRE.YR, YEAR.DIFF, everything())
+data.burned.samp <- data.burned.samp %>% select(PLOTID, UNIQUEID, INVYR, FIRE.YR, YEAR.DIFF, REBURN, everything())
 hist(data.burned.samp$YEAR.DIFF)
 
 ## Lots ~Yellowstone, Idaho
