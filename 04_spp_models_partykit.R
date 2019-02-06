@@ -12,6 +12,9 @@ data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
 data.pied$FIRE.SEV <- factor(data.pied$FIRE.SEV, ordered = TRUE)
 data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
 data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
+data.pied$REBURN <- factor(data.pied$REBURN, ordered = TRUE)
+data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
 
 
 ## Consider transformations
@@ -20,10 +23,12 @@ hist(data.pipo$YEAR.DIFF^0.5)
 hist(data.pipo$BALive_pipo)
 hist(data.pipo$BALive_pipo^0.5) 
 data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5
-data.psme$BALive_psme_trans <- data.psme$BALive_psme^0.5 
 
 
-colnames(data.pipo)
+## Testing zone
+data.pipo$CMD.CHNG <- data.pipo$CMD_2025 - data.pipo$CMD_1995
+hist(data.pipo$CMD.CHNG)
+
 ################################################
 ## PIPO
 tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
@@ -33,19 +38,24 @@ tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
                 + def59_z_1 #+ def68_z_1
                 + def59_z_2 #+ def68_z_2
                 # + def59_z_3 #+ def68_z_3 # on, MAP excluded; off, MAP included - why?
+                # + CMD_2025 + MAP_2025
                 + CMD_1995 + MAP_1995
                 # + I(YEAR.DIFF) # on, MAP excluded; off, MAP included - why?
                 # + REBURN # on, MAP excluded; off, MAP included - why?
+                # + CMD.CHNG
                 + FIRE.SEV,
-                data = data.pipo,
+                data = data.pipo, #data.pipo[data.pipo$REBURN == "Y",],
                 family = binomial(link = "logit"),
                 minsplit = 50)
 ## Output
 tree.mob.pipo
-tiff(paste0(out.dir,"pipo_BA-MAP-def_",currentDate,".tiff"),
+summary(tree.mob.pipo)
+# tiff(paste0(out.dir,"pipo_CMD.CHNG_",currentDate,".tiff"),
      width = 640, height = 480, units = "px")
 plot(tree.mob.pipo)
 dev.off()
+
+summary(tree.mob.pipo)
 
 ## Calculate deviance explained
 glm.null.pipo <- glm(regen_pipo ~ 1,
