@@ -173,9 +173,6 @@ rm(rst, pts, pts.trans, FIA.CRS, output, i, loop.ready)
 
 
 
-## Re-link to PLOT ID********** THIS FEELS SKETCHY **************
-def.data$PLOTID <- data.all$PLOTID
-def.data$FIRE.YR <- data.all$FIRE.YR
 
 
 
