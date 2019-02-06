@@ -58,6 +58,19 @@ p <- ggplot() +
   ease_aes("linear")
 p
 
+p <- ggplot() +
+  geom_sf(data = Wsts) +
+  geom_point(data = as.data.frame(moo), aes(x = LON_FS, y = LAT_FS,
+                                            size = prop_ba_pipo),
+                                            alpha = 0.25)
+p + transition_time(YEAR.DIFF) +
+  labs(title = "Time since fire: {frame_time}") +
+  ease_aes("linear") +
+  shadow_mark(alpha = 0.3, size = 0.5) # Shadow of mark remains
+p
+
+
+
 install.packages("magick")
 library(magick)
 #> Linking to ImageMagick 6.9.9.39
