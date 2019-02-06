@@ -24,7 +24,6 @@ data.psme$BALive_psme_trans <- data.psme$BALive_psme^0.5
 
 
 colnames(data.pipo)
-
 ################################################
 ## PIPO
 tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
@@ -36,7 +35,7 @@ tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
                 # + def59_z_3 #+ def68_z_3 # on, MAP excluded; off, MAP included - why?
                 + CMD_1995 + MAP_1995
                 # + I(YEAR.DIFF) # on, MAP excluded; off, MAP included - why?
-                + REBURN # on, MAP excluded; off, MAP included - why?
+                # + REBURN # on, MAP excluded; off, MAP included - why?
                 + FIRE.SEV,
                 data = data.pipo,
                 family = binomial(link = "logit"),
