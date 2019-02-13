@@ -1,3 +1,7 @@
+## Load data.all if necessary
+# data.all <- read.csv("DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
+# data.all$X <- NULL
+
 ## Set directory for climatic deficit z-scores
 def.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/def_z"
 
@@ -25,6 +29,7 @@ coords <- cbind(data.all$LON_FS, data.all$LAT_FS) ## (lon,lat) therefore (x,y)
 colnames(coords) <- c("lon", "lat")
 pts <- SpatialPoints(coords = coords,
                      proj4string = crs(FIA.CRS))
+
 ## def_z data use WGS84 datum; transform these pts
 pts.trans <- spTransform(pts, crs(def.list[[1]]))
 
@@ -56,9 +61,11 @@ def.data$PLOTID <- data.all$PLOTID
 def.data$FIRE.YR <- data.all$FIRE.YR
 
 
-###################################### Someday put the following in nested loops...
+###################################### 
 ## Create avg z-score for yrs 0-3 post-fire, MAY-SEPT
 # Pull out def columns; ^=beginning; .=any character; $=end
+# Careful to explicitly select cols w/  summary variables!
+# e.g., using select(., starts_with...) may inadvertantly reference existing vars.
 def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
 foo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
 foo$FIRE.YR <- data.all$FIRE.YR
@@ -93,8 +100,9 @@ foo$def59_z_3 <-
   )]
 
 foo <- foo %>%
-  mutate(def59_z_03 = rowMeans(select(.,starts_with("def59")), na.rm = TRUE))
-
+  mutate(def59_z_03 = rowMeans(select(.,"def59_z_0", "def59_z_1", "def59_z_2", "def59_z_3")))
+foo <- foo %>%
+  mutate(def59_z_13 = rowMeans(select(.,"def59_z_1", "def59_z_2", "def59_z_3")))
 
 ## Create avg z-score for yrs 0-3 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
@@ -132,20 +140,23 @@ boo$def68_z_3 <-
   )]
 
 boo <- boo %>%
-  mutate(def68_z_03 = rowMeans(select(.,starts_with("def68")), na.rm = TRUE))
+  mutate(def68_z_03 = rowMeans(select(.,"def68_z_0", "def68_z_1", "def68_z_2", "def68_z_3")))
+boo <- boo %>%
+  mutate(def68_z_13 = rowMeans(select(.,"def68_z_1", "def68_z_2", "def68_z_3")))
 
 def.data$def59_z_0 <- foo$def59_z_0
 def.data$def59_z_1 <- foo$def59_z_1
 def.data$def59_z_2 <- foo$def59_z_2
 def.data$def59_z_3 <- foo$def59_z_3
 def.data$def59_z_03 <- foo$def59_z_03
+def.data$def59_z_13 <- foo$def59_z_13
 
 def.data$def68_z_0 <- boo$def68_z_0
 def.data$def68_z_1 <- boo$def68_z_1
 def.data$def68_z_2 <- boo$def68_z_2
 def.data$def68_z_3 <- boo$def68_z_3
 def.data$def68_z_03 <- boo$def68_z_03
-
+def.data$def68_z_13 <- boo$def68_z_13
 
 
 #########################################
