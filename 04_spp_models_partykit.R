@@ -4,6 +4,10 @@ data.psme <- read.csv("data.psme.csv") ; data.psme$X <- NULL
 
 currentDate <- Sys.Date()
 
+## Exclude sites w/ fire record but fire.sev 5 or 6 (here, NA)
+data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
+
+
 ## Accurately characterize variables bc...
 # glmtree treats categorical and num differently.
 data.pied$regen_pied <- factor(data.pied$regen_pied, ordered = FALSE)
@@ -34,28 +38,33 @@ hist(data.pipo$CMD.CHNG)
 tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
                 | BALive_pipo + BALiveTot # using BA trans doesn't chng
                 # + def59_z_03 #+ def68_z_03 # on, MAP excluded; off, MAP included - why?
-                + def59_z_0 #+ def68_z_0
-                + def59_z_1 #+ def68_z_1
-                + def59_z_2 #+ def68_z_2
+                # + def59_z_13 #+ def68_z_13
+                # + def59_z_0 #+ def68_z_0
+                # + def59_z_1 #+ def68_z_1
+                # + def59_z_2 #+ def68_z_2
                 # + def59_z_3 #+ def68_z_3 # on, MAP excluded; off, MAP included - why?
-                # + CMD_2025 + MAP_2025
                 + CMD_1995 + MAP_1995
-                # + I(YEAR.DIFF) # on, MAP excluded; off, MAP included - why?
-                # + REBURN # on, MAP excluded; off, MAP included - why?
+                + I(YEAR.DIFF) # on, MAP excluded; off, MAP included - why?
+                + REBURN # on, MAP excluded; off, MAP included - why?
                 # + CMD.CHNG
                 + FIRE.SEV,
                 data = data.pipo, #data.pipo[data.pipo$REBURN == "Y",],
                 family = binomial(link = "logit"),
-                minsplit = 50)
+                minsplit = 50,
+                ordinal = "L2") # requisite p-value chngs based on # partitioners; set to dedicate ordinal statistic (not default of chisq)
 ## Output
+plot(tree.mob.pipo)
 tree.mob.pipo
 summary(tree.mob.pipo)
-# tiff(paste0(out.dir,"pipo_CMD.CHNG_",currentDate,".tiff"),
-     width = 640, height = 480, units = "px")
+# tiff(paste0(out.dir,"pipo_BA_MAP_sev_",currentDate,".tiff"),
+#      width = 640, height = 480, units = "px")
 plot(tree.mob.pipo)
 dev.off()
 
-summary(tree.mob.pipo)
+# Weird that +/- 59z0 bumps out FIRE.SEV -- that's only metric tho. 
+# Probably related to fire weather that year?
+cor.test(data.pipo$def59_z_0, as.numeric(data.pipo$FIRE.SEV))
+plot(data.pipo$def59_z_0, as.numeric(data.pipo$FIRE.SEV))
 
 ## Calculate deviance explained
 glm.null.pipo <- glm(regen_pipo ~ 1,
@@ -89,10 +98,64 @@ glm.full.pipo <- glm(regen_pipo ~ YEAR.DIFF,
 # tree.mob.pipo.reburn
 # plot(tree.mob.pipo.reburn)
 # dev.off()
-## ^ one node if Y reburn; if N reburn, non-sensical -z-scores means greater likelihood
 
-## Where is it failing?
 
+## Grab & plot observations in given node
+class(tree.mob.pipo)
+tree <- tree.mob.pipo
+
+# Get obs for each node (orig as df) and save row.names (match orig dataset)
+obs.node1 <- (tree[[1]]$data) %>% row.names()
+obs.node2 <- (tree[[2]]$data) %>% row.names()
+obs.node3 <- (tree[[3]]$data) %>% row.names()
+obs.node4 <- (tree[[4]]$data) %>% row.names()
+obs.node5 <- (tree[[5]]$data) %>% row.names()
+obs.node6 <- (tree[[6]]$data) %>% row.names()
+obs.node7 <- (tree[[7]]$data) %>% row.names()
+
+# Create new col in dataframe to assign node number
+data.pipo$NODE <- NA
+
+# Assign NODE value -- need INDEX, not df
+# data.pipo$NODE[data.pipo[obs.node5 ,]]
+# ^ won't work b/c what's in brackets is a dataframe
+# data.pipo$NODE[rownames(data.pipo) %in% obs.node5] <- "node5" # works b/c its index 
+# ^ works because what's in brackets is logical TRUE/FALSE
+
+# Nb b/c subsetting on column ($NODE), don't need col references above as needed here:
+a <- data.pipo[rownames(data.pipo) %in% obs.node2 ,] # df
+b <- data.pipo[obs.node2 ,] # df
+identical(a, b) # TRUE
+
+# Only assign terminal nodes
+data.pipo$NODE %>% factor()
+# data.pipo$NODE[rownames(data.pipo) %in% obs.node1] <- "node1"
+# data.pipo$NODE[rownames(data.pipo) %in% obs.node2] <- "node2"
+data.pipo$NODE[rownames(data.pipo) %in% obs.node3] <- "node3"
+data.pipo$NODE[rownames(data.pipo) %in% obs.node4] <- "node4"
+# data.pipo$NODE[rownames(data.pipo) %in% obs.node5] <- "node5"
+data.pipo$NODE[rownames(data.pipo) %in% obs.node6] <- "node6"
+data.pipo$NODE[rownames(data.pipo) %in% obs.node7] <- "node7"
+
+data.pipo %>% group_by(NODE) %>% count()
+
+p <- ggplot() +
+  # state outlines
+  geom_sf(data = Wsts) +
+  geom_point(data = data.pipo, aes(x = LON_FS, y = LAT_FS,
+                                   size = YEAR.DIFF,
+                                   col = NODE))
+p
+
+
+## This just gets rules, I think
+tr <- unclass(node_party(tree))
+lapply(get_paths(tree, nodeids(tree, terminal = TRUE)),
+       function(path) tr[path])
+
+## Generate tree, based on training data.
+# Hold out testing data and see how well model predicts testing data.
+predict(tree.mob.pipo) # Do this with new data (hold out)
 
 
 ################################################
