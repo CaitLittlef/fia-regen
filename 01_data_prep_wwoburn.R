@@ -159,30 +159,9 @@ data.wwoburn <- data.wwoburn %>%
   group_by(UNIQUEID) %>%
   mutate(REBURN = ifelse(FIRE.YR > 1900 && n() > 1, "Y", "N"))%>%
   as.data.frame()
-temp <- data.wwoburn %>% count(FIRE.YR)
-data.wwoburn %>% count(REBURN)
+data.wwoburn %>% count(FIRE.YR) # 24019 did not burn
+data.wwoburn %>% count(REBURN) # 735 that burned were reburn
     
-    NUM.BURNS = n()) %>%
-  filter(NUM.BURNS > 1) %>%
-  dplyr::select(PLOTID, FIRE.YR, NUM.BURNS) %>%
-  distinct() %>% # 1135 plots had reburns
-  as.data.frame()
-
-reburns <- data.wwoburn %>%
-  filter(FIRE.YR > 0) %>%
-  group_by(PLOTID) %>%
-  mutate(NUM.BURNS = n()) %>%
-  filter(NUM.BURNS > 1) %>%
-  dplyr::select(PLOTID, FIRE.YR, NUM.BURNS) %>%
-  distinct() %>% # 1135 plots had reburns
-  as.data.frame()
-
-data.wwoburn <- data.wwoburn %>%
-  filter(FIRE.YR > 0) %>%
-  group_by(PLOTID)%>%
-  mutate(REBURN = ifelse(n() > 1, "Y", "N")) %>%
-  as.data.frame()
-head(data.wwoburn)
 ###############################################################
 
 
