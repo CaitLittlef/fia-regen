@@ -1,8 +1,8 @@
 data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv")
+data <- read.csv("DATA_PlotwwoFireClim_n20859.csv")
 data$X <- NULL # In case there's weird X col added
 
-## Spp in data ********* WHY THESE?? GET PICO?? ***********
-
+## Spp in data 
 # 106 Pinus edulis (2-needle)
 # 122 Pinus ponderosa
 # 133 Pinus monophylla (1-needle pinyon)
@@ -31,7 +31,10 @@ data$LITTER_DEPTH[is.na(data$LITTER_DEPTH)] <- 0
 data <- data %>%
   mutate(regen_pied = ifelse(data$TPASeed106Ac >0, 1, 0),
          regen_pipo = ifelse(data$TPASeed122Ac >0, 1, 0),
-         regen_psme = ifelse(data$TPASeed202Ac >0, 1, 0))
+         regen_psme = ifelse(data$TPASeed202Ac >0, 1, 0)) %>%
+  rename(regen_pied_tpa = TPASeed106Ac,
+         regen_pipo_tpa = TPASeed122Ac,
+         regen_psme_tpa = TPASeed202Ac)
 mean(data$regen_pied) # 0.01826484
 mean(data$regen_pipo) # 0.06950786
 mean(data$regen_psme) # 0.1212582
@@ -57,16 +60,22 @@ data.psme <- data %>%
 
 
 ## Check for outliers; BA sq ft/acre
-max(data.pied$BALive_pied) # 124
-max(data.pipo$BALive_pipo) # 458 seems high
+max(data.pied$BALive_pied) # 373 seems high
+hist(data.pied$BALive_pied)
+data.pied <- data.pied[data.pied$BALive_pied < 300,]
+
+max(data.pipo$BALive_pipo) # 570 seems high
 hist(data.pipo$BALive_pipo)
-data.pipo  <-data.pipo[data.pipo$BALive_pipo < 300,]
+data.pipo <- data.pipo[data.pipo$BALive_pipo < 400,]
+
 max(data.psme$BALive_psme) # 228
+hist(data.psme$BALive_psme)
 
 
 
 # Save
-write.csv(data.pied, "data.pied.csv")
-write.csv(data.pipo, "data.pipo.csv")
-write.csv(data.psme, "data.psme.csv")
+write.csv(data.pied, "data_pied_wwoburn.csv")
+write.csv(data.pipo, "data_pipo_wwoburn.csv")
+write.csv(data.psme, "data_psme_wwoburn.csv")
 
+rm(BA.cols, TPA.cols)
