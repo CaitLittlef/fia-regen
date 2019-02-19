@@ -1,5 +1,6 @@
 ## Load data.all if necessary
 # data.all <- read.csv("DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
+# data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
 # data.all$X <- NULL
 
 ## Set directory for climatic deficit z-scores
@@ -100,9 +101,9 @@ foo$def59_z_3 <-
   )]
 
 foo <- foo %>%
-  mutate(def59_z_03 = rowMeans(select(.,"def59_z_0", "def59_z_1", "def59_z_2", "def59_z_3")))
+  mutate(def59_z_03 = rowMeans(dplyr::select(.,"def59_z_0", "def59_z_1", "def59_z_2", "def59_z_3")))
 foo <- foo %>%
-  mutate(def59_z_13 = rowMeans(select(.,"def59_z_1", "def59_z_2", "def59_z_3")))
+  mutate(def59_z_13 = rowMeans(dplyr::select(.,"def59_z_1", "def59_z_2", "def59_z_3")))
 
 ## Create avg z-score for yrs 0-3 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
@@ -140,9 +141,9 @@ boo$def68_z_3 <-
   )]
 
 boo <- boo %>%
-  mutate(def68_z_03 = rowMeans(select(.,"def68_z_0", "def68_z_1", "def68_z_2", "def68_z_3")))
+  mutate(def68_z_03 = rowMeans(dplyr::select(.,"def68_z_0", "def68_z_1", "def68_z_2", "def68_z_3")))
 boo <- boo %>%
-  mutate(def68_z_13 = rowMeans(select(.,"def68_z_1", "def68_z_2", "def68_z_3")))
+  mutate(def68_z_13 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2", "def68_z_3")))
 
 def.data$def59_z_0 <- foo$def59_z_0
 def.data$def59_z_1 <- foo$def59_z_1
@@ -162,7 +163,7 @@ def.data$def68_z_13 <- boo$def68_z_13
 #########################################
 ## Save as csv
 sapply(def.data, class) # make sure all are real cols, not lists
-# write.csv(def.data,"def_z_n1971.csv")
+write.csv(def.data,"def_z_n20859.csv")
 
 
 
@@ -175,10 +176,11 @@ data.all <- data.all %>%
 ######################################### 
 ## Save as csv
 sapply(data.all, class) # make sure all are real cols, not lists
-write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971.csv")
+# write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971.csv")
+write.csv(data.all, "DATA_PlotwwoFireClim_n20859.csv")
 
 ## Tidy up
-rm(rst, pts, pts.trans, FIA.CRS, output, i, loop.ready)
+rm(rst, pts, pts.trans, FIA.CRS, coords, output, i, loop.ready, def.dir, def.list, def.data, def59.cols, def68.cols, temp, foo, boo, moo)
 
 
 
