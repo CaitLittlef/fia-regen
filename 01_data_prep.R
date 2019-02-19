@@ -14,10 +14,8 @@ mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate m
 
 
 
-
-
 ## Quick peek
-plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.1)
+plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.05)
 # CO, OR, not present; WY "sparse"
 # How many pts each? 
 count(plot, STATECD)
@@ -41,6 +39,8 @@ count(plot, STATECD)
 #####################################
 ## CONDITION SELECTIONS
 #####################################
+
+library(dplyr)
 
 ## Confirm there are no dupe plots
 plot %>% 
@@ -83,7 +83,7 @@ cond.tree.seed$PLOTID<-paste(PLOT,STATECD,COUNTYCD,sep='_')
 detach(cond.tree.seed)
 # Put those IDs up front for ease of access
 cond.tree.seed <- cond.tree.seed %>%
-  select(PLOTID, UNIQUEID, everything())
+  dplyr::select(PLOTID, UNIQUEID, everything())
 dim(cond.tree.seed) # 27540
 
 ## Attach lat/long/elev
@@ -97,6 +97,10 @@ plot(data$LON_FS, data$LAT_FS, pch=19, cex=0.1)
 data <- distinct(data)
 if(any(duplicated(data))) cat("YOU'VE BEEN DUPED!!")
 
+## But litter/duff sometimes have two measurements per UNIQUEID
+# Keep only one distinct record.
+data <- distinct(data, UNIQUEID, .keep_all = TRUE) # keeps first row of any dupes
+#27540
 
 
 #####################################
@@ -108,42 +112,27 @@ moo <- data %>%
   group_by(PLOTID) %>%
   mutate(FREQ=n()) %>%
   filter(FREQ > 1) %>%
-  select(PLOTID, FREQ, INVYR) %>%
+  dplyr::select(PLOTID, FREQ, INVYR) %>%
   as.data.frame()
-max(moo$FREQ) # 4 is max time a plot visited
+max(moo$FREQ) # 3 is max time a plot visited
 
-# But quick looksee shows some plots have dupe yrs...
-# Only litter/duff depth seem diff in same-yr records.
-# moo %>%
-#   group_by(PLOTID, INVYR) %>%
-#   summarise(DBL.YR =n()) %>% as.data.frame() # yup, some doubles
-
-# Keep only one distinct record.
-moo <- distinct(moo)
-# moo %>%
-#   group_by(PLOTID, INVYR) %>%
-#   summarise(DBL.YR =n()) %>% as.data.frame() # looks like only 1s...
-
-# Re-run frequency
-doo <- moo %>%
-  select(-FREQ) %>%
-  group_by(PLOTID) %>%
-  mutate(FREQ=n()) %>%
-  as.data.frame()
-max(doo$FREQ) # 3 is max time a plot visited
+# But quick looksee confirms no dupe yrs
+moo %>%
+  group_by(PLOTID, INVYR) %>%
+  summarise(DBL.YR =n()) %>% as.data.frame() 
 
 # Populate table with years visited
-plots.rev <- doo %>%
+plots.rev <- moo %>%
   group_by(PLOTID) %>%
   mutate(YR.1ST = nth(INVYR, 1), # select 1st instance
          YR.2ND = nth(INVYR, 2), # select 2nd instance
          YR.3RD = nth(INVYR, 3)) %>% # select 3rd instance
-  select(-INVYR) %>%
+  dplyr::select(-INVYR) %>%
   distinct() # needed b/c plots have same # records as visits
-dim(plots.rev) # 5829
+dim(plots.rev) # 5737
 
 # Clean-up
-rm(moo, doo)
+rm(moo)
 
 
 
@@ -283,4 +272,6 @@ data.all <- distinct(data.all, UNIQUEID, .keep_all = TRUE)
 
 if(any(duplicated(data.all$UNIQUEID))) cat("YOU'VE BEEN DUPED!!") # 1971
 
-
+## Save as csv
+sapply(data.all, class) # make sure all are real cols, not lists
+write.csv(data.all, "DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
