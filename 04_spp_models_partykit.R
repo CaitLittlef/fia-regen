@@ -10,6 +10,9 @@ data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
 
 ## Accurately characterize variables bc...
 # glmtree treats categorical and num differently.
+# N.b., for ordered factors, set ordinal=L2 to use dedicated ordinal stat...
+# else, with too many vars, requisite p-threshold is too low to capture FIRE.SEV
+# see https://stats.stackexchange.com/questions/392516/removal-of-partitioning-variable-in-final-glmtree-with-new-unused-partitioner/392682#392682
 data.pied$regen_pied <- factor(data.pied$regen_pied, ordered = FALSE)
 data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
 data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
@@ -21,37 +24,26 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
 
 
-## Consider transformations
-hist(data.pipo$YEAR.DIFF)
-hist(data.pipo$YEAR.DIFF^0.5)
-hist(data.pipo$BALive_pipo)
-hist(data.pipo$BALive_pipo^0.5) 
-data.pipo$BALive_pipo_trans <- data.pipo$BALive_pipo^0.5
-
-
-## Testing zone
-data.pipo$CMD.CHNG <- data.pipo$CMD_2025 - data.pipo$CMD_1995
-hist(data.pipo$CMD.CHNG)
-
 ################################################
 ## PIPO
 tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
                 | BALive_pipo + BALiveTot # using BA trans doesn't chng
-                # + def59_z_03 #+ def68_z_03 # on, MAP excluded; off, MAP included - why?
+                # + def59_z_03 #+ def68_z_03 
                 # + def59_z_13 #+ def68_z_13
                 # + def59_z_0 #+ def68_z_0
                 # + def59_z_1 #+ def68_z_1
                 # + def59_z_2 #+ def68_z_2
-                # + def59_z_3 #+ def68_z_3 # on, MAP excluded; off, MAP included - why?
+                # + def59_z_3 #+ def68_z_3 
                 + CMD_1995 + MAP_1995
-                + I(YEAR.DIFF) # on, MAP excluded; off, MAP included - why?
-                + REBURN # on, MAP excluded; off, MAP included - why?
+                # + I(YEAR.DIFF) 
+                + REBURN 
                 # + CMD.CHNG
                 + FIRE.SEV,
                 data = data.pipo, #data.pipo[data.pipo$REBURN == "Y",],
                 family = binomial(link = "logit"),
                 minsplit = 50,
-                ordinal = "L2") # requisite p-value chngs based on # partitioners; set to dedicate ordinal statistic (not default of chisq)
+                ordinal = "L2") # Use dedicated ordinal statistic for ordinal vars (FIRE.SEV)
+
 ## Output
 plot(tree.mob.pipo)
 tree.mob.pipo
@@ -153,10 +145,59 @@ tr <- unclass(node_party(tree))
 lapply(get_paths(tree, nodeids(tree, terminal = TRUE)),
        function(path) tr[path])
 
-## Generate tree, based on training data.
-# Hold out testing data and see how well model predicts testing data.
-predict(tree.mob.pipo) # Do this with new data (hold out)
 
+
+## Eval skill of model in predicting hold-out data.
+# N.b., an apply k-fold cross-validation on glm using boot::cv.glm but not here on tree (i.e. list)
+data$pred <- predict(tree.mob.pipo, newdata=data, type = "response") # response gives probabilities
+
+data <- data.pipo
+
+#Randomly shuffle the data
+data<-data[sample(nrow(data)),]
+
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(data)),breaks=10,labels=FALSE)
+
+#Perform 10 fold cross validation (https://stackoverflow.com/questions/21380236/cross-validation-for-glm-models)
+for(i in 1:10){
+  #Segement your data by fold using the which() function 
+  testIndexes <- which(folds==i,arr.ind=TRUE)
+  testData <- data[testIndexes, ]
+  trainData <- data[-testIndexes, ]
+  #Use test and train data partitions however you desire...
+}
+
+tree.mob.pipo <- glmtree(regen_pipo ~ YEAR.DIFF | BALive_pipo + BALiveTot + CMD_1995 + MAP_1995 + FIRE.SEV,
+                         data = trainData,
+                         family = binomial(link = "logit"),
+                         minsplit = 50,
+                         ordinal = "L2")
+plot(tree.mob.pipo)
+
+
+# Create confusion matrix
+# https://stats.stackexchange.com/questions/17052/how-to-test-a-logistic-regression-model-developed-on-a-training-sample-on-the-d
+predTest <- predict(tree.mob.pipo, testData)
+thresh  <- 0.5            # threshold for categorizing predicted probabilities
+predFac <- cut(predTest, breaks=c(-Inf, thresh, Inf), labels=c("0", "1"))
+confsn    <- table(testData$regen_pipo, predFac, dnn=c("actual", "predicted"))
+addmargins(confsn)
+#       predicted
+# actual  0  1 Sum
+#    0   36  1  37
+#    1   14  3  17
+#    Sum 50  4  54
+
+
+# Alt confusion matrix
+install.packages("caret")
+library(caret)
+# specifying threshold 
+predTest <- predict(tree.mob.pipo, testData)
+confusionMatrix(data = as.factor(as.numeric(predTest>0.5)), # needs factor but set num for 0/1 first
+                reference = as.factor(testData$regen_pipo), # needs factor
+                dnn = c("prediction", "reference"))
 
 ################################################
 ## PSME
