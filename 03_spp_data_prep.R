@@ -46,36 +46,45 @@ data$regen_psme <- factor(data$regen_psme)
 
 
 
-## Keep records where adult present
+## Keep records where adult present -- even if dead. 
+# Mort trees are dead since last inventory
 data.pied <- data %>%
   filter(BALive_106 >0 | BADeadStanding_106 >0 | BAMortStanding_106 >0 | BAMortDown_106 >0) %>%
   dplyr::rename(BALive_pied = BALive_106)
 data.pipo <- data %>%
   filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0) %>%
   dplyr::rename(BALive_pipo = BALive_122)  
+data %>%
+  filter(BALive_122 >0) %>%
+  dplyr::rename(BALive_pipo = BALive_122) # 3222 records if exclude dead
 data.psme <- data %>%
   filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0) %>%
   dplyr::rename(BALive_psme = BALive_202)
 
 
 
-## Check for outliers; BA sq ft/acre
+## Check for outliers; BA sq ft/acre; TPA
 max(data.pied$BALive_pied) # 373 seems high
 hist(data.pied$BALive_pied)
 data.pied <- data.pied[data.pied$BALive_pied < 300,]
+max(data.pied$regen_pied_tpa)
+hist(data.pied$regen_pied_tpa)
 
 max(data.pipo$BALive_pipo) # 570 seems high
 hist(data.pipo$BALive_pipo)
 data.pipo <- data.pipo[data.pipo$BALive_pipo < 400,]
+max(data.pipo$regen_pipo_tpa) #17992 is lots even for PICO
+hist(data.pipo$regen_pipo_tpa)
+data.pipo <- data.pipo[data.pipo$regen_pipo_tpa < 10000,]
 
 max(data.psme$BALive_psme) # 228
 hist(data.psme$BALive_psme)
-
+max(data.psme$regen_psme_tpa)
 
 
 # Save
-write.csv(data.pied, "data_pied_wwoburn.csv")
-write.csv(data.pipo, "data_pipo_wwoburn.csv")
-write.csv(data.psme, "data_psme_wwoburn.csv")
+write.csv(data.pied, "data.pied_wwoburn.csv")
+write.csv(data.pipo, "data.pipo_wwoburn.csv")
+write.csv(data.psme, "data.psme_wwoburn.csv")
 
 rm(BA.cols, TPA.cols)
