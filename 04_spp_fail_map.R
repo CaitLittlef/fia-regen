@@ -1,3 +1,63 @@
+data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
+data.pipo$YEAR.DIFF <- as.numeric(data.pipo$YEAR.DIFF)
+data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
+levels(data.pipo$regen_pipo)[2] # gives 1 for yes regen
+
+moo <- data.pipo[data.pipo$YEAR.DIFF > 4,]
+moo <- moo[moo$BALive_pipo > 0,]
+
+p <- ggplot() +
+  # state outlines
+  geom_sf(data = Wsts) +
+  geom_point(data = moo,
+             aes(x = LON_FS, y = LAT_FS, col = regen_pipo)) +
+  scale_color_manual(values = c("blue", "yellow"),
+                     labels = c("no regen", "regen"))
+p
+
+# tiff(paste0(out.dir,"pipo_fail_map_",currentDate,".tiff"),
+#       width = 640, height = 480, units = "px")
+# p
+# dev.off()
+
+
+
+#########################################PSME
+data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
+data.psme$YEAR.DIFF <- as.numeric(data.psme$YEAR.DIFF)
+data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
+levels(data.psme$regen_psme)[2] # gives 1 for yes regen
+
+doo <- data.psme[data.psme$YEAR.DIFF > 4,]
+doo <- doo[doo$BALive_psme > 0,]
+
+p <- ggplot() +
+  # state outlines
+  geom_sf(data = Wsts) +
+  geom_point(data = doo,
+             aes(x = LON_FS, y = LAT_FS, col = regen_psme)) +
+  scale_color_manual(values = c("blue", "yellow"),
+                     labels = c("no regen", "regen"))
+p
+# tiff(paste0(out.dir,"psme_fail_map_",currentDate,".tiff"),
+#      width = 640, height = 480, units = "px")
+# p
+# dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 sts = c('cali', 'oreg', 'wash','idaho','monta','wyo','utah','ariz','new mex','colo')
 moo <- data.pipo %>%
   filter(regen_pipo == 0,
@@ -90,3 +150,6 @@ https://timogrossenbacher.ch/2016/12/beautiful-thematic-maps-with-ggplot2-only/#
   https://www.r-spatial.org/r/2018/10/25/ggplot2-sf-2.html
   
 
+
+
+map should have all plots to start that then gradually fade away as regen occurs, time being years since fire (not actual year). What remains are all plots that have no regen.
