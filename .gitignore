@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+z04_spp_models_BRTs.R
+zbrief Qs for CrossValidated.R
+z04_spp_models_partykit.R
+z02b_terraclim_trends.R
+z01_data_prep_burnOnly.R
+z04_spp_fail_explore.R
