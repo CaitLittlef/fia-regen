@@ -1,17 +1,22 @@
 ## Load data.all if necessary
 # data.all <- read.csv("DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
-# data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
+data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
 # data.all$X <- NULL
 
 ## Set directory for climatic deficit z-scores
 def.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/def_z"
 
+## Grab date for saving files
+currentDate <- Sys.Date()
+
+
+################################################# STACK DEF, GET FIA PTS
 ## Compile all def z-scores as raster into a list
 def.list <- lapply(list.files(def.dir, pattern = ".tif$", full.names = TRUE),
               raster) # applies FUN (here, raster) to all files; dumps into list; $=end
 
-# Plot ok?
 plot(def.list[[1]]) 
+
 
 ## What's Terraclim CRS? 99% sure they're all the same, but jic...
 crs.all <- vector()
@@ -23,6 +28,10 @@ if(all(duplicated(crs.all))) cat("All CRS are the same")
 rm(crs.all, crs)
 
 
+## Create stack of all def-z rasters
+rst = stack(def.list)
+
+
 ## Gather FIA plot pts into spatial object
 # Per FIA manual, pts in lat/long, NAD83 datum ****** IS THIS CORRECT?? ******
 FIA.CRS <- crs("+proj=longlat +datum=NAD83")
@@ -30,17 +39,13 @@ coords <- cbind(data.all$LON_FS, data.all$LAT_FS) ## (lon,lat) therefore (x,y)
 colnames(coords) <- c("lon", "lat")
 pts <- SpatialPoints(coords = coords,
                      proj4string = crs(FIA.CRS))
-
-## def_z data use WGS84 datum; transform these pts
+# def_z data use WGS84 datum; transform these pts
 pts.trans <- spTransform(pts, crs(def.list[[1]]))
 
-## Create stack of all def-z rasters
-rst = stack(def.list)
 
 
-
-## collect def_Z into empty list
-# nb "extract" also in other packages; be explicit.
+################################################# EXTRACT DEF VALUES TO FIA PTS
+## collect def_Z into empty list; nb "extract" also in other packages so be explicit.
 output <- list()
 loop.ready <- c(1:length(def.list))
 # loop.ready <- c(1:2)
@@ -48,7 +53,6 @@ for(i in loop.ready){
   output[[i]] <- raster::extract(rst[[i]], pts.trans)
   names(output)[[i]] <- paste0(names(rst)[i],"_z")
 }
-
 
 ## Convert list --> df, maintaining names
 # do.call takes function (first) then LIST of arguments (second)
@@ -62,7 +66,64 @@ def.data$PLOTID <- data.all$PLOTID
 def.data$FIRE.YR <- data.all$FIRE.YR
 
 
-###################################### 
+
+###################################### GET Z-SCORE TREND
+## Grab slope of z-scores for each plot
+# If deficit is increasing, z-scores will be increasingly positive.
+# Steeper slope means changing faster.
+# All z-scores should add to zero, but here values (up to 2018) are past normal period (1981-2010)...
+# ... as this would show: mutate(sum.z.scores = rowSums(.))
+
+# Get only MAY-SEPT; rename columns as year.
+def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
+foo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
+colnames(foo) <- mid(colnames(foo), 5, 4)
+foo$PLOTID <- def.data$PLOTID
+
+# Gather data in prep for trendline. Col names are now a variable (def.year).
+# Keep only 1984 (mtbs) thru 2017 (no 2018 for terraclim).
+boo <- gather(data = foo, key = 'def.year', value = 'def.z', -PLOTID)
+boo$def.year <- as.numeric(boo$def.year)
+boo <- boo %>% filter(def.year > 1983)
+
+# Create trend lines; put into df (do() extracts tidied model outputs)
+def.z.lm <- boo %>%
+  group_by(PLOTID) %>%
+  do(tidy(lm(def.z ~ def.year, data =.)))
+def.z.lm <- as.data.frame(def.z.lm)
+# Alt: this stores each model as a df; not as tidy
+# def.z.lm <- boo %>%
+#   group_by(PLOTID) %>%
+#   do(mod = lm(def.z ~ def.year, data =.))
+# def.z.lm[def.z.lm$PLOTID == "1_16_13",]$mod # gives equation
+
+# Test a few plots: do slope & intercept make sense?
+# moo <- boo[boo$PLOTID == "1_16_13",] 
+# moo <- boo[boo$PLOTID == "41_30_103",]
+# moo <- boo[boo$PLOTID == "3061_8_71",] 
+moo <- boo[boo$PLOTID == "70_16_57",]
+def.z.lm[def.z.lm$PLOTID == "70_16_57",]
+plot(moo$def.year, moo$def.z)
+abline(-111.60282769, 0.05595875); abline(h=0)
+# Alt for plotting:
+# ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
+#   geom_point() +
+#   geom_smooth(aes(group = PLOTID), method = "lm")
+
+# Keep only slope
+doo <- def.z.lm %>%
+  filter(term == "def.year") %>%
+  dplyr::select(PLOTID, estimate) %>%
+  rename(def59.z.slope = estimate)
+
+
+# Add onto deficit data.
+def.data$def59.z.slope <- doo$def59.z.slope
+
+rm(foo, boo, moo, doo)
+
+
+###################################### GET POST-FIRE cONDITIONS
 ## Create avg z-score for yrs 0-3 post-fire, MAY-SEPT
 # Pull out def columns; ^=beginning; .=any character; $=end
 # Careful to explicitly select cols w/  summary variables!
@@ -163,7 +224,7 @@ def.data$def68_z_13 <- boo$def68_z_13
 #########################################
 ## Save as csv
 sapply(def.data, class) # make sure all are real cols, not lists
-write.csv(def.data,"def_z_n20859.csv")
+# write.csv(def.data, paste0("def_z_n20859_",currentDate,".csv"))
 
 
 
@@ -176,11 +237,11 @@ data.all <- data.all %>%
 ######################################### 
 ## Save as csv
 sapply(data.all, class) # make sure all are real cols, not lists
-# write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971.csv")
-write.csv(data.all, "DATA_PlotwwoFireClim_n20859.csv")
+# write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971_",currentDate,".csv"))
+write.csv(data.all, paste0("DATA_PlotwwoFireClim_n20859_",currentDate,".csv"))
 
 ## Tidy up
-rm(rst, pts, pts.trans, FIA.CRS, coords, output, i, loop.ready, def.dir, def.list, def.data, def59.cols, def68.cols, temp, foo, boo, moo)
+# rm(rst, pts, pts.trans, FIA.CRS, coords, output, i, loop.ready, def.dir, def.list, def.data, def59.cols, def68.cols, temp, foo, boo, moo)
 
 
 
