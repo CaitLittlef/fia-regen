@@ -15,7 +15,7 @@ mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate m
 
 
 ## Quick peek
-plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.05)
+# plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.05)
 # CO, OR, not present; WY "sparse"
 # How many pts each? 
 count(plot, STATECD)
@@ -147,59 +147,47 @@ mtbs$PLOTID<-paste(mtbs$PLOT,mtbs$STATECD,mtbs$COUNTYCD,sep='_')
 mtbs <- mtbs %>%
   rename(FIRE.YR = Year) %>%
   filter(! FIRE.YR == 0) %>%  # Some records missing fire year
-  select(PLOTID, everything())
+  dplyr::select(PLOTID, everything())
 
 ## Which of the plots burned?
-data.burned <- inner_join(data, mtbs, by = "PLOTID") #3483 plots
-class(data.burned)
-
-
-########################## CHECK THIS!! #######################
-## ID reburns.
-reburns <- data.burned %>%
-  group_by(PLOTID) %>%
-  mutate(NUM.BURNS = n()) %>%
-  filter(NUM.BURNS > 1) %>%
-  select(PLOTID, FIRE.YR, NUM.BURNS) %>%
-  distinct() %>% # 1152 plots had reburns
-  as.data.frame()
-
-data.burned <- data.burned %>%
-  group_by(PLOTID)%>%
-  mutate(REBURN = ifelse(n() > 1, "Y", "N")) %>%
-  as.data.frame()
-###############################################################
-
+data.wwoburn <- left_join(data, mtbs, by = "PLOTID") #27461 plots
+class(data.wwoburn)
 
 ## How many were sampled after burned (one or more times, one or more burns)?
-data.burned %>%
+data.wwoburn %>%
   filter(INVYR > FIRE.YR) %>%
   count(PLOTID) # 1961 plots sampled after a burn/burns
-data.burned %>%
+data.wwoburn %>%
   filter(INVYR > FIRE.YR) %>%
   count(PLOTID) %>%
-  filter(n>1) # 428 sampled more than once after a burn/burns
+  filter(n>1) # 398 sampled more than once after a burn/burns
 
 
 ## List plots that burned and were sampled after burn
-# Keeping latest visit, latest fire.
-# May want to keep ANY visit that happened after a fire but before any reburn.
-# But for now, stick with a single record for each plot.
-data.burned.samp <- data.burned %>%
+# Keeping latest visit, latest fire (or sites that didn't burn, hence is.na())
+# If that visit happened after reburn, reburn = Y.
+data.wwoburn.samp <- data.wwoburn %>%
   group_by(PLOTID) %>%
-  filter(INVYR > FIRE.YR) %>%
-  filter(FIRE.YR == max(FIRE.YR)) %>%
-  filter(INVYR == max(INVYR))
-if(all(data.burned.samp$INVYR > data.burned.samp$FIRE.YR)) cat("All visits are AFTER fire")
-if(any(duplicated(data.burned.samp))) cat("YOU'VE BEEN DUPED!!") # 2000
+  filter(INVYR == max(INVYR)) %>%
+  filter(is.na(FIRE.YR) | INVYR > FIRE.YR) %>% 
+  mutate(REBURN = ifelse(n() > 1, "Y", "N")) %>%
+  filter(is.na(FIRE.YR) | FIRE.YR == max(FIRE.YR))
+data.wwoburn.samp$REBURN[is.na(data.wwoburn.samp$FIRE.YR)] <- NA
+temp <- data.wwoburn.samp[! is.na(data.wwoburn.samp$FIRE.YR) ,] %>%
+  dplyr::select(PLOTID, FIRE.YR, INVYR, REBURN, paste0(mtbs.cols))
+if(all(temp$INVYR > temp$FIRE.YR)) cat("All visits are AFTER fire")
+if(any(duplicated(data.wwoburn.samp))) cat("YOU'VE BEEN DUPED!!") # 20860
 
 
-
-## Assign burn severity to each record
+## Assign burn severity to each record & yrs btwn fire and sampling
 # Pull out burn severity columns; keep only those with 4 digits (year); .=any character; $=end
-mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.burned.samp), value=TRUE)
-moo <- data.burned.samp[mtbs.cols] %>% as.data.frame() # weird class change; force df    
-moo$FIRE.YR <- data.burned.samp$FIRE.YR
+mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.wwoburn.samp), value=TRUE)
+moo <- data.wwoburn.samp[mtbs.cols] %>% as.data.frame() # weird class change; force df    
+moo$FIRE.YR <- data.wwoburn.samp$FIRE.YR
+moo$INVYR <- data.wwoburn.samp$INVYR
+moo$YEAR.DIFF <- NA
+moo$YEAR.DIFF <- (moo$INVYR - moo$FIRE.YR)
+moo$FIRE.SEV <- NA
 
 # Return severity from year of fire
 # Not sure why I need composite index calling for all rows...
@@ -211,33 +199,30 @@ moo$FIRE.SEV <-
           substr(names(moo),6,9))
   )]
 
-data.burned.samp$FIRE.SEV <- moo$FIRE.SEV
-data.burned.samp <- as.data.frame(data.burned.samp)
+data.wwoburn.samp$YEAR.DIFF <- NA
+data.wwoburn.samp$YEAR.DIFF <- moo$YEAR.DIFF
+data.wwoburn.samp$FIRE.SEV <- NA
+data.wwoburn.samp$FIRE.SEV <- moo$FIRE.SEV
+data.wwoburn.samp <- as.data.frame(data.wwoburn.samp) # else still grouped
 
-# Replace cat 5 & 6 with NA
-count(data.burned.samp, FIRE.SEV)
-data.burned.samp$FIRE.SEV[data.burned.samp$FIRE.SEV == 5 | data.burned.samp$FIRE.SEV == 6] <- NA
-# Alt: 
-# data.burned.samp$FIRE.SEV <- na_if(data.burned.samp$FIRE.SEV, 6)
+# Replace cat 5 & 6 with NA; One site burned but has YR/mtbs mismatch (FIRE.SEV = 0) so drop it.
+# Rownames get ugly/re-assigned with conditional == 0, so calling that row explicitly.
+data.wwoburn.samp %>% count(FIRE.SEV)
+data.wwoburn.samp$FIRE.SEV[data.wwoburn.samp$FIRE.SEV == 5 | data.wwoburn.samp$FIRE.SEV == 6] <- NA
+data.wwoburn.samp[which(data.wwoburn.samp$FIRE.SEV == 0),]
+data.wwoburn.samp <- data.wwoburn.samp[-3035,]
+data.wwoburn.samp %>% count(FIRE.SEV)
 
-count(data.burned.samp, FIRE.SEV)
-
-
-
-
-## Create years since var
-data.burned.samp$YEAR.DIFF <- (data.burned.samp$INVYR - data.burned.samp$FIRE.YR)
-data.burned.samp <- data.burned.samp %>% select(PLOTID, UNIQUEID, INVYR, FIRE.YR, YEAR.DIFF, REBURN, everything())
-hist(data.burned.samp$YEAR.DIFF)
 
 ## Lots ~Yellowstone, Idaho
+temp <- data.wwoburn.samp[! is.na(data.wwoburn.samp$FIRE.YR) ,]
 map('state', region = c('cali', 'oreg', 'wash','idaho','monta','wyo','utah','ariz','new mex','colo'))
-points(data.burned.samp$LON_FS, data.burned.samp$LAT_FS,pch=1,cex=sqrt(data.burned.samp$YEAR.DIFF))
+points(temp$LON_FS, temp$LAT_FS,pch=1,cex=sqrt(temp$YEAR.DIFF))
 legend("bottomleft",c("time since fire = 4 years","time since fire = 16 years"),pch=c(1,1), pt.cex=c(2,4))
 
-## For consistency with orig code...
-data.clean <- data.burned.samp
-rm(data, data.burned, data.burned.samp, moo, mtbs.cols)
+## Tidy
+data.clean <- data.wwoburn.samp
+# rm(data, data.wwoburn, moo, doo, mtbs.cols, temp, plots.rev)
 
 
 #####################################
@@ -250,14 +235,14 @@ climate$PLOTID <- paste(climate$PLOT_NIMS,
                         climate$COUNTYCD,
                         sep='_')
 climate <- climate %>%
-  select(PLOTID, everything(),-INVYR, -STATECD, -COUNTYCD, -PLOT_NIMS) %>%
+  dplyr::select(PLOTID, everything(),-INVYR, -STATECD, -COUNTYCD, -PLOT_NIMS) %>%
   distinct() # still look to be some dupes
 
 prism.1981.2010$PLOTID <- paste(prism.1981.2010$PLOT,
                                 prism.1981.2010$STATECD,
                                 prism.1981.2010$COUNTYCD,sep='_')
 prism <- prism.1981.2010 %>%
-  select(PLOTID, everything(), -STATECD, -COUNTYCD, -PLOT) %>%
+  dplyr::select(PLOTID, everything(), -STATECD, -COUNTYCD, -PLOT) %>%
   distinct()
 
 ## Join plot data to climate data
@@ -270,8 +255,11 @@ data.all <- data.clean %>%
 # Here, keep distinct UNIQUEID values -- the first row if not distinct.
 data.all <- distinct(data.all, UNIQUEID, .keep_all = TRUE)
 
-if(any(duplicated(data.all$UNIQUEID))) cat("YOU'VE BEEN DUPED!!") # 1971
 
 ## Save as csv
 sapply(data.all, class) # make sure all are real cols, not lists
-write.csv(data.all, "DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
+write.csv(data.all, "DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
+
+temp <- data.all[which(data.all$FIRE.YR > 1900),] # these are burned sites
+
+rm(temp, data, data.clean, data.wwoburn, data.wwoburn.samp, moo, plots.rev, reburns, mtbs.cols)
