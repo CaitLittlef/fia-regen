@@ -1,5 +1,5 @@
-data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv")
-data <- read.csv("DATA_PlotwwoFireClim_n20859.csv")
+# data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv") # w/o fire
+data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-02-27.csv")
 data$X <- NULL # In case there's weird X col added
 
 ## Spp in data 
@@ -83,8 +83,8 @@ max(data.psme$regen_psme_tpa)
 
 
 # Save
-write.csv(data.pied, "data.pied_wwoburn.csv")
-write.csv(data.pipo, "data.pipo_wwoburn.csv")
-write.csv(data.psme, "data.psme_wwoburn.csv")
+write.csv(data.pied, "data.pied.csv")
+write.csv(data.pipo, "data.pipo.csv")
+write.csv(data.psme, "data.psme.csv")
 
 rm(BA.cols, TPA.cols)
