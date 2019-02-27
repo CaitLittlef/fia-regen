@@ -74,53 +74,96 @@ def.data$FIRE.YR <- data.all$FIRE.YR
 # All z-scores should add to zero, but here values (up to 2018) are past normal period (1981-2010)...
 # ... as this would show: mutate(sum.z.scores = rowSums(.))
 
-# Get only MAY-SEPT; rename columns as year.
+## Get only MAY-SEPT; rename columns as year.
 def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
-foo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
-colnames(foo) <- mid(colnames(foo), 5, 4)
-foo$PLOTID <- def.data$PLOTID
+goo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
+colnames(goo) <- mid(colnames(goo), 5, 4)
+goo$PLOTID <- def.data$PLOTID
 
-# Gather data in prep for trendline. Col names are now a variable (def.year).
+## Gather data in prep for trendline. Col names are now a variable (def.year).
 # Keep only 1984 (mtbs) thru 2017 (no 2018 for terraclim).
-boo <- gather(data = foo, key = 'def.year', value = 'def.z', -PLOTID)
-boo$def.year <- as.numeric(boo$def.year)
-boo <- boo %>% filter(def.year > 1983)
+zoo <- gather(data = goo, key = 'def.year', value = 'def.z', -PLOTID)
+zoo$def.year <- as.numeric(zoo$def.year)
+zoo <- zoo %>% filter(def.year > 1983)
 
-# Create trend lines; put into df (do() extracts tidied model outputs)
-def.z.lm <- boo %>%
+## Create trend lines; put into df (do() extracts tidied model outputs)
+def.z.lm <- zoo %>%
   group_by(PLOTID) %>%
   do(tidy(lm(def.z ~ def.year, data =.)))
 def.z.lm <- as.data.frame(def.z.lm)
+def.z.lm[1:10,]
 # Alt: this stores each model as a df; not as tidy
-# def.z.lm <- boo %>%
+# def.z.lm <- zoo %>%
 #   group_by(PLOTID) %>%
 #   do(mod = lm(def.z ~ def.year, data =.))
 # def.z.lm[def.z.lm$PLOTID == "1_16_13",]$mod # gives equation
 
-# Test a few plots: do slope & intercept make sense?
-# moo <- boo[boo$PLOTID == "1_16_13",] 
-# moo <- boo[boo$PLOTID == "41_30_103",]
-# moo <- boo[boo$PLOTID == "3061_8_71",] 
-moo <- boo[boo$PLOTID == "70_16_57",]
+## Test a few plots: do slope & intercept make sense?
+# moo <- zoo[zoo$PLOTID == "1_16_13",] 
+# moo <- zoo[zoo$PLOTID == "41_30_103",]
+# moo <- zoo[zoo$PLOTID == "3061_8_71",] 
+moo <- zoo[zoo$PLOTID == "70_16_57",]
 def.z.lm[def.z.lm$PLOTID == "70_16_57",]
 plot(moo$def.year, moo$def.z)
 abline(-111.60282769, 0.05595875); abline(h=0)
 # Alt for plotting:
-# ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
-#   geom_point() +
-#   geom_smooth(aes(group = PLOTID), method = "lm")
+moo <- filter(zoo, grepl("^10_", PLOTID))
+p <- ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
+     geom_point()
+p + stat_smooth(aes(group = PLOTID),
+                method = "lm")
 
-# Keep only slope
+
+## Keep only slopes
 doo <- def.z.lm %>%
   filter(term == "def.year") %>%
   dplyr::select(PLOTID, estimate) %>%
   rename(def59.z.slope = estimate)
 
-
-# Add onto deficit data.
+## Add onto deficit data.
 def.data$def59.z.slope <- doo$def59.z.slope
 
-rm(foo, boo, moo, doo)
+
+
+## Also take slp btwn 1st & last; inappropriate?
+## Create trend lines; put into df (do() extracts tidied model outputs)
+def.z.lm84_17 <- zoo %>%
+  group_by(PLOTID) %>%
+  filter(def.year == "1984" | def.year == "2017") %>%
+  do(tidy(lm(def.z ~ def.year, data =.)))
+def.z.lm84_17 <- as.data.frame(def.z.lm84_17)
+def.z.lm84_17[1:10,]
+moo <- filter(zoo, grepl("^10_", PLOTID))
+moo <- filter(moo, def.year == "1984" | def.year == "2017")
+plot(moo$def.year, moo$def.z)
+
+
+## Keep only slopes
+doo <- def.z.lm84_17 %>%
+  filter(term == "def.year") %>%
+  dplyr::select(PLOTID, estimate) %>%
+  rename(def59.z.slope84_17 = estimate)
+
+## Add onto deficit data.
+def.data$def59.z.slope84_17 <- doo$def59.z.slope84_17
+
+
+# # Create quad fit; put into df (do() extracts tidied model outputs)
+# def.z.2lm <- zoo %>%
+#   group_by(PLOTID) %>%
+#   do(tidy(lm(def.z ~ poly(def.year, 2), data =.)))
+# def.z.2lm <- as.data.frame(def.z.2lm)
+# def.z.2lm[1:10,]
+# # Plot a few
+# moo <- filter(zoo, grepl("^10_", PLOTID))
+# p <- ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
+#   geom_point()
+# p + stat_smooth(aes(group = PLOTID),
+#                 method = "lm",
+#                 formula = y ~ poly(x, 2))
+# # ^ Just doesn't make much sense
+
+# rm(foo, boo, moo, doo)
 
 
 ###################################### GET POST-FIRE cONDITIONS
