@@ -31,43 +31,53 @@ data.psme$FIRE.SEV <- as.numeric(data.psme$FIRE.SEV)
 data.pipo$CMD_CHNG <- data.pipo$def59.z.slope
 data.psme$CMD_CHNG <- data.psme$def59.z.slope
 
-
+#######################################################################
 ## Set bins for year.diff so include unburned (mtbs only back til 1984)
 # Or maybe not necessary... only if doing stats
-# vec <- c(0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30)
-vec <- c(1, 2, 5, 10, 15, 20, 25, 30) # first bin will LTE 1
-data.pipo$YEAR.DIFF.BIN <- findInterval(data.pipo$YEAR.DIFF, vec=vec, rightmost.closed=TRUE)
+yr.vec <- c(0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30)
+# yr.vec <- c(1, 2, 5, 10, 15, 20, 25, 30) # first bin will LTE 1
+data.pipo$YEAR.DIFF.BIN <- findInterval(data.pipo$YEAR.DIFF, vec=yr.vec, rightmost.closed=TRUE)
 cbind(data.pipo$YEAR.DIFF.BIN, data.pipo$YEAR.DIFF)
 data.pipo$YEAR.DIFF.BIN[which(is.na(data.pipo$YEAR.DIFF))] <- (max(data.pipo$YEAR.DIFF.BIN, na.rm=TRUE)+1)
 cbind(data.pipo$YEAR.DIFF.BIN, data.pipo$YEAR.DIFF)
-data.pipo$YEAR.DIFF.BIN <- as.numeric(data.pipo$YEAR.DIFF.BIN) # if modelling
-# data.pipo$YEAR.DIFF.BIN <- factor(data.pipo$YEAR.DIFF.BIN, ordered = TRUE) # if plotting
+# data.pipo$YEAR.DIFF.BIN <- as.numeric(data.pipo$YEAR.DIFF.BIN) # if modelling
+data.pipo$YEAR.DIFF.BIN <- factor(data.pipo$YEAR.DIFF.BIN, ordered = TRUE) # if plotting
 
+## Only examining sites with > 0 BA & > 0 regen
+moo <- data.pipo[data.pipo$BALive_pipo>0 & data.pipo$regen_pipo == 1,]
+# Estabish BA bins (low, med, high) to show 
+hist(moo$BALive_pipo, 50)
+hist(moo$TPALive_122, 50) 
+classIntervals(moo$BALive_pipo, 3, style = "quantile")
+# ^ quantiles (with equal # sites) break at ~ 30, 60, up
+ba.vec <- c(0,30,60,400)
+moo$BA.BIN <- findInterval(moo$BALive_pipo, vec=ba.vec, rightmost.closed=TRUE) 
+moo$BA.BIN <- as.factor(moo$BA.BIN)
+boxplot(moo$TPALive_122 ~ moo$BA.BIN)
+moo %>%
+  group_by(BA.BIN) %>%
+  summarize_at("TPALive_122", funs(min, max, median))
+# Below is summary of TPA by BA bins. Recall TPA is of trees sampled prob in macroplot
+# BA.BIN   min   max median
+# <fct>  <dbl> <dbl>  <dbl>
+# 1 1       6.01  855.   36.1
+# 2 2       6.01 1586.  114. 
+# 3 3      18.0  1895.  209.
 
-
-
-## log won't take 0 so set slightly above 
-# data.pipo$regen_pipo_tpa_no0 <- data.pipo$regen_pipo_tpa
-# data.pipo$regen_pipo_tpa_no0[data.pipo$regen_pipo_tpa_no0 == 0] <- 1
-data.pipo %>%
-  count(regen_pipo_tpa)
-# data.pipo %>%
-#   count(regen_pipo_tpa_no0)
 
 
 labels = c(paste0(3*1:10),"no fire in record")
-labels = c("1", "2-5", "6-10", "11-15", "16-20", "21-25", "26-30", "no fire in record")
+# labels = c("1", "2-5", "6-10", "11-15", "16-20", "21-25", "26-30", "no fire in record")
 
 # THESE ARE OF SITES THAT HAVE REGEN
 data.pipo$YEAR.DIFF.BIN <- factor(data.pipo$YEAR.DIFF.BIN, ordered = TRUE) # if plotting
-p <- ggplot(data.pipo[data.pipo$BALive_pipo>0,],
-            aes(x = YEAR.DIFF.BIN, y=log(regen_pipo_tpa))) +
+p <- ggplot(moo, aes(x = YEAR.DIFF.BIN, y=log(regen_pipo_tpa))) +
   geom_boxplot() +
   labs(x = "Years since fire", y = "log(seedlings/acre)") + 
   scale_x_discrete(labels = labels)
 p
-tiff(paste0(out.dir,"pipo_cnts_yr_",currentDate,".tiff"),
-      width = 640, height = 480, units = "px")
+# tiff(paste0(out.dir,"pipo_cnts_yr_",currentDate,".tiff"),
+#       width = 640, height = 480, units = "px")
 p
 dev.off()
 
