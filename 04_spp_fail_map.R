@@ -271,27 +271,10 @@ cv.glm(moo, mod.psme, K=10)$delta # 10-fold cross-validation: raw & adjusted; nb
 
 
 ######################################################## MAP IT
-
-sts = c('cali', 'oreg', 'wash','idaho','monta','wyo','utah','ariz','new mex','colo')
-map('state', region = sts)
-points(moo$LON_FS, moo$LAT_FS, cex = 3*moo$BAProp_pipo)
-legend("bottomleft",c("100% PIPO BA","10% PIPO BA"),pch=c(1,1), pt.cex=c(3,0.3),bty='n')
-
-
-## Fancy from https://timogrossenbacher.ch/2016/12/beautiful-thematic-maps-with-ggplot2-only/#general-ggplot2-theme-for-map
-
-
-## geom_sf seems to work.... others online suggest geom_polygon...
-# but that requires fortification of data first to make it "tidy"
-# see fortify() which is now deprecated... new: broom::tidy()
-# ^ n.b., broom::tidy() should make model outputs simpler
-# http://varianceexplained.org/r/broom-intro/
-p <- ggplot() +
-  # state outlines
-  geom_sf(data = Wsts) +
-  geom_point(data = as.data.frame(coords), aes(x = lon, y = lat)) +
-  theme_map()
-p
+# Map should have all plots then gradually fade as regen occurs, with time since fire (not actual year).
+# What remains are all plots that have no regen.
+# Alt: Alternate between plots that have and don't have regen after 10 years.
+# Trying to animate... to no avail.
 
 ## Try to animate based on decline in regen likelihood
 install.packages("gganimate")
@@ -300,36 +283,43 @@ library(gganimate)
 library(gifski)
 
 
-p <- ggplot() +
-  # state outlines
-  geom_sf(data = Wsts) +
-  geom_point(data = as.data.frame(moo), aes(x = LON_FS, y = LAT_FS,
-                                            size = prop_ba_pipo))
-p
 
 
 p <- ggplot() +
   # state outlines
   geom_sf(data = Wsts) +
-  geom_point(data = as.data.frame(moo), aes(x = LON_FS, y = LAT_FS,
-                                            size = prop_ba_pipo))+
-  transition_time(YEAR.DIFF) + 
-  ease_aes("linear")
+  geom_point(data = as.data.frame(coords), aes(x = lon, y = lat)) +
+  theme_map()
 p
 
+moo$time <- as.numeric(as.character(moo$regen_pipo))+1
 p <- ggplot() +
+  # state outlines
   geom_sf(data = Wsts) +
   geom_point(data = as.data.frame(moo), aes(x = LON_FS, y = LAT_FS,
-                                            size = prop_ba_pipo),
-                                            alpha = 0.25)
-p + transition_time(YEAR.DIFF) +
-  labs(title = "Time since fire: {frame_time}") +
-  ease_aes("linear") +
-  shadow_mark(alpha = 0.3, size = 0.5) # Shadow of mark remains
+                                            # group = regen_pipo,
+                                            color = regen_pipo,
+                                            size = 8)) +
+  theme_map()
 p
 
 
+## Trying to slow frames down
+anim <- p + transition_states(regen_pipo, # will be based on group, here regen_pipo
+                              transition_length = 0, # nix this so labels line up with state
+                              state_length = 1) +
+  # shadow_mark(alpha = 0.3) + # would leave shadow, but 2-state wrap makes weird 
+  # enter_fade() + 
+  # exit_shrink() + # would make points shrink
+  ggtitle('Now showing {closest_state}')
 
+
+animate(anim, fps=50) # Transition/state lenghts are relative. Here, specify frames/sec... 
+
+
+
+
+## Saving stuff
 install.packages("magick")
 library(magick)
 #> Linking to ImageMagick 6.9.9.39
@@ -341,14 +331,5 @@ image_write(image, paste0(out.dir,"animation_",currentDate,".gif"))
 animate(p, nframes = 24, renderer = gifski_renderer(paste0(out.dir,"animation_",currentDate,".gif")))
 
 
-https://stackoverflow.com/questions/49155038/how-to-save-frames-of-gif-created-using-gganimate-package
 
 
-https://timogrossenbacher.ch/2016/12/beautiful-thematic-maps-with-ggplot2-only/#general-ggplot2-theme-for-map
-  
-  https://www.r-spatial.org/r/2018/10/25/ggplot2-sf-2.html
-  
-
-
-
-map should have all plots to start that then gradually fade away as regen occurs, time being years since fire (not actual year). What remains are all plots that have no regen.
