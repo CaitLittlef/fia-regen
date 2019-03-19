@@ -15,8 +15,8 @@ out.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/output/"
 required.packages <- c("ggplot2", "raster", "sf", "rgdal", "dplyr",
                        "tidyverse", "maptools", "rgeos", 
                        "partykit", "vcd", "maps", "mgcv", "tmap",
-                       "MASS", "pROC", "ResourceSelection", "caret", "boot",
-                       "dismo", "pscl")
+                       "MASS", "pROC", "ResourceSelection", "caret", "broom",
+                       "dismo", "pscl", "randomForest", "pdp", "classInt")
 new.packages <- required.packages[!(required.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)>0) install.packages(new.packages)
 rm(required.packages, new.packages)
@@ -40,9 +40,12 @@ library(MASS)
 library(pROC)
 library(ResourceSelection)
 library(caret)
-library(boot)
+library(broom)
 library(dismo)
 library(pscl)
+library(randomForest)
+library(pdp)
+library(classInt)
 
 # rm(GCtorture)
 
@@ -63,9 +66,9 @@ NAmer <- st_read(dsn = "//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitl
 sts = c('California', 'Oregon', 'Washington','Idaho', 'Nevada',
         'Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
 Wsts <- NAmer[NAmer$NAME %in% sts, ] # not NAmer@data$NAME
-plot(Wsts) # Get multiple b/c multiple attributes
-plot(st_geometry(Wsts)) # Just outline
-crs(Wsts) # "+proj=longlat +datum=NAD83 +no_defs"
+# plot(Wsts) # Get multiple b/c multiple attributes
+# plot(st_geometry(Wsts)) # Just outline
+# crs(Wsts) # "+proj=longlat +datum=NAD83 +no_defs"
 
 
 #####################################
@@ -148,4 +151,26 @@ right = function(text, num_char) {
 Mode <- function(x) {
   ux <- unique(x)
   ux[which.max(tabulate(match(x, ux)))]
+}
+
+
+# Map theme
+theme_map <- function(x) {
+  theme_minimal() +
+    theme(
+      text = element_text(family = "sans", color = "#22211d"),
+      axis.line = element_blank(),
+      # axis.text.x = element_blank(),
+      # axis.text.y = element_blank(),
+      axis.ticks = element_blank(),
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      # panel.grid.minor = element_line(color = "#ebebe5", size = 0.2),
+      panel.grid.major = element_line(color = "#ebebe5", size = 0.2),
+      panel.grid.minor = element_blank(),
+      plot.background = element_rect(fill = "#ffffff", color = NA), 
+      panel.background = element_rect(fill = "#ffffff", color = NA), 
+      legend.background = element_rect(fill = "#ffffff", color = NA),
+      panel.border = element_blank()
+    )
 }
