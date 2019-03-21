@@ -1,36 +1,43 @@
+currentDate <- Sys.Date()
+
 ## Load data.all if necessary
 # data.all <- read.csv("DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
 data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
 # data.all$X <- NULL
 
+## set directory for terraclimate
+tc.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/"
+
 ## Set directory for climatic deficit z-scores
-def.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/def_z"
+def.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z"
 
-## Grab date for saving files
-currentDate <- Sys.Date()
+## Load TerraClime datasets
+aet <- raster(paste0(tc.dir,"aet.1981.2010.tif"))
+def <- raster(paste0(tc.dir,"def.1981.2010.tif"))
+ppt <- raster(paste0(tc.dir,"ppt.1981.2010.tif"))
+tmax <- raster(paste0(tc.dir,"tmax.1981.2010.tif"))
 
-
-################################################# STACK DEF, GET FIA PTS
 ## Compile all def z-scores as raster into a list
 def.list <- lapply(list.files(def.dir, pattern = ".tif$", full.names = TRUE),
-              raster) # applies FUN (here, raster) to all files; dumps into list; $=end
-
-plot(def.list[[1]]) 
-
-
-## What's Terraclim CRS? 99% sure they're all the same, but jic...
-crs.all <- vector()
-for (i in c(1:74)){
-  crs <- print(crs(def.list[[i]]))
-  rbind(crs.all, crs)
-}
-if(all(duplicated(crs.all))) cat("All CRS are the same")
-rm(crs.all, crs)
-
+                   raster) # applies FUN (here, raster) to all files; dumps into list; $=end
 
 ## Create stack of all def-z rasters
 rst = stack(def.list)
 
+## What's Terraclim CRS? 99% sure they're all the same, but jic...
+# crs.all <- vector()
+# for (i in c(1:74)){
+#   crs <- print(crs(def.list[[i]]))
+#   rbind(crs.all, crs)
+# }
+# if(all(duplicated(crs.all))) cat("All CRS are the same")
+# rm(crs.all, crs)
+
+crs(def.list[[1]])
+crs(aet)
+crs(def)
+crs(ppt)
+crs(tmax)
 
 ## Gather FIA plot pts into spatial object
 # Per FIA manual, pts in lat/long, NAD83 datum ****** IS THIS CORRECT?? ******
@@ -42,6 +49,16 @@ pts <- SpatialPoints(coords = coords,
 # def_z data use WGS84 datum; transform these pts
 pts.trans <- spTransform(pts, crs(def.list[[1]]))
 
+
+################################################# EXTRACT AET, DEF, PPT, TMAX
+
+aet.tc <- raster::extract(aet, pts.trans)
+def.tc <- raster::extract(def, pts.trans)
+ppt.tc <- raster::extract(ppt, pts.trans)
+tmax.tc <- raster::extract(tmax, pts.trans)
+
+terraclim <- as.data.frame(cbind(aet.tc, def.tc, ppt.tc, tmax.tc))
+terraclim$PLOTID <- data.all$PLOTID
 
 
 ################################################# EXTRACT DEF VALUES TO FIA PTS
@@ -89,7 +106,7 @@ zoo <- zoo %>% filter(def.year > 1983)
 ## Create trend lines; put into df (do() extracts tidied model outputs)
 def.z.lm <- zoo %>%
   group_by(PLOTID) %>%
-  do(tidy(lm(def.z ~ def.year, data =.)))
+  do(broom::tidy(lm(def.z ~ def.year, data =.)))
 def.z.lm <- as.data.frame(def.z.lm)
 def.z.lm[1:10,]
 # Alt: this stores each model as a df; not as tidy
@@ -269,12 +286,18 @@ def.data$def68_z_13 <- boo$def68_z_13
 sapply(def.data, class) # make sure all are real cols, not lists
 # write.csv(def.data, paste0("def_z_n20859_",currentDate,".csv"))
 
+## Save as csv
+sapply(terraclim, class) # make sure all are real cols, not lists
+# write.csv(terraclim, paste0("tc_n20859_",currentDate,".csv"))
+
 
 
 #########################################  
 ## Append to existing plot data
 data.all <- data.all %>%
   left_join(def.data, by = "PLOTID")
+data.all <- data.all %>%
+  left_join(terraclim, by = "PLOTID")
 
 
 ######################################### 
