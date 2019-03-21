@@ -38,62 +38,36 @@ data.psme$CMD_CHNG <- data.psme$def59.z.slope
 ######################################## POINT OF NO RETURN RE: RECOVERY? PIPO
 ## First, does cumulative likelihood plateau at some point? Pt of no return...?
 # Plot partial dependence plots to see relationship btwn YEAR.DIFF & regen.
-# Can't use glm.trees w/ pdp::partial (yet).
-# N.b., see CV response re: pdps with logistic regression:
+# Can't use glm.trees w/ pdp::partial (yet). Use plotmo (uses median, vs. pdps use avg)
+# http://www.milbo.org/doc/plotmo-notes.pdf
+
+# N.b., see CV response re: pdps with logistic regression
 # https://stats.stackexchange.com/questions/394762/partial-dependence-plot-for-glm-in-r-why-linear#394764
-
-install.packages("plotmo") # plotmo fixes other covariates at medians; pdps do avg.
-library(plotmo)
-plotmo(glm.tree.pipo, type = "response")
-glm.pipo = glm(regen_pipo ~ YEAR.DIFF + BALive_pipo + FIRE.SEV, data = data.pipo, family = "binomial")
-plotmo(glm.pipo, type = "response") # gives probabilities
-plotmo(glm.pipo, type = "link") # gives log-odds
-plotmo(glm.pipo, type = "response", pmethod = "partdep") # gives probabilities
-plotmo(glm.pipo, type = "link", pmethod = "partdep") # gives probabilities
-partialPlot(glm.tree.pipo, FIRE.SEV)
-?partialPlot
+# ACTUALLY, run those randomly generated numbers a bunch and you'll eventually get a few curves.
+# So, the pdps I'm getting for glm.trees below ARE legit.
+# I can force a curve below by looking only at a certain range of BALive_pipo (120-170), for example.
+# data <- data.pipo %>%
+#   filter(BALive_pipo > 120 & BALive_pipo < 170)
+# glm.pipo = glm(regen_pipo ~ YEAR.DIFF + BALive_pipo + FIRE.SEV, data = data, family = "binomial")
+# plotmo(glm.pipo, type = "response") # gives probabilities; not always straight whereas log odds stright.
 
 
+# Orig glm tree with partitions
+plotmo(glm.tree.pipo, type = "response") # gives probabilities, not log-odds
 
-data(iris)
-iris1 <- data.frame(virginica = iris$Species == "virginica",
-                    length = iris$Sepal.Length,
-                    width = iris$Sepal.Width)
-glm.mod <- glm(virginica~., data=iris1, family="binomial") ## glm
-plotmo(glm.mod) # default type="response" returns probabilities
+# Simple glm tree without partitions
+tree <- glmtree(regen_pipo ~ YEAR.DIFF, data = data.pipo, family = "binomial", minsplit = 50, ordinal = "L2")
+plotmo(tree, type = "response") # gives probabilities; plotmo sets other vars (if there) to median.
+plotmo(tree, type = "response", pmethod = "partdep") # gives probabilities; pdps use avg.
+plotmo(tree, type = "link", pmethod = "partdep") # gives log-odds; pdps use avg.
+# Something happens around 8 years
 
-
-
-
-# Use random forest instead. First keep regen as numeric. 
-data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo)) 
-# Create random forest, which warns of only two unique vals (0 & 1) in response.
-# N.b., rug gives deciles of distribution of obs.
-rf <- randomForest(regen_pipo ~ YEAR.DIFF,
-                   data = data.pipo, importance = TRUE)
-pdp::partial(rf,
-             pred.var = "YEAR.DIFF",
-             # pred.var = "BALive_pipo",
-             plot = TRUE, rug = TRUE)
-# No super compelling pattern -- maybe post-15?
-# I think yhat is relative logit contribution.
-
-# Set to factor; prob = TRUE returns probability not logit.
-data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered =TRUE)
-rf <- randomForest(regen_pipo ~ YEAR.DIFF,
-                   data = data.pipo, importance = TRUE)
-pdp::partial(rf,
-             pred.var = "YEAR.DIFF",
-             # pred.var = "BALive_pipo",
-             plot = TRUE, rug = TRUE,
-             prob = TRUE)
-# Something clearly happens after yr 10. Probability of getting level 1 (0) declines?
 
 
 ######################################## JUST LOOK AT GTE 10 YRS POST-FIRE. PIPO
 ## Keep sites visited 10 or more years post-fire & gurantee some seed source 
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
-moo <- data.pipo[data.pipo$YEAR.DIFF > 9 & data.pipo$BALive_pipo > 0,]
+moo <- data.pipo[data.pipo$YEAR.DIFF > 7 & data.pipo$BALive_pipo > 0,]
 moo$BAProp_pipo <- moo$BALive_pipo/moo$BALiveTot
 
 ## Is there a pattern to failure?
@@ -116,10 +90,12 @@ moo$BAProp_pipo <- moo$BALive_pipo/moo$BALiveTot
 
 
 ## What predicts regen failure in the long-run?
-mod.pipo = glm(regen_pipo ~ BALive_pipo + MAP_1995 + CMD_1995 + def59_z_3 + FIRE.SEV,
+mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + def59_z_3 + FIRE.SEV,
                data = moo, family = binomial(link = "logit"))
+mod.pipo = glm(regen_pipo ~ def59_z_3,
+               data = moo, family = "binomial")
 summary(mod.pipo)  
-
+plotmo(mod.pipo)
 
 ## Partial dependence plots
 # Can't plot partial dependence with binomial (just straight line); see rf
@@ -145,10 +121,6 @@ plot(mod.pipo)
 mod.pipo.null <- update(mod.pipo, regen_pipo ~ 1)
 (deviance(mod.pipo.null) - deviance(mod.pipo))/deviance(mod.pipo.null) 
 
-## HL GOF(best bet when you don't necessarily have replicated precitor values)
-hl <- hoslem.test(moo$regen_pipo, fitted(mod.pipo), g=5)
-cbind(hl$observed, hl$expected)
-hl # 0.6527 high p-value says no evidence of lack-of-fit.
 
 # ROC
 regen_pred=predict(mod.pipo, type ="response")
