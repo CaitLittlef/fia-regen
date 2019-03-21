@@ -39,12 +39,6 @@ mean(data$regen_pied) # 0.01826484
 mean(data$regen_pipo) # 0.06950786
 mean(data$regen_psme) # 0.1212582
 
-## Will want as factor for modelling
-data$regen_pied <- factor(data$regen_pied)
-data$regen_pipo <- factor(data$regen_pipo)
-data$regen_psme <- factor(data$regen_psme)
-
-
 
 ## Keep records where adult present -- even if dead. 
 # Mort trees are dead since last inventory
@@ -64,22 +58,29 @@ data.psme <- data %>%
 
 
 ## Check for outliers; BA sq ft/acre; TPA
-max(data.pied$BALive_pied) # 373 seems high
+hist(data.pipo$BALive_pipo,50)
+max(data.pipo$BALive_pipo) #570 seems wicked high
+hist(data.pipo$TPALive_122,50)
+max(data.pipo$TPALive_122) # 5460
+max(data.pipo$regen_pipo_tpa) #17992 is lots even if it were PICO
+data.pipo <- data.pipo[data.pipo$BALive_pipo < 350,]
+data.pipo <- data.pipo[data.pipo$regen_pipo_tpa < 10000,]
+
+
+hist(data.psme$BALive_psme,50)
+max(data.psme$BALive_psme) #345
+hist(data.psme$TPALive_202,50)
+max(data.psme$TPALive_202) # 3664
+data.psme <- data.psme[data.psme$BALive_psme < 350,]
+
+
 hist(data.pied$BALive_pied)
-data.pied <- data.pied[data.pied$BALive_pied < 300,]
+max(data.pied$BALive_pied) # 373 seems high
+data.pied <- data.pied[data.pied$BALive_pied < 350,]
 max(data.pied$regen_pied_tpa)
 hist(data.pied$regen_pied_tpa)
 
-max(data.pipo$BALive_pipo) # 570 seems high
-hist(data.pipo$BALive_pipo)
-data.pipo <- data.pipo[data.pipo$BALive_pipo < 400,]
-max(data.pipo$regen_pipo_tpa) #17992 is lots even for PICO
-hist(data.pipo$regen_pipo_tpa)
-data.pipo <- data.pipo[data.pipo$regen_pipo_tpa < 10000,]
 
-max(data.psme$BALive_psme) # 228
-hist(data.psme$BALive_psme)
-max(data.psme$regen_psme_tpa)
 
 
 # Save
