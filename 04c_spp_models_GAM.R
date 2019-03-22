@@ -61,8 +61,8 @@ plot(glm.tree.pipo)
 
 ## Get obs for each node (orig as df) and save row.names (match orig dataset)
 # Create new col in df to assign node number
-data.pipo$NODE <- NA 
-data.pipo$NODE %>% factor()
+data.pipo$node <- NA 
+data.pipo$node %>% factor()
 
 # How many and what ID? Keep only those for assigning. length() gives all, width() gives terminal
 diff <- (length(glm.tree.pipo) - width(glm.tree.pipo)) # Gives nodes that SHOULDN'T get assigned
@@ -72,54 +72,65 @@ loop.ready <- ((1+diff):(width(glm.tree.pipo)+diff)) # gives node value that sho
 for (i in loop.ready){ # length(summary) to only get terminal nodes
   node <- paste0("node",(i))
   obs <- glm.tree.pipo[[i]]$data %>% row.names()
-  data.pipo$NODE[rownames(data.pipo) %in% obs] <- paste0(node)
+  data.pipo$node[rownames(data.pipo) %in% obs] <- paste0(node)
 }
+
 
 
 ## Run gams on obs from each node
 new.yr <- seq(0,30,0.5) # new data for prediction
+node <- NULL 
+pred <- NULL 
+up <- NULL 
+down <- NULL 
+pred.list <- list()
 for (i in loop.ready){
-  data.temp <- data.pipo[data.pipo$NODE == paste0("node",(i)),]
+  # subset by node
+  data.temp <- data.pipo %>% filter(node == paste0("node",i))
+  # run gam on that subset
   gam.temp <- gam(regen_pipo ~ s(YEAR.DIFF, k = 3), data = data.temp, family = "binomial")
-  new.yr <- seq(0,30,0)
+  # predict and keep se
+  temp <- predict(gam.temp, list(YEAR.DIFF = new.yr), type = "response", se = T)
+  pred <- temp$fit
+  up <- (temp$fit + 1.96 * temp$se.fit)
+  down <- (temp$fit - 1.96 * temp$se.fit)
+  node <- paste0("node",(i))
+  pred.list[[i]] <- data.frame(cbind(new.yr, node, pred, up, down))
 }
+pred.df <- bind_rows(pred.list)
+pred.df[,c(1,3,4,5)] <- apply(pred.df[,c(1,3,4,5)], 2, function(x) as.numeric(as.character(x)))
+pred.df$node <- as.factor(pred.df$node)
 
-## Subset data for each node
-node3 <- data.pipo[data.pipo$NODE == "node3",]
-node4 <- data.pipo[data.pipo$NODE == "node4",]
-node5 <- data.pipo[data.pipo$NODE == "node5",]
+## Plots for each node.
+# For viz, need continuous response
+data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 
-## Run gams on obs from each node
-gam.node3 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node3, family = "binomial")
-gam.node4 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node4, family = "binomial")
-gam.node5 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node5, family = "binomial")
+plot.list <- list()
+for (i in loop.ready){
+  data.temp <- data.pipo %>% filter(node == paste0("node",i))
+  pred.temp <- pred.df %>% filter(node == paste0("node",i))
+  plot <- ggplot() + 
+    geom_point(data = data.temp, aes(x=YEAR.DIFF, y=regen_pipo),
+               shape = 16, size=1, alpha = 0.5,
+               position = position_jitter(width = 1, height = 0)) +
+    geom_line(data = pred.temp, aes(x=new.yr, y = pred), lty = 1, size = 1) +
+    geom_ribbon(data = pred.temp, aes(x = new.yr, ymin = down, ymax = up), alpha = 0.25) +
+    xlim(0,30) +
+    ylim(0,1) + 
+    theme_minimal(base_size = 12)
+  plot.list[[i]] <- plot
+}
+plot.list[[3]]
 
-## Generate new data for prediction
-new.yr <- seq(0, 30, 0.5) # use new data to predict
 
 ## Predictions for each node
+node3 <- data.pipo[data.pipo$NODE == "node3",]
+gam.node3 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node3, family = "binomial")
 # node 3 preds
 pred3<-predict(gam.node3, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
 seup3 <- (pred3$fit + 1.96 * pred3$se.fit) 
 sedwn3 <- (pred3$fit - 1.96 * pred3$se.fit) 
 pred3.df <- data.frame(cbind(new.yr, pred3 = pred3$fit, seup3, sedwn3))
-
-# node 4 preds
-pred4<-predict(gam.node4, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
-seup4 <- (pred4$fit + 1.96 * pred4$se.fit) 
-sedwn4 <- (pred4$fit - 1.96 * pred4$se.fit) 
-pred4.df <- data.frame(cbind(new.yr, pred4 = pred4$fit, seup4, sedwn4))
-
-# node 5 preds
-pred5<-predict(gam.node5, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
-seup5 <- (pred5$fit + 1.96 * pred5$se.fit) 
-sedwn5 <- (pred5$fit - 1.96 * pred5$se.fit) 
-pred5.df <- data.frame(cbind(new.yr, pred5 = pred5$fit, seup5, sedwn5))
-
-
-## Plots for each node
-# For viz, need continuous
-data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 
 # node 3 plot
 node3.plot <- ggplot() + 
