@@ -1,7 +1,7 @@
 #################################################3
 ## Is there an asymptote? Check with GAM
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
-gam.test <- gam(regen_pipo ~ s(YEAR.DIFF, k=10) , data=data.pipo, family = "binomial")
+gam.test <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=data.pipo, family = "binomial")
 # gam.test <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) + s(BALive_pipo, k = 3), data=data.pipo, family = "binomial")
 summary(gam.test)  
 
@@ -25,8 +25,8 @@ plot.gam(gam.test, pages = 1, resid = T) # number plots = number smooths; plots 
 new.yr <- seq(1, 30, 0.5) # use new data to predict
 # new.df <- data.frame(YEAR.DIFF = 1:30, BALive_pipo = median(data.pipo$BALive_pipo))
 predRegen<-predict(gam.test, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
-seup <- (predRegen$fit + 1.96 * predRegen$se.fit) # to project to ha
-sedwn <- (predRegen$fit - 1.96 * predRegen$se.fit) # to project to ha
+seup <- (predRegen$fit + 1.96 * predRegen$se.fit) 
+sedwn <- (predRegen$fit - 1.96 * predRegen$se.fit) 
 pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, seup, sedwn))
 
 # predRegen<-predict(gam.test, newdata = newd, type = "terms")
@@ -46,3 +46,220 @@ pipo.plot <- ggplot() +
   ylim(0,1) + 
   theme_bw()
 pipo.plot
+
+
+
+#### Are there diff asymptotes for each node?
+data.pipo$regen_pipo <- as.factor(data.pipo$regen_pipo)
+glm.tree.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
+                         | BALive_pipo + FIRE.SEV,
+                         data = data.pipo,
+                         family = "binomial",
+                         minsplit = 50,
+                         ordinal = "L2")
+plot(glm.tree.pipo)
+
+
+## Get obs for each node (orig as df) and save row.names (match orig dataset)
+# Create new col in df to assign node number
+data.pipo$NODE <- NA 
+data.pipo$NODE %>% factor()
+
+# How many and what ID? Keep only those for assigning. length() gives all, width() gives terminal
+diff <- (length(glm.tree.pipo) - width(glm.tree.pipo)) # Gives nodes that SHOULDN'T get assigned
+loop.ready <- ((1+diff):(width(glm.tree.pipo)+diff)) # gives node value that should get assigned
+
+# Loop through all terminal nodes
+for (i in loop.ready){ # length(summary) to only get terminal nodes
+  node <- paste0("node",(i))
+  obs <- glm.tree.pipo[[i]]$data %>% row.names()
+  data.pipo$NODE[rownames(data.pipo) %in% obs] <- paste0(node)
+}
+
+
+## Subset data for each node
+node3 <- data.pipo[data.pipo$NODE == "node3",]
+node4 <- data.pipo[data.pipo$NODE == "node4",]
+node5 <- data.pipo[data.pipo$NODE == "node5",]
+
+## Run gams on obs from each node
+gam.node3 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node3, family = "binomial")
+gam.node4 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node4, family = "binomial")
+gam.node5 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node5, family = "binomial")
+
+## Generate new data for prediction
+new.yr <- seq(0, 30, 0.5) # use new data to predict
+
+## Predictions for each node
+# node 3 preds
+pred3<-predict(gam.node3, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
+seup3 <- (pred3$fit + 1.96 * pred3$se.fit) 
+sedwn3 <- (pred3$fit - 1.96 * pred3$se.fit) 
+pred3.df <- data.frame(cbind(new.yr, pred3 = pred3$fit, seup3, sedwn3))
+
+# node 4 preds
+pred4<-predict(gam.node4, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
+seup4 <- (pred4$fit + 1.96 * pred4$se.fit) 
+sedwn4 <- (pred4$fit - 1.96 * pred4$se.fit) 
+pred4.df <- data.frame(cbind(new.yr, pred4 = pred4$fit, seup4, sedwn4))
+
+# node 5 preds
+pred5<-predict(gam.node5, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
+seup5 <- (pred5$fit + 1.96 * pred5$se.fit) 
+sedwn5 <- (pred5$fit - 1.96 * pred5$se.fit) 
+pred5.df <- data.frame(cbind(new.yr, pred5 = pred5$fit, seup5, sedwn5))
+
+
+## Plots for each node
+
+# node 3 plot
+node3.plot <- ggplot() + 
+  geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
+             shape = 16, size=1, alpha = 0.5,
+             position = position_jitter(width = 1, height = 0)) +
+  geom_line(data = pred3.df, aes(x=new.yr, y = pred3), lty = 1, size = 1) +
+  geom_ribbon(data = pred3.df, aes(x = new.yr, ymin = sedwn3, ymax = seup3), alpha = 0.25) +
+  xlim(0,30) +
+  ylim(0,1) + 
+  theme_minimal(base_size = 12)
+node3.plot
+
+
+
+# node 4 plot
+node4.plot <- ggplot() + 
+  geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
+             shape = 16, size=1,
+             position = position_jitter(width = 1, height = 0)) +
+  geom_line(data = pred4.df, aes(x=new.yr, y = pred4), lty = 1) +
+  geom_line(data = pred4.df, aes(x=new.yr, y = seup4), lty = 2) +
+  geom_line(data = pred4.df, aes(x=new.yr, y = sedwn4), lty = 2) + 
+  xlim(0,30) +
+  ylim(0,1) + 
+  theme_minimal(base_size = 12)
+node4.plot
+
+# node 5 plot
+node5.plot <- ggplot() + 
+  geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
+             shape = 16, size=1,
+             position = position_jitter(width = 1, height = 0)) +
+  geom_line(data = pred5.df, aes(x=new.yr, y = pred5), lty = 1) +
+  geom_line(data = pred5.df, aes(x=new.yr, y = seup5), lty = 2) +
+  geom_line(data = pred5.df, aes(x=new.yr, y = sedwn5), lty = 2) + 
+  xlim(0,30) +
+  ylim(0,1) + 
+  theme_minimal(base_size = 12)
+node5.plot
+
+
+
+
+
+
+
+
+node_dynamite <- function(obj, factor = 1,
+                          col = "black",
+                          fill = "lightgray",
+                          bg = "white",
+                          width = 0.5,
+                          yscale = NULL,
+                          ylines = 3,
+                          cex = 0.5,
+                          id = TRUE,
+                          mainlab = NULL, 
+                          gp = gpar())
+{
+  ## observed data/weights and tree fit
+  y <- obj$fitted[["(response)"]]
+  stopifnot(is.numeric(y))
+  g <- obj$fitted[["(fitted)"]]
+  w <- obj$fitted[["(weights)"]]
+  if(is.null(w)) w <- rep(1, length(y))
+  
+  ## (weighted) means and standard deviations by node
+  n <- tapply(w, g, sum)
+  m <- tapply(y * w, g, sum)/n
+  s <- sqrt(tapply((y - m[factor(g)])^2 * w, g, sum)/(n - 1))
+  
+  if (is.null(yscale)) 
+    yscale <- c(min(c(0, (m - factor * s) * 1.1)), max(c(0, (m + factor * s) * 1.1)))
+  
+  ### panel function for boxplots in nodes
+  rval <- function(node) {
+    
+    ## extract data
+    nid <- id_node(node)
+    mid <- m[as.character(nid)]
+    sid <- s[as.character(nid)]
+    wid <- n[as.character(nid)]
+    
+    top_vp <- viewport(layout = grid.layout(nrow = 2, ncol = 3,
+                                            widths = unit(c(ylines, 1, 1), 
+                                                          c("lines", "null", "lines")),  
+                                            heights = unit(c(1, 1), c("lines", "null"))),
+                       width = unit(1, "npc"), 
+                       height = unit(1, "npc") - unit(2, "lines"),
+                       name = paste("node_dynamite", nid, sep = ""),
+                       gp = gp)
+    
+    pushViewport(top_vp)
+    grid.rect(gp = gpar(fill = bg, col = 0))
+    
+    ## main title
+    top <- viewport(layout.pos.col=2, layout.pos.row=1)
+    pushViewport(top)
+    if (is.null(mainlab)) { 
+      mainlab <- if(id) {
+        function(id, nobs) sprintf("Node %s (n = %s)", id, nobs)
+      } else {
+        function(id, nobs) sprintf("n = %s", nobs)
+      }
+    }
+    if (is.function(mainlab)) {
+      mainlab <- mainlab(names(obj)[nid], wid)
+    }
+    grid.text(mainlab)
+    popViewport()
+    
+    plot <- viewport(layout.pos.col = 2, layout.pos.row = 2,
+                     xscale = c(0, 1), yscale = yscale,
+                     name = paste0("node_dynamite", nid, "plot"),
+                     clip = FALSE)
+    
+    pushViewport(plot)
+    
+    grid.yaxis()
+    grid.rect(gp = gpar(fill = "transparent"))
+    grid.clip()
+    
+    xl <- 0.5 - width/8
+    xr <- 0.5 + width/8
+    
+    ## box & whiskers
+    grid.rect(unit(0.5, "npc"), unit(0, "native"), 
+              width = unit(width, "npc"), height = unit(mid, "native"),
+              just = c("center", "bottom"), 
+              gp = gpar(col = col, fill = fill))
+    grid.lines(unit(0.5, "npc"), 
+               unit(mid + c(-1, 1) * factor * sid, "native"), gp = gpar(col = col))
+    grid.lines(unit(c(xl, xr), "npc"), unit(mid - factor * sid, "native"), 
+               gp = gpar(col = col))
+    grid.lines(unit(c(xl, xr), "npc"), unit(mid + factor * sid, "native"), 
+               gp = gpar(col = col))
+    
+    upViewport(2)
+  }
+  
+  return(rval)
+}
+class(node_dynamite) <- "grapcon_generator"
+
+
+
+
+
+
+
+# IMPORTANT CAVEAT: CUMU LIKELIHOOD OF REGEN NOT HITTING 1 ISN'T A BAD THING -- ESP IF WE SEE THERE'S STILL IVE BA
