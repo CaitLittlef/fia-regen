@@ -28,7 +28,6 @@ predRegen<-predict(gam.test, list(YEAR.DIFF = new.yr), type = "response", se = T
 seup <- (predRegen$fit + 1.96 * predRegen$se.fit) 
 sedwn <- (predRegen$fit - 1.96 * predRegen$se.fit) 
 pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, seup, sedwn))
-
 # predRegen<-predict(gam.test, newdata = newd, type = "terms")
 
 # plot(data.pipo$YEAR.DIFF, gam.test$fitted.values)
@@ -77,6 +76,14 @@ for (i in loop.ready){ # length(summary) to only get terminal nodes
 }
 
 
+## Run gams on obs from each node
+new.yr <- seq(0,30,0.5) # new data for prediction
+for (i in loop.ready){
+  data.temp <- data.pipo[data.pipo$NODE == paste0("node",(i)),]
+  gam.temp <- gam(regen_pipo ~ s(YEAR.DIFF, k = 3), data = data.temp, family = "binomial")
+  new.yr <- seq(0,30,0)
+}
+
 ## Subset data for each node
 node3 <- data.pipo[data.pipo$NODE == "node3",]
 node4 <- data.pipo[data.pipo$NODE == "node4",]
@@ -111,6 +118,8 @@ pred5.df <- data.frame(cbind(new.yr, pred5 = pred5$fit, seup5, sedwn5))
 
 
 ## Plots for each node
+# For viz, need continuous
+data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 
 # node 3 plot
 node3.plot <- ggplot() + 
