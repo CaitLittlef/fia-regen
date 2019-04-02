@@ -103,8 +103,11 @@ data.pipo$FIRE.SEV <- as.numeric(data.pipo$FIRE.SEV) # set for simple glm
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo)) # set for simple glm
 mod.pipo = glm(regen_pipo ~ YEAR.DIFF
                + BALive_pipo #+ BALiveTot
-               + MAP_1995
-               + CMD_CHNG
+               # + def.tc
+               # + tmax.tc
+               # + ppt.tc
+               # + CMD_CHNG
+               # + def59_z_13
                + FIRE.SEV,
                data = data.pipo, family = binomial(link = "logit"))
 data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE) # set back for glm tree
@@ -117,8 +120,7 @@ summary(mod.pipo)
 # Tree model over non-tree full.
 (deviance(mod.pipo) - deviance(glm.tree.pipo))/deviance(mod.pipo)
 # Minor improvement over full simple glm
-
-
+summary(glm.tree.pipo)
 
 
 ###########
@@ -170,8 +172,8 @@ confusionMatrix(data = as.factor(as.numeric(predTest>0.25)), # needs factor but 
 ## Grab & plot observations in given node
 ## Get obs for each node (orig as df) and save row.names (match orig dataset)
 # Create new col in df to assign node number
-data.pipo$NODE.test <- NA 
-data.pipo$NODE.test %>% factor()
+data.pipo$NODE <- NA 
+data.pipo$NODE %>% factor()
 
 # How many and what ID? Keep only those for assigning. length() gives all, width() gives terminal
 diff <- (length(glm.tree.pipo) - width(glm.tree.pipo)) # Gives nodes that SHOULDN'T get assigned
@@ -181,9 +183,8 @@ loop.ready <- ((1+diff):(width(glm.tree.pipo)+diff)) # gives node value that sho
 for (i in loop.ready){ # length(summary) to only get terminal nodes
   node <- paste0("node",(i))
   obs <- glm.tree.pipo[[i]]$data %>% row.names()
-  data.pipo$NODE.test[rownames(data.pipo) %in% obs] <- paste0(node)
+  data.pipo$NODE[rownames(data.pipo) %in% obs] <- paste0(node)
 }
-
 
 data.pipo %>% group_by(NODE) %>% count()
 
@@ -206,16 +207,13 @@ p
 ########################################## PSME
 ## Grow tree
 glm.tree.psme <- glmtree(regen_psme ~ YEAR.DIFF
-                         | BALive_psme +  MAP_1995 #+ CMD_1995 #+ BALiveTot
-                         # + I(YEAR.DIFF)
-                         # + REBURN
-                         # + CMD_1995
-                         + CMD_CHNG
-                         + aet.tc
+                         | BALive_psme
+                         # + CMD_CHNG
                          + def.tc
-                         + tmax.tc
-                         + ppt.tc
-                         + FIRE.SEV,
+                         # + tmax.tc
+                         # + ppt.tc
+                         # + FIRE.SEV,
+                         ,
                          data = data.psme, 
                          family = binomial(link = "logit"),
                          minsplit = 50, # weights required for splits, not just number obs
@@ -240,11 +238,12 @@ mod.psme.yrdiff <- glm(regen_psme ~ YEAR.DIFF, data = data.psme, family = binomi
 data.psme$FIRE.SEV <- as.numeric(data.psme$FIRE.SEV) # set for simple glm
 data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme)) # set for simple glm
 mod.psme = glm(regen_psme ~ YEAR.DIFF
-               + BALive_psme #+ BALiveTot
-               + MAP_1995
-               + CMD_1995
-               + CMD_CHNG
-               + FIRE.SEV,
+               + BALive_psme
+               # + CMD_CHNG
+               + def.tc,
+               # + tmax.tc
+               # + ppt.tc
+               # + FIRE.SEV,
                data = data.psme, family = binomial(link = "logit"))
 data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE) # set back for glm tree
 data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE) # set back for glm tree
