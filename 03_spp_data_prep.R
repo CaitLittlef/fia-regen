@@ -1,5 +1,6 @@
 # data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv") # w/o fire
-data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-02-27.csv")
+# data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-02-27.csv")
+data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-03-21.csv")
 data$X <- NULL # In case there's weird X col added
 
 ## Spp in data 
@@ -48,9 +49,11 @@ data.pied <- data %>%
 data.pipo <- data %>%
   filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0) %>%
   dplyr::rename(BALive_pipo = BALive_122)  
-data %>%
-  filter(BALive_122 >0) %>%
-  dplyr::rename(BALive_pipo = BALive_122) # 3222 records if exclude dead
+# data %>%
+#   filter(BALive_122 >0) %>%
+#   dplyr::rename(BALive_pipo = BALive_122) # 3222 records if exclude dead
+# data %>%
+#   filter(BAMortDown_122 >0) # 670 mort standing; 508 mort down
 data.psme <- data %>%
   filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0) %>%
   dplyr::rename(BALive_psme = BALive_202)
@@ -79,7 +82,6 @@ max(data.pied$BALive_pied) # 373 seems high
 data.pied <- data.pied[data.pied$BALive_pied < 350,]
 max(data.pied$regen_pied_tpa)
 hist(data.pied$regen_pied_tpa)
-
 
 
 
