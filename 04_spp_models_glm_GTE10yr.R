@@ -60,12 +60,16 @@ tree <- glmtree(regen_pipo ~ YEAR.DIFF, data = data.pipo, family = "binomial", m
 plotmo(tree, type = "response") # gives probabilities; plotmo sets other vars (if there) to median.
 plotmo(tree, type = "response", pmethod = "partdep") # gives probabilities; pdps use avg.
 plotmo(tree, type = "link", pmethod = "partdep") # gives log-odds; pdps use avg.
+
+
+
 # Something happens around 8 years
 
 
 
 ######################################## JUST LOOK AT GTE 10 YRS POST-FIRE. PIPO
 ## Keep sites visited 10 or more years post-fire & gurantee some seed source 
+# After model selected, scale variables to be able to compare
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 moo <- data.pipo[data.pipo$YEAR.DIFF > 7 & data.pipo$BALive_pipo > 0,]
 moo$BAProp_pipo <- moo$BALive_pipo/moo$BALiveTot
@@ -80,39 +84,28 @@ moo$BAProp_pipo <- moo$BALive_pipo/moo$BALiveTot
 # p # Maybe somethign in sky islands? Particular fire...?
 
 
-## See what strongest predictors are of this dataset.
-# First, scale variables for comparison. <-- HOLD OFF TIL MODELS SETTLED
-# var.scale <- moo %>%
-#   dplyr::select(BALive_pipo, MAP_1995, CMD_CHNG, FIRE.SEV) %>%
-#   scale() %>% as.data.frame()
-# voo <- data.frame(regen_pipo = moo$regen_pipo, var.scale)
-# remove(var.scale)
-
-
 ## What predicts regen failure in the long-run?
-mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + def59_z_3 + FIRE.SEV,
+mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_3 + FIRE.SEV,
                data = moo, family = binomial(link = "logit"))
-mod.pipo = glm(regen_pipo ~ def59_z_3,
-               data = moo, family = "binomial")
 summary(mod.pipo)  
 plotmo(mod.pipo)
 
-## Partial dependence plots
-# Can't plot partial dependence with binomial (just straight line); see rf
-moo$regen_pipo <- factor(moo$regen_pipo, ordered = FALSE) ; levels(moo$regen_pipo)[1]
-rf <- randomForest(regen_pipo  ~ BALive_pipo + MAP_1995 + CMD_1995 + def59_z_3 + FIRE.SEV,
-                   data = moo, importance = TRUE)
-pdp::partial(rf, pred.var = "def59_z_3",
-             plot = TRUE, rug = TRUE, prob = TRUE)
-# ^ As deficit increases, you're more likely to get level 1 of this factor -- i.e., 0 regen.
+## Partial dependence plots -- note you see a much greater threshold with rf than glm.
+# moo$regen_pipo <- factor(moo$regen_pipo, levels= c("1", "0"), ordered = FALSE) ; levels(moo$regen_pipo)[1]
+# rf <- randomForest(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_3 + FIRE.SEV,
+#                    data = moo, importance = TRUE)
+# pdp::partial(rf, pred.var = "def59_z_3",
+#              plot = TRUE, rug = TRUE, prob = TRUE)
+# # ^ As deficit increases, you're less likely to get level 1 of this factor -- i.e., regen.
+# 
+# moo$regen_pipo <- as.numeric(as.character(moo$regen_pipo))
+# rf <- randomForest(regen_pipo  ~ BALive_pipo + MAP_1995 + CMD_1995 + def59_z_13 + FIRE.SEV,
+#                    data = moo, importance = TRUE)
+# pdp::partial(rf, pred.var = "def59_z_13",
+#              plot = TRUE, rug = TRUE, prob = TRUE)
+# # ^ As deficit increases, you're less likely to see out outcome of 1 -- i.e., 1 regen (numeric)
 
-moo$regen_pipo <- as.numeric(as.character(moo$regen_pipo))
-rf <- randomForest(regen_pipo  ~ BALive_pipo + MAP_1995 + CMD_1995 + def59_z_13 + FIRE.SEV,
-                   data = moo, importance = TRUE)
-pdp::partial(rf, pred.var = "def59_z_13",
-             plot = TRUE, rug = TRUE, prob = TRUE)
-# ^ As deficit increases, you're less likely to see out outcome of 1 -- i.e., 1 regen (numeric)
-
+######################################
 ## Eval model
 # Standard plots
 plot(mod.pipo)
@@ -129,6 +122,40 @@ roccurve <- roc(regen_pipo ~ regen_pred, data = moo)
 par(mfrow=c(1,1))
 plot(roccurve)
 auc(roccurve)
+
+## 5-fold AUC
+
+# Randomly shuffle data
+moo<-moo[sample(nrow(moo)),]
+# Create 10 equally size folds
+folds <- cut(seq(1,nrow(moo)),breaks=10,labels=FALSE)
+
+AUC <- NULL
+for(i in 1:5){
+  #Segement data by fold 
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- moo[foldIndexes, ]
+
+  # Run model with this fold
+  mod <- update(mod.pipo, data = foldData)
+  
+  # Predict with that fold
+  foldPred <- predict(mod, foldData, type = "response")
+  
+  # Generate ROC
+  roccurve <- roc(regen_pipo ~ foldPred, data = foldData)
+  
+  # Get areaunder the curve
+  area <- auc(roccurve)
+  
+  # Fill AUC matrix with areas
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld <- rowMeans(AUC))
+# ^ Percentage correctly classified obs of all obs.
+rm(roccurve, area, AUC)
+
+
 
 
 # Prediction rate on orig data (confusion matrix) 
