@@ -61,7 +61,7 @@ terraclim <- as.data.frame(cbind(aet.tc, def.tc, ppt.tc, tmax.tc))
 terraclim$PLOTID <- data.all$PLOTID
 
 
-################################################# EXTRACT DEF VALUES TO FIA PTS
+################################################# EXTRACT DEF Z VALUES TO FIA PTS
 ## collect def_Z into empty list; nb "extract" also in other packages so be explicit.
 output <- list()
 loop.ready <- c(1:length(def.list))
