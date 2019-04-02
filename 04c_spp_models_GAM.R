@@ -65,20 +65,25 @@ data.pipo$node <- NA
 data.pipo$node %>% factor()
 
 # How many and what ID? Keep only those for assigning. length() gives all, width() gives terminal
-diff <- (length(glm.tree.pipo) - width(glm.tree.pipo)) # Gives nodes that SHOULDN'T get assigned
-loop.ready <- ((1+diff):(width(glm.tree.pipo)+diff)) # gives node value that should get assigned
+# BUT ORDER OF NODES WON'T ALWAYS WORK! USE NODEID()
+# diff <- (length(glm.tree.pipo) - width(glm.tree.pipo)) # Gives nodes that SHOULDN'T get assigned
+# loop.ready <- ((1+diff):(width(glm.tree.pipo)+diff)) # gives node value that should get assigned
+(loop.ready <- nodeids(glm.tree.pipo, terminal = TRUE))
 
 # Loop through all terminal nodes
-for (i in loop.ready){ # length(summary) to only get terminal nodes
+for (i in loop.ready){ 
   node <- paste0("node",(i))
   obs <- glm.tree.pipo[[i]]$data %>% row.names()
   data.pipo$node[rownames(data.pipo) %in% obs] <- paste0(node)
 }
 
-
+# What's fire sev like for higher BA node?
+data.pipo %>%
+  filter(node == "node5") %>%
+  count(., FIRE.SEV) # 24 plots med or high
 
 ## Run gams on obs from each node
-new.yr <- seq(0,30,0.5) # new data for prediction
+new.yr <- seq(0,32,0.5) # new YEAR.DIFF data for prediction
 node <- NULL 
 pred <- NULL 
 up <- NULL 
@@ -88,7 +93,7 @@ for (i in loop.ready){
   # subset by node
   data.temp <- data.pipo %>% filter(node == paste0("node",i))
   # run gam on that subset
-  gam.temp <- gam(regen_pipo ~ s(YEAR.DIFF, k = 3), data = data.temp, family = "binomial")
+  gam.temp <- gam(regen_pipo ~ s(YEAR.DIFF, k = 5), data = data.temp, family = "binomial")
   # predict and keep se
   temp <- predict(gam.temp, list(YEAR.DIFF = new.yr), type = "response", se = T)
   pred <- temp$fit
@@ -111,175 +116,192 @@ for (i in loop.ready){
   pred.temp <- pred.df %>% filter(node == paste0("node",i))
   plot <- ggplot() + 
     geom_point(data = data.temp, aes(x=YEAR.DIFF, y=regen_pipo),
-               shape = 16, size=1, alpha = 0.5,
-               position = position_jitter(width = 1, height = 0)) +
-    geom_line(data = pred.temp, aes(x=new.yr, y = pred), lty = 1, size = 1) +
-    geom_ribbon(data = pred.temp, aes(x = new.yr, ymin = down, ymax = up), alpha = 0.25) +
-    xlim(0,30) +
-    ylim(0,1) + 
-    theme_minimal(base_size = 12)
-  plot.list[[i]] <- plot
+               shape = 16, size=1.5, alpha = 0.5,
+               position = position_jitter(width = 1, height = 0),
+               col = pal[i]) +
+    geom_line(data = pred.temp, aes(x=new.yr, y = pred), lty = 1, size = 1,
+              col = pal[i]) +
+    geom_ribbon(data = pred.temp, aes(x = new.yr, ymin = down, ymax = up), 
+                alpha = 0.25, fill = pal[i]) +
+    scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
+    scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
+    labs(x = "Years between fire and sampling",
+         y = "Probability of juvenile presence",
+         title = paste0("n = ",nrow(data.temp))) + 
+    # scale_x/y_cont removes pts beyond limits; coord_cart overrides even if not plotted 
+    coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
+    theme_bw(base_size = 14) 
+    plot.list[[i]] <- plot
+
 }
 plot.list[[3]]
+plot.list[[4]]
+plot.list[[5]]
+
+# tiff(paste0(out.dir,"pipo_tree_node3_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[3]]
+# dev.off()
+# tiff(paste0(out.dir,"pipo_tree_node4_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[4]]
+# dev.off()
+# tiff(paste0(out.dir,"pipo_tree_node5_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[5]]
+# dev.off()
 
 
-## Predictions for each node
-node3 <- data.pipo[data.pipo$NODE == "node3",]
-gam.node3 <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=node3, family = "binomial")
-# node 3 preds
-pred3<-predict(gam.node3, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
-seup3 <- (pred3$fit + 1.96 * pred3$se.fit) 
-sedwn3 <- (pred3$fit - 1.96 * pred3$se.fit) 
-pred3.df <- data.frame(cbind(new.yr, pred3 = pred3$fit, seup3, sedwn3))
+## Create plots for each node; can't align with expression. Fake it w/ phantom()
+labels = c(expression("BA < 35" ~ ft^{2}~"/acre,"~ "no-low severity"),
+           expression(~phantom(0)~"BA < 35" ~ ft^{2}~"/acre,"~ "med-hi severity"),
+           expression("BA > 35" ~ ft^{2}~"/acre"~phantom(1000000000000))) # to align
 
-# node 3 plot
-node3.plot <- ggplot() + 
-  geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
-             shape = 16, size=1, alpha = 0.5,
-             position = position_jitter(width = 1, height = 0)) +
-  geom_line(data = pred3.df, aes(x=new.yr, y = pred3), lty = 1, size = 1) +
-  geom_ribbon(data = pred3.df, aes(x = new.yr, ymin = sedwn3, ymax = seup3), alpha = 0.25) +
-  xlim(0,30) +
-  ylim(0,1) + 
-  theme_minimal(base_size = 12)
-node3.plot
-
-
-
-# node 4 plot
-node4.plot <- ggplot() + 
-  geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
-             shape = 16, size=1,
-             position = position_jitter(width = 1, height = 0)) +
-  geom_line(data = pred4.df, aes(x=new.yr, y = pred4), lty = 1) +
-  geom_line(data = pred4.df, aes(x=new.yr, y = seup4), lty = 2) +
-  geom_line(data = pred4.df, aes(x=new.yr, y = sedwn4), lty = 2) + 
-  xlim(0,30) +
-  ylim(0,1) + 
-  theme_minimal(base_size = 12)
-node4.plot
-
-# node 5 plot
-node5.plot <- ggplot() + 
-  geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
-             shape = 16, size=1,
-             position = position_jitter(width = 1, height = 0)) +
-  geom_line(data = pred5.df, aes(x=new.yr, y = pred5), lty = 1) +
-  geom_line(data = pred5.df, aes(x=new.yr, y = seup5), lty = 2) +
-  geom_line(data = pred5.df, aes(x=new.yr, y = sedwn5), lty = 2) + 
-  xlim(0,30) +
-  ylim(0,1) + 
-  theme_minimal(base_size = 12)
-node5.plot
+p <- ggplot() +
+  # state outlines
+  geom_sf(data = NAmer, color = "#808B96", fill = "white") +
+  geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE") +
+  coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
+  geom_point(data = data.pipo, aes(x = LON_FS, y = LAT_FS, col = node),
+             size = 4, alpha = 0.7) +
+  scale_color_manual(values = pal[loop.ready],
+                     labels = labels) + 
+  theme_bw(base_size = 12) +
+  theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+        panel.background = element_rect(fill = "#808B96"),
+        axis.title = element_blank(),
+        legend.title = element_blank(),
+        legend.background = element_rect(color = "#808B96"),
+        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        legend.position=c(0,0))
+p
+# tiff(paste0(out.dir,"pipo_tree_map_",currentDate,".tiff"),
+#    width = 450, height = 600, units = "px")
+# p
+# dev.off()
 
 
 
+################################################# PSME
+## Is there an asymptote? Check with GAM
+data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
+## Get obs for each node (orig as df) and save row.names (match orig dataset)
+# Create new col in df to assign node number
+data.psme$node <- NA 
+data.psme$node %>% factor()
 
+# How many and what ID? Keep only those for assigning. 
+(loop.ready <- nodeids(glm.tree.psme, terminal = TRUE))
 
-
-
-
-node_dynamite <- function(obj, factor = 1,
-                          col = "black",
-                          fill = "lightgray",
-                          bg = "white",
-                          width = 0.5,
-                          yscale = NULL,
-                          ylines = 3,
-                          cex = 0.5,
-                          id = TRUE,
-                          mainlab = NULL, 
-                          gp = gpar())
-{
-  ## observed data/weights and tree fit
-  y <- obj$fitted[["(response)"]]
-  stopifnot(is.numeric(y))
-  g <- obj$fitted[["(fitted)"]]
-  w <- obj$fitted[["(weights)"]]
-  if(is.null(w)) w <- rep(1, length(y))
-  
-  ## (weighted) means and standard deviations by node
-  n <- tapply(w, g, sum)
-  m <- tapply(y * w, g, sum)/n
-  s <- sqrt(tapply((y - m[factor(g)])^2 * w, g, sum)/(n - 1))
-  
-  if (is.null(yscale)) 
-    yscale <- c(min(c(0, (m - factor * s) * 1.1)), max(c(0, (m + factor * s) * 1.1)))
-  
-  ### panel function for boxplots in nodes
-  rval <- function(node) {
-    
-    ## extract data
-    nid <- id_node(node)
-    mid <- m[as.character(nid)]
-    sid <- s[as.character(nid)]
-    wid <- n[as.character(nid)]
-    
-    top_vp <- viewport(layout = grid.layout(nrow = 2, ncol = 3,
-                                            widths = unit(c(ylines, 1, 1), 
-                                                          c("lines", "null", "lines")),  
-                                            heights = unit(c(1, 1), c("lines", "null"))),
-                       width = unit(1, "npc"), 
-                       height = unit(1, "npc") - unit(2, "lines"),
-                       name = paste("node_dynamite", nid, sep = ""),
-                       gp = gp)
-    
-    pushViewport(top_vp)
-    grid.rect(gp = gpar(fill = bg, col = 0))
-    
-    ## main title
-    top <- viewport(layout.pos.col=2, layout.pos.row=1)
-    pushViewport(top)
-    if (is.null(mainlab)) { 
-      mainlab <- if(id) {
-        function(id, nobs) sprintf("Node %s (n = %s)", id, nobs)
-      } else {
-        function(id, nobs) sprintf("n = %s", nobs)
-      }
-    }
-    if (is.function(mainlab)) {
-      mainlab <- mainlab(names(obj)[nid], wid)
-    }
-    grid.text(mainlab)
-    popViewport()
-    
-    plot <- viewport(layout.pos.col = 2, layout.pos.row = 2,
-                     xscale = c(0, 1), yscale = yscale,
-                     name = paste0("node_dynamite", nid, "plot"),
-                     clip = FALSE)
-    
-    pushViewport(plot)
-    
-    grid.yaxis()
-    grid.rect(gp = gpar(fill = "transparent"))
-    grid.clip()
-    
-    xl <- 0.5 - width/8
-    xr <- 0.5 + width/8
-    
-    ## box & whiskers
-    grid.rect(unit(0.5, "npc"), unit(0, "native"), 
-              width = unit(width, "npc"), height = unit(mid, "native"),
-              just = c("center", "bottom"), 
-              gp = gpar(col = col, fill = fill))
-    grid.lines(unit(0.5, "npc"), 
-               unit(mid + c(-1, 1) * factor * sid, "native"), gp = gpar(col = col))
-    grid.lines(unit(c(xl, xr), "npc"), unit(mid - factor * sid, "native"), 
-               gp = gpar(col = col))
-    grid.lines(unit(c(xl, xr), "npc"), unit(mid + factor * sid, "native"), 
-               gp = gpar(col = col))
-    
-    upViewport(2)
-  }
-  
-  return(rval)
+# Loop through all terminal nodes
+for (i in loop.ready){ 
+  node <- paste0("node",(i))
+  obs <- glm.tree.psme[[i]]$data %>% row.names()
+  data.psme$node[rownames(data.psme) %in% obs] <- paste0(node)
 }
-class(node_dynamite) <- "grapcon_generator"
 
 
+## Run gams on obs from each node
+new.yr <- seq(0,32,0.5) # new YEAR.DIFF data for prediction
+node <- NULL 
+pred <- NULL 
+up <- NULL 
+down <- NULL 
+pred.list <- list()
+for (i in loop.ready){
+  # subset by node
+  data.temp <- data.psme %>% filter(node == paste0("node",i))
+  # run gam on that subset
+  gam.temp <- gam(regen_psme ~ s(YEAR.DIFF, k = 5), data = data.temp, family = "binomial")
+  # predict and keep se
+  temp <- predict(gam.temp, list(YEAR.DIFF = new.yr), type = "response", se = T)
+  pred <- temp$fit
+  up <- (temp$fit + 1.96 * temp$se.fit)
+  down <- (temp$fit - 1.96 * temp$se.fit)
+  node <- paste0("node",(i))
+  pred.list[[i]] <- data.frame(cbind(new.yr, node, pred, up, down))
+}
+pred.df <- bind_rows(pred.list)
+pred.df[,c(1,3,4,5)] <- apply(pred.df[,c(1,3,4,5)], 2, function(x) as.numeric(as.character(x)))
+pred.df$node <- as.factor(pred.df$node)
 
+## Plots for each node.
+# For viz, need continuous response
+data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
 
+plot.list <- list()
+for (i in loop.ready){
+  data.temp <- data.psme %>% filter(node == paste0("node",i))
+  pred.temp <- pred.df %>% filter(node == paste0("node",i))
+  plot <- ggplot() + 
+    geom_point(data = data.temp, aes(x=YEAR.DIFF, y=regen_psme),
+               shape = 16, size=1.5, alpha = 0.5,
+               position = position_jitter(width = 1, height = 0),
+               col = pal[i]) +
+    geom_line(data = pred.temp, aes(x=new.yr, y = pred), lty = 1, size = 1,
+              col = pal[i]) +
+    geom_ribbon(data = pred.temp, aes(x = new.yr, ymin = down, ymax = up), 
+                alpha = 0.25, fill = pal[i]) +
+    scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
+    scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
+    labs(x = "Years between fire and sampling",
+         y = "Probability of juvenile presence",
+         title = paste0("n = ",nrow(data.temp))) + 
+    # scale_x/y_cont removes pts beyond limits; coord_cart overrides even if not plotted 
+    coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) + 
+    theme_bw(base_size = 14)
+  plot.list[[i]] <- plot
+  
+}
+plot.list[[3]]
+plot.list[[4]]
+plot.list[[6]]
+plot.list[[7]]
 
+# tiff(paste0(out.dir,"psme_tree_node3_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[3]]
+# dev.off()
+# tiff(paste0(out.dir,"psme_tree_node4_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[4]]
+# dev.off()
+# tiff(paste0(out.dir,"psme_tree_node6_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[6]]
+# dev.off()
+# tiff(paste0(out.dir,"psme_tree_node7_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[7]]
+# dev.off()
 
+plot(glm.tree.psme)
 
-# IMPORTANT CAVEAT: CUMU LIKELIHOOD OF REGEN NOT HITTING 1 ISN'T A BAD THING -- ESP IF WE SEE THERE'S STILL IVE BA
+## Create plots for each node; can't align with expression. Fake it w/ phantom()
+labels = c(expression("BA < 15" ~ ft^{2}~"/acre,"~ "deficit < 422 mm"),
+           expression("BA < 15" ~ ft^{2}~"/acre,"~ "deficit > 422 mm"),
+           expression("BA > 15" ~ ft^{2}~"/acre,"~ "deficit < 506 mm"),
+           expression("BA > 15" ~ ft^{2}~"/acre,"~ "deficit > 506 mm"))
+
+p <- ggplot() +
+  # state outlines
+  geom_sf(data = NAmer, color = "#808B96", fill = "white") +
+  geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE") +
+  coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
+  geom_point(data = data.psme, aes(x = LON_FS, y = LAT_FS, col = node),
+             size = 4, alpha = 0.7) +
+  scale_color_manual(values = pal[loop.ready],
+                     labels = labels) + 
+  theme_bw(base_size = 12) +
+  theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+        panel.background = element_rect(fill = "#808B96"),
+        axis.title = element_blank(),
+        legend.title = element_blank(),
+        legend.background = element_rect(color = "#808B96"),
+        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        legend.position=c(0,0))
+p
+# tiff(paste0(out.dir,"psme_tree_map_",currentDate,".tiff"),
+#    width = 450, height = 600, units = "px")
+# p
+# dev.off()
