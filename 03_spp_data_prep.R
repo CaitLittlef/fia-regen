@@ -27,7 +27,6 @@ data$DUFF_DEPTH[is.na(data$DUFF_DEPTH)] <- 0
 data$LITTER_DEPTH[is.na(data$LITTER_DEPTH)] <- 0
 
 
-
 ## Create p/a regen var for maj spp
 data <- data %>%
   mutate(regen_pied = ifelse(data$TPASeed106Ac >0, 1, 0),
