@@ -67,40 +67,31 @@ plotmo(tree, type = "link", pmethod = "partdep") # gives log-odds; pdps use avg.
 
 
 
-######################################## JUST LOOK AT GTE 10 YRS POST-FIRE. PIPO
-## Keep sites visited 10 or more years post-fire & gurantee some seed source 
+######################################## JUST LOOK AT GTE 8 YRS POST-FIRE. PIPO
+## Keep sites visited 8 or more years post-fire & gurantee some seed source 
 # After model selected, scale variables to be able to compare
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
-moo <- data.pipo[data.pipo$YEAR.DIFF > 7 & data.pipo$BALive_pipo > 0,]
-moo$BAProp_pipo <- moo$BALive_pipo/moo$BALiveTot
+boo <- data.pipo[data.pipo$YEAR.DIFF > 7 & data.pipo$BALive_pipo > 0,]
+boo$BAProp_pipo <- boo$BALive_pipo/boo$BALiveTot
 
-## Is there a pattern to failure?
-# p <- ggplot() +
-#   geom_sf(data = Wsts) +
-#   geom_point(data = moo,
-#              aes(x = LON_FS, y = LAT_FS, col = regen_pipo)) +
-#   scale_color_manual(values = c("blue", "yellow"),
-#                      labels = c("no regen", "regen"))
-# p # Maybe somethign in sky islands? Particular fire...?
 
 
 ## What predicts regen failure in the long-run?
-mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_3 + FIRE.SEV,
-               data = moo, family = binomial(link = "logit"))
+mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = boo, family = binomial)
 summary(mod.pipo)  
 plotmo(mod.pipo)
 
 ## Partial dependence plots -- note you see a much greater threshold with rf than glm.
-# moo$regen_pipo <- factor(moo$regen_pipo, levels= c("1", "0"), ordered = FALSE) ; levels(moo$regen_pipo)[1]
+# boo$regen_pipo <- factor(boo$regen_pipo, levels= c("1", "0"), ordered = FALSE) ; levels(boo$regen_pipo)[1]
 # rf <- randomForest(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_3 + FIRE.SEV,
-#                    data = moo, importance = TRUE)
+#                    data = boo, importance = TRUE)
 # pdp::partial(rf, pred.var = "def59_z_3",
 #              plot = TRUE, rug = TRUE, prob = TRUE)
 # # ^ As deficit increases, you're less likely to get level 1 of this factor -- i.e., regen.
 # 
-# moo$regen_pipo <- as.numeric(as.character(moo$regen_pipo))
+# boo$regen_pipo <- as.numeric(as.character(boo$regen_pipo))
 # rf <- randomForest(regen_pipo  ~ BALive_pipo + MAP_1995 + CMD_1995 + def59_z_13 + FIRE.SEV,
-#                    data = moo, importance = TRUE)
+#                    data = boo, importance = TRUE)
 # pdp::partial(rf, pred.var = "def59_z_13",
 #              plot = TRUE, rug = TRUE, prob = TRUE)
 # # ^ As deficit increases, you're less likely to see out outcome of 1 -- i.e., 1 regen (numeric)
@@ -108,279 +99,320 @@ plotmo(mod.pipo)
 ######################################
 ## Eval model
 # Standard plots
-plot(mod.pipo)
+# plot(mod.pipo)
+
 
 ## Deviance over null
 mod.pipo.null <- update(mod.pipo, regen_pipo ~ 1)
 (deviance(mod.pipo.null) - deviance(mod.pipo))/deviance(mod.pipo.null) 
 
-
 # ROC
 regen_pred=predict(mod.pipo, type ="response")
-moo$regen_pred <- regen_pred
-roccurve <- roc(regen_pipo ~ regen_pred, data = moo)
+boo$regen_pred <- regen_pred
+roccurve <- roc(regen_pipo ~ regen_pred, data = boo)
 par(mfrow=c(1,1))
 plot(roccurve)
 auc(roccurve)
 
 ## 5-fold AUC
-
 # Randomly shuffle data
-moo<-moo[sample(nrow(moo)),]
-# Create 10 equally size folds
-folds <- cut(seq(1,nrow(moo)),breaks=10,labels=FALSE)
+boo<-boo[sample(nrow(boo)),]
+# Create 5 equally size folds
+folds <- cut(seq(1,nrow(boo)),breaks=5,labels=FALSE)
+# use LTE 5 else folds too small and not all factor levels are represented .
+# Even so, may work sometimes but not others.
 
 AUC <- NULL
 for(i in 1:5){
   #Segement data by fold 
   foldIndexes <- which(folds==i,arr.ind=TRUE)
-  foldData <- moo[foldIndexes, ]
-
+  foldData <- boo[foldIndexes, ]
   # Run model with this fold
   mod <- update(mod.pipo, data = foldData)
-  
   # Predict with that fold
   foldPred <- predict(mod, foldData, type = "response")
-  
   # Generate ROC
-  roccurve <- roc(regen_pipo ~ foldPred, data = foldData)
-  
+  roccurve <- roc(regen_pipo ~ foldPred, data = foldData) # can plot
   # Get areaunder the curve
   area <- auc(roccurve)
-  
   # Fill AUC matrix with areas
   AUC <- cbind(AUC, area)
 }
-(AUC.5fld <- rowMeans(AUC))
+(AUC.5fld <- rowMeans(AUC)) 
 # ^ Percentage correctly classified obs of all obs.
 rm(roccurve, area, AUC)
 
 
+###### Model selection: proceed with retaining/dropping out variables
+### Orig
+mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = boo, family = binomial)
+summary(mod.pipo)
+AIC(mod.pipo) # 228.9698
 
 
-# Prediction rate on orig data (confusion matrix) 
-regen_pred <- predict(mod.pipo, type = "response")
-thresh <- 0.5 # define threshold for categorizing predicted probabilities.
-# Then cut predicted probabilities into categories 
-predCat <- cut(regen_pred, breaks=c(-Inf, thresh, Inf), labels=c("0", "1"))
-# Create confusion matrix
-confusn <- table(predCat, moo$regen_pipo, dnn=c("predicted", "actual"))
-addmargins(confusn)
+## CV to get prediction error rate
+cv.glm(boo, mod.pipo, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
+
+## 5-fold AUC
+boo<-boo[sample(nrow(boo)),]
+folds <- cut(seq(1,nrow(boo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- boo[foldIndexes, ]
+  mod <- update(mod.pipo, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_pipo ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v1 <- rowMeans(AUC)) # 0.7999728
+rm(roccurve, area, AUC)
 
 
-# Alt: caret package
-regen_pred <- predict(mod.pipo, type = "response")
-confusionMatrix(data = as.factor(as.numeric(regen_pred>0.5)), # needs factor but set num for 0/1 first
-                reference = as.factor(moo$regen_pipo), # needs factor
-                dnn = c("predicted", "actual"))
+### Least signif: all terraclimate variables
+# Update model
+mod.pipo.v2 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV + REBURN)
+summary(mod.pipo.v2)
+AIC(mod.pipo.v2) # 221.2348
+plotmo(mod.pipo.v2)
 
-# CV
-cv.glm(moo, mod.pipo, K=10)$delta # 10-fold cross-validation: raw & adjusted; nb no K sets K=n so is basically leave-one-out
+## CV to get prediction error rate
+cv.glm(boo, mod.pipo.v2, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
+
+## 5-fold AUC
+boo<-boo[sample(nrow(boo)),]
+folds <- cut(seq(1,nrow(boo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- boo[foldIndexes, ]
+  mod <- update(mod.pipo.v2, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_pipo ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v2 <- rowMeans(AUC)) # 0.7269562
+rm(roccurve, area, AUC)
+
+### Drop reburn, too 
+mod.pipo.v3 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV)
+summary(mod.pipo.v3)
+AIC(mod.pipo.v3) # 220.963
+plotmo(mod.pipo.v3)
+
+## CV to get prediction error rate
+cv.glm(boo, mod.pipo.v3, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
+
+## 5-fold AUC
+boo<-boo[sample(nrow(boo)),]
+folds <- cut(seq(1,nrow(boo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- boo[foldIndexes, ]
+  mod <- update(mod.pipo.v3, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_pipo ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v3 <- rowMeans(AUC)) # 0.722767
+rm(roccurve, area, AUC)
+
+
+### Keep only z-score deficit 
+mod.pipo.v4 <- update(mod.pipo, regen_pipo ~ def59_z_13 )
+summary(mod.pipo.v4)
+AIC(mod.pipo.v4) # 220.963
+plotmo(mod.pipo.v4)
+
+## CV to get prediction error rate
+cv.glm(boo, mod.pipo.v4, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
+
+## 5-fold AUC
+boo<-boo[sample(nrow(boo)),]
+folds <- cut(seq(1,nrow(boo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- boo[foldIndexes, ]
+  mod <- update(mod.pipo.v4, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_pipo ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v4 <- rowMeans(AUC)) # 0.6179613
+rm(roccurve, area, AUC)
+
+AUC.5fld.v1 # highest AUC
+AUC.5fld.v2 # high AUC
+AUC.5fld.v3 # med AUC
+AUC.5fld.v4 # lowest AUC
+
+cv.glm(boo, mod.pipo, K=5)$delta # lowest error rate
+cv.glm(boo, mod.pipo.v2, K=5)$delta # lowest error rate
+cv.glm(boo, mod.pipo.v3, K=5)$delta # still pretty low error rate
+cv.glm(boo, mod.pipo.v4, K=5)$delta # still pretty low error rate
+
+AIC(mod.pipo, mod.pipo.v2, mod.pipo.v3, mod.pipo.v4)
+# v3 < v2 < v4 < v1 w/ v2 and v3 quite close.
+
+cv.glm(boo, mod.pipo, K=5)$delta # highest error rate
+# Not specifying # folds runs leave-one-out
+cv.glm(boo, mod.pipo)$delta # 
+cv.glm(boo, mod.pipo.v2)$delta # 
+cv.glm(boo, mod.pipo.v3)$delta # lowest
+cv.glm(boo, mod.pipo.v4)$delta # 
+
+# toss-up btwn 2 & 3, but all told 3 is best
+# 3 is more parsimonious w/o REBURN so retain tbat model.
+# But relatinoship w/ reburn interesting.
+
+mod.pipo.final <- mod.pipo.v3
+plotmo(mod.pipo.final)
+
+# What about only BA > 35 which was breakpt in trees
+poo <- boo %>% filter(BALive_pipo > 35)
+mod.temp <- update(mod.pipo.final, data = poo)
+summary(mod.temp)
+plotmo(mod.temp)
+
+# What about N of 40? which was breakpt in trees
+poo <- boo %>% filter(LAT_FS > 40)
+mod.elev = glm(regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV + ELEV,
+               data = poo, family = binomial)
+summary(mod.elev)
+plotmo(mod.temp)
+
+
+## What about interactions? # Maybe FIRE.SEV & Z-score make sense, but nix.
+# mod.pipo.ax = glm(regen_pipo ~ BALive_pipo * def59_z_13 * FIRE.SEV * REBURN, data = boo, family = binomial)
+# summary(mod.pipo.ax)
+
+
+
+boo$regen_pipo <- factor(boo$regen_pipo)
+## Is there a pattern to failure?
+p <- ggplot() +
+  geom_sf(data = Wsts) +
+  geom_point(data = boo,
+             aes(x = LON_FS, y = LAT_FS, col = regen_pipo)) +
+  scale_color_manual(values = c("blue", "yellow"),
+                     labels = c("no regen", "regen"))
+p # Maybe somethign in sky islands? Particular fire...?
+
+
 
 
 
 ######################################## POINT OF NO RETURN RE: RECOVERY? PSME
-## First, does cumulative likelihood plateau at some point? Pt of no return...?
-# Plot partial dependence plots to see relationship btwn YEAR.DIFF & regen.
-# Use random forest instead. First keep regen as numeric. 
-data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme)) 
-# Create random forest, which warns of only two unique vals (0 & 1) in response.
-# N.b., rug gives deciles of distribution of obs.
-rf <- randomForest(regen_psme ~ YEAR.DIFF,
-                   data = data.psme, importance = TRUE)
-pdp::partial(rf, pred.var = "YEAR.DIFF",
-             plot = TRUE, rug = TRUE)
-# No super compelling pattern -- maybe post-15?
-# I think yhat is relative logit contribution.
 
-# Set to factor; prob = TRUE returns probability not logit.
-data.psme$regen_psme <- factor(data.psme$regen_psme, ordered =TRUE)
-rf <- randomForest(regen_psme ~ YEAR.DIFF,
-                   data = data.psme, importance = TRUE)
-pdp::partial(rf, pred.var = "YEAR.DIFF",
-             plot = TRUE, rug = TRUE,
-             prob = TRUE)
-# Something clearly happens after yr 10. Probability of getting level 1 (0) declines?
+# Orig glm tree with partitions
+plotmo(glm.tree.psme, type = "response") # gives probabilities, not log-odds
+
+# Simple glm tree without partitions
+tree <- glmtree(regen_psme ~ YEAR.DIFF, data = data.psme, family = "binomial", minsplit = 50, ordinal = "L2")
+plotmo(tree, type = "response") # gives probabilities; plotmo sets other vars (if there) to median.
+plotmo(tree, type = "response", pmethod = "partdep") # gives probabilities; pdps use avg.
+plotmo(tree, type = "link", pmethod = "partdep") # gives log-odds; pdps use avg.
 
 
-######################################## JUST LOOK AT GTE 10 YRS POST-FIRE. PSME
-data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme)) 
-## Keep sites visited 10 or more years post-fire & gurantee some seed source 
-moo <- data.psme[data.psme$YEAR.DIFF > 9 & data.psme$BALive_psme > 0,]
-# data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
+######################################## JUST LOOK AT GTE 8 YRS POST-FIRE. PSME
+## Keep sites visited 8 or more years post-fire & gurantee some seed source 
+# After model selected, scale variables to be able to compare
+data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
+moo <- data.psme[data.psme$YEAR.DIFF > 7 & data.psme$BALive_psme > 0,]
 moo$BAProp_psme <- moo$BALive_psme/moo$BALiveTot
 
 
-## Is there a pattern to failure?
-# p <- ggplot() +
-#   geom_sf(data = Wsts) +
-#   geom_point(data = moo,
-#              aes(x = LON_FS, y = LAT_FS, col = regen_psme)) +
-#   scale_color_manual(values = c("blue", "yellow"),
-#                      labels = c("no regen", "regen"))
-# p # Maybe somethign in sky islands? Particular fire...?
-
-
-## See what strongest predictors are of this dataset.
-# First, scale variables for comparison. <-- HOLD OFF TIL MODELS SETTLED
-# var.scale <- moo %>%
-#   dplyr::select(BALive_psme, MAP_1995, CMD_CHNG, FIRE.SEV) %>%
-#   scale() %>% as.data.frame()
-# voo <- data.frame(regen_psme = moo$regen_psme, var.scale)
-# remove(var.scale)
-
 ## What predicts regen failure in the long-run?
-mod.psme = glm(regen_psme ~ BALive_psme + MAP_1995 + CMD_1995 + def59_z_3 + FIRE.SEV,
-               data = moo, family = binomial(link = "logit"))
+mod.psme = glm(regen_psme ~ BALive_psme + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = moo, family = binomial)
 summary(mod.psme)  
-
-
-## Partial dependence plots
-# Can't plot partial dependence with binomial (just straight line); see rf
-moo$regen_psme <- factor(moo$regen_psme, ordered = FALSE) ; levels(moo$regen_psme)[1]
-rf <- randomForest(regen_psme  ~ BALive_psme + MAP_1995 + CMD_1995 + def59_z_3 + FIRE.SEV,
-                   data = moo, importance = TRUE)
-pdp::partial(rf, pred.var = "CMD_1995",
-             plot = TRUE, rug = TRUE, prob = TRUE)
-# ^ As deficit increases past 400, you're less likely to see out outcome of 1 -- i.e., 1 regen (numeric)
-
-moo$regen_psme <- as.numeric(as.character(moo$regen_psme))
-rf <- randomForest(regen_psme  ~ BALive_psme + MAP_1995 + CMD_1995 + def59_z_3 + FIRE.SEV,
-                   data = moo, importance = TRUE)
-pdp::partial(rf, pred.var = "CMD_1995",
-             plot = TRUE, rug = TRUE, prob = TRUE)
-# ^ As deficit increases past 400, you're less likely to see out outcome of 1 -- i.e., 1 regen (numeric)
-
-
-## Eval model
-# Standard plots
-plot(mod.psme)
-
-## Deviance over null
-mod.psme.null <- update(mod.psme, regen_psme ~ 1)
-(deviance(mod.psme.null) - deviance(mod.psme))/deviance(mod.psme.null) 
-
-## HL GOF(best bet when you don't necessarily have replicated precitor values)
-hl <- hoslem.test(moo$regen_psme, fitted(mod.psme), g=6) # g=num covariates + 1
-cbind(hl$observed, hl$expected)
-hl # 0.6527 high p-value says no evidence of lack-of-fit.
-
-# ROC
-regen_pred=predict(mod.psme, type ="response")
-moo$regen_pred <- regen_pred
-roccurve <- roc(regen_psme ~ regen_pred, data = moo)
-par(mfrow=c(1,1))
-plot(roccurve)
-auc(roccurve)
-
-
-# Prediction rate on orig data (confusion matrix) 
-regen_pred <- predict(mod.psme, type = "response")
-thresh <- 0.5 # define threshold for categorizing predicted probabilities.
-# Then cut predicted probabilities into categories 
-predCat <- cut(regen_pred, breaks=c(-Inf, thresh, Inf), labels=c("0", "1"))
-# Create confusion matrix
-confusn <- table(predCat, moo$regen_psme, dnn=c("predicted", "actual"))
-addmargins(confusn)
-
-
-# Alt: caret package
-regen_pred <- predict(mod.psme, type = "response")
-confusionMatrix(data = as.factor(as.numeric(regen_pred>0.5)), # needs factor but set num for 0/1 first
-                reference = as.factor(moo$regen_psme), # needs factor
-                dnn = c("predicted", "actual"))
-
-# CV
-cv.glm(moo, mod.psme, K=10)$delta # 10-fold cross-validation: raw & adjusted; nb no K sets K=n so is basically leave-one-out
+plotmo(mod.psme)
 
 
 
+###### Model selection: proceed with retaining/dropping out variables
+### Orig
+mod.psme = glm(regen_psme ~ BALive_psme + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = moo, family = binomial)
+summary(mod.psme)
+AIC(mod.psme) # 260.8357
 
-######################################################## MAP IT
-# Map should have all plots then gradually fade as regen occurs, with time since fire (not actual year).
-# What remains are all plots that have no regen.
-# Alt: Alternate between plots that have and don't have regen after 10 years.
-# Trying to animate... to no avail.
+## CV to get prediction error rate
+cv.glm(moo, mod.psme, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
 
-## Try to animate based on decline in regen likelihood
-install.packages("gganimate")
-install.packages("gifski")
-library(gganimate)
-library(gifski)
+## 5-fold AUC
+moo<-moo[sample(nrow(moo)),]
+folds <- cut(seq(1,nrow(moo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- moo[foldIndexes, ]
+  mod <- update(mod.psme, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_psme ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v1 <- rowMeans(AUC)) # 0.8445903
+rm(roccurve, area, AUC)
 
 
+stepAIC(mod.psme)
+# Suggests keeping in on;ly ppt.tc and def.tc
+mod.psme.v2 <- update(mod.psme, regen_psme ~ ppt.tc + def.tc)
+
+AIC(mod.psme.v2) # 251.1467
+
+## CV to get prediction error rate
+cv.glm(moo, mod.psme.v2, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
+
+## 5-fold AUC
+moo<-moo[sample(nrow(moo)),]
+folds <- cut(seq(1,nrow(moo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- moo[foldIndexes, ]
+  mod <- update(mod.psme.v2, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_psme ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v2 <- rowMeans(AUC)) # 0.7213352
+rm(roccurve, area, AUC)
 
 
+summary(mod.psme)
+
+AUC.5fld.v1 
+AUC.5fld.v2 
+
+AIC(mod.psme, mod.psme.v2)
+
+cv.glm(moo, mod.psme, K=5)$delta 
+cv.glm(moo, mod.psme.v2, K=5)$delta 
+
+cv.glm(moo, mod.psme)$delta 
+cv.glm(moo, mod.psme.v2)$delta 
+
+
+moo$regen_psme <- factor(moo$regen_psme)
+## Is there a pattern to failure?
 p <- ggplot() +
-  # state outlines
   geom_sf(data = Wsts) +
-  geom_point(data = as.data.frame(coords), aes(x = lon, y = lat)) +
-  theme_map()
-p
-
-moo$time <- as.numeric(as.character(moo$regen_pipo))+1
-p <- ggplot() +
-  # state outlines
-  geom_sf(data = Wsts) +
-  geom_point(data = as.data.frame(moo), aes(x = LON_FS, y = LAT_FS,
-                                            # group = regen_pipo,
-                                            color = regen_pipo),
-                                            size = 5, alpha = 0.7) +
-  theme_map()
-p
-
-
-## Trying to slow frames down
-anim <- p + transition_states(regen_pipo, # will be based on group, here regen_pipo
-                              transition_length = 0, # nix this so labels line up with state
-                              state_length = 1) +
-  # shadow_mark(alpha = 0.3) + # would leave shadow, but 2-state wrap makes weird 
-  # enter_fade() + 
-  # exit_shrink() + # would make points shrink
-  ggtitle('Now showing {closest_state}')
-
-
-animate(anim, fps=50, renderer= gifski_renderer(paste0(out.dir,"animation_",currentDate,".gif"))) # Transition/state lenghts are relative. Here, specify frames/sec... 
-
-
-
-
-## Saving stuff
-install.packages("magick")
-library(magick)
-#> Linking to ImageMagick 6.9.9.39
-#> Enabled features: cairo, fontconfig, freetype, lcms, pango, rsvg, webp
-#> Disabled features: fftw, ghostscript, x11
-image <- animate(p)
-image_write(image, paste0(out.dir,"animation_",currentDate,".gif"))
-# ^ doesn't work
-animate(p, nframes = 24, renderer = gifski_renderer(paste0(out.dir,"animation_",currentDate,".gif")))
-
-
-
-## Possible mtbs map
-fire <- st_read("//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/NW CASC/Dir/WA_Large_Fires/wa_lrg_fires.shp")
-fire <- fire[,c("FIRENAME", "YEAR")]
-class(fire) # sfdf
-plot(st_geometry(fire))
-plot(st_geometry(fire[fire$FIRENAME == "Tripod (Tripod Complex)" ,]))
-
-min(fire$YEAR)
-max(fire$YEAR)
-
-yr.vec <- c(1973, 2005, 2010, 2015, 2020)
-fire$FIRE.BIN <- findInterval(fire$YEAR, vec=yr.vec, rightmost.closed=TRUE)
-
-
-p <- ggplot() +
-  # state outlines
-  geom_sf(data = Wsts[Wsts$NAME == "Washington",]) +
-  geom_sf(data = fire, aes(fill = FIRE.BIN)) +
-  scale_fill_gradient(low = "#56B1F7", high = "#f79c56")
-p
-
-?scale_color_brewer 
-
-scale_color_manual(values = c("yellow", "orange", "light green", "dark green"),
-                   labels = c("3: <BA <CMD", "4: <BA >CMD", "6: >BA <CMD", "7: >BA >CMD"))
-p
+  geom_point(data = moo,
+             aes(x = LON_FS, y = LAT_FS, col = regen_psme)) +
+  scale_color_manual(values = c("blue", "yellow"),
+                     labels = c("no regen", "regen"))
+p # Maybe somethign in sky islands? Particular fire...?
