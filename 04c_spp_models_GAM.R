@@ -1,7 +1,7 @@
 #################################################3
 ## Is there an asymptote? Check with GAM
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
-gam.test <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) , data=data.pipo, family = "binomial")
+gam.test <- gam(regen_pipo ~ s(YEAR.DIFF, k=5) , data=data.pipo, family = "binomial")
 # gam.test <- gam(regen_pipo ~ s(YEAR.DIFF, k=3) + s(BALive_pipo, k = 3), data=data.pipo, family = "binomial")
 summary(gam.test)  
 
@@ -25,8 +25,8 @@ plot.gam(gam.test, pages = 1, resid = T) # number plots = number smooths; plots 
 new.yr <- seq(1, 30, 0.5) # use new data to predict
 # new.df <- data.frame(YEAR.DIFF = 1:30, BALive_pipo = median(data.pipo$BALive_pipo))
 predRegen<-predict(gam.test, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
-seup <- (predRegen$fit + 1.96 * predRegen$se.fit) 
-sedwn <- (predRegen$fit - 1.96 * predRegen$se.fit) 
+up <- (predRegen$fit + 1.96 * predRegen$se.fit) 
+down <- (predRegen$fit - 1.96 * predRegen$se.fit) 
 pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, seup, sedwn))
 # predRegen<-predict(gam.test, newdata = newd, type = "terms")
 
@@ -34,17 +34,22 @@ pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, seup, sedwn))
 # points(new.yr, predRegen$fit, add = T, col = "blue")
 # lines(new.yr,predRegen,col="blue",lwd=2)
 
-pipo.plot <- ggplot() + 
+pipo.plot.all <- ggplot() + 
   geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
-             shape = 16, size=1,
+             shape = 16, size=1.5, alpha = 0.5,
              position = position_jitter(width = 1, height = 0)) +
-  geom_line(data = pred.df, aes(x=new.yr, y = pred), lty = 1) +
-  geom_line(data = pred.df, aes(x=new.yr, y = seup), lty = 2) +
-  geom_line(data = pred.df, aes(x=new.yr, y = sedwn), lty = 2) + 
-  xlim(0,30) +
-  ylim(0,1) + 
-  theme_bw()
-pipo.plot
+  geom_line(data = pred.df, aes(x=new.yr, y = pred), lty = 1, size = 1) +
+  geom_ribbon(data = pred.df, aes(x=new.yr, ymin = down, ymax = up),
+              alpha = 0.25, fill = "grey") +
+  scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
+  scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
+  labs(x = "Years between fire and sampling",
+       y = "Probability of juvenile presence") +
+  coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
+  theme_bw(base_size = 14) 
+pipo.plot.all
+
+
 
 
 
@@ -258,6 +263,34 @@ plot.list[[4]]
 plot.list[[6]]
 plot.list[[7]]
 
+# lowest BA & higher CMD has best probability.
+hist(data.psme$def.tc[data.psme$node == "node3"])
+hist(data.psme$def.tc[data.psme$node == "node4"], 30)
+hist(data.psme$def.tc[data.psme$node == "node6"])
+hist(data.psme$def.tc[data.psme$node == "node7"], 30)
+
+data.psme %>%
+  filter(node == "node4") %>%
+  count(def.tc > 500)
+data.psme %>%
+  filter(node == "node4") %>%
+  count(LAT_FS > 42) # S. border of Idaho
+87/(87 + 141) # 0.38
+data.psme %>%
+  filter(node == "node4") %>%
+  count(LAT_FS > 37) # S. border of UT & CO
+127/(101 + 127) # 0.56
+data.psme %>%
+  filter(node == "node4") %>%
+  filter(YEAR.DIFF > 20) %>%
+  count(LAT_FS > 42, regen_psme)
+
+#  `LAT_FS > 42`    regen_psme     n
+# <lgl>              <dbl> <int>
+#   1 TRUE                   0     1 # ID
+#   2 TRUE                   1     5 # ID & MT
+
+
 # tiff(paste0(out.dir,"psme_tree_node3_",currentDate,".tiff"),
 #       width = 400, height = 400, units = "px")
 # plot.list[[3]]
@@ -298,7 +331,7 @@ p <- ggplot() +
         axis.title = element_blank(),
         legend.title = element_blank(),
         legend.background = element_rect(color = "#808B96"),
-        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        legend.justification=c(0,0), # defines which side of legend .position coords refer to 
         legend.position=c(0,0))
 p
 # tiff(paste0(out.dir,"psme_tree_map_",currentDate,".tiff"),
