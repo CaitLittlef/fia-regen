@@ -159,11 +159,7 @@ confusionMatrix(data = as.factor(as.numeric(regen_pred>0.25)), # needs factor bu
 
 ## Alt self-created hold-out: basically k-folds CV (see CV.R); can't apply glm.cv()
 
-## Alt, use caret package
-predTest <- predict(glm.tree.pipo.train, testData)
-confusionMatrix(data = as.factor(as.numeric(predTest>0.25)), # needs factor but set num for 0/1 first
-                reference = as.factor(testData$regen_pipo), # needs factor
-                dnn = c("predicted", "actual"))
+
 
 
 
@@ -337,28 +333,21 @@ confusionMatrix(data = as.factor(as.numeric(predTest>0.5)), # needs factor but s
 
 ##############################################
 ## Grab & plot observations in given node
-plot(glm.tree.psme)
-# Get obs for each node (orig as df) and save row.names (match orig dataset)
-obs.node1 <- (glm.tree.psme[[1]]$data) %>% row.names()
-obs.node2 <- (glm.tree.psme[[2]]$data) %>% row.names()
-obs.node3 <- (glm.tree.psme[[3]]$data) %>% row.names()
-obs.node4 <- (glm.tree.psme[[4]]$data) %>% row.names()
-obs.node5 <- (glm.tree.psme[[5]]$data) %>% row.names()
-obs.node6 <- (glm.tree.psme[[6]]$data) %>% row.names()
-obs.node7 <- (glm.tree.psme[[7]]$data) %>% row.names()
+## Get obs for each node (orig as df) and save row.names (match orig dataset)
+# Create new col in df to assign node number
+data.psme$NODE <- NA 
+data.psme$NODE %>% factor()
 
-# Create new col in dataframe to assign node number
-glm.tree.psme$NODE <- NA 
-glm.tree.psme$NODE %>% factor()
+# How many and what ID? Keep only those for assigning. length() gives all, width() gives terminal
+diff <- (length(glm.tree.psme) - width(glm.tree.psme)) # Gives nodes that SHOULDN'T get assigned
+loop.ready <- ((1+diff):(width(glm.tree.psme)+diff)) # gives node value that should get assigned
 
-# Only assign terminal nodes
-data.psme$NODE[rownames(data.psme) %in% obs.node1] <- "node1"
-data.psme$NODE[rownames(data.psme) %in% obs.node2] <- "node2"
-data.psme$NODE[rownames(data.psme) %in% obs.node3] <- "node3"
-data.psme$NODE[rownames(data.psme) %in% obs.node4] <- "node4"
-data.psme$NODE[rownames(data.psme) %in% obs.node5] <- "node5"
-data.psme$NODE[rownames(data.psme) %in% obs.node6] <- "node6"
-data.psme$NODE[rownames(data.psme) %in% obs.node7] <- "node7"
+# Loop through all terminal nodes
+for (i in loop.ready){ # length(summary) to only get terminal nodes
+  node <- paste0("node",(i))
+  obs <- glm.tree.psme[[i]]$data %>% row.names()
+  data.psme$NODE[rownames(data.psme) %in% obs] <- paste0(node)
+}
 
 data.psme %>% group_by(NODE) %>% count()
 
