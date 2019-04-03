@@ -39,14 +39,14 @@ for(i in 1:10){
   ### CROSS VALIDATION WITH AUC
   # Use fold (1/10 of data) to make new predictions
   predTest <- predict(glm.tree.pipo, testData, type = "response")
-  # Generate curve and store AUC
+  # Generate curve and store AUC. Use same fold for comparison.
   roccurve <- roc(testData$regen_pipo ~ predTest)
-  auc.temp <-  auc(roccurve)
+  auc.temp <-  auc(roccurve) # Area under the curve.
   auc <- cbind(auc, auc.temp)
   }
 (cv.acc <- rowMeans(acc)) #; rm(acc.temp, acc, cm)
 (cv.auc <- rowMeans(auc)) #; rm(auc.temp, auc)
-# ^ Percentage correctly classified obs of all obs.
+
 
 
 
