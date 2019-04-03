@@ -203,7 +203,7 @@ p
 ########################################## PSME
 ## Grow tree
 glm.tree.psme <- glmtree(regen_psme ~ YEAR.DIFF
-                         | BALive_psme
+                         | BALive_psme 
                          # + CMD_CHNG
                          + def.tc
                          # + tmax.tc
@@ -214,6 +214,7 @@ glm.tree.psme <- glmtree(regen_psme ~ YEAR.DIFF
                          family = binomial(link = "logit"),
                          minsplit = 50, # weights required for splits, not just number obs
                          ordinal = "L2") # Use dedicated ordinal stat for ordinal vars (FIRE.SEV)
+
 
 ## Output
 plot(glm.tree.psme) ; glm.tree.psme
@@ -234,7 +235,7 @@ mod.psme.yrdiff <- glm(regen_psme ~ YEAR.DIFF, data = data.psme, family = binomi
 data.psme$FIRE.SEV <- as.numeric(data.psme$FIRE.SEV) # set for simple glm
 data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme)) # set for simple glm
 mod.psme = glm(regen_psme ~ YEAR.DIFF
-               + BALive_psme
+               + BALive_psme 
                # + CMD_CHNG
                + def.tc,
                # + tmax.tc
