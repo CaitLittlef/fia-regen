@@ -74,17 +74,18 @@ plotmo(gam.psme)
 ## Keep sites visited 8 or more years post-fire & gurantee some seed source 
 # After model selected, scale variables to be able to compare
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
-boo <- data.pipo[data.pipo$YEAR.DIFF > 9 & data.pipo$BALive_pipo > 0,]
+boo <- data.pipo[data.pipo$YEAR.DIFF > 9,]# & data.pipo$BALive_pipo > 0,]
 boo$BAProp_pipo <- boo$BALive_pipo/boo$BALiveTot
 
 
 
 ###### Model selection: proceed with retaining/dropping out variables
 ### Orig
+boo$FIRE.SEV <- factor(boo$FIRE.SEV, ordered = TRUE)
 mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = boo, family = binomial)
 summary(mod.pipo)
-AIC(mod.pipo) # 228.9698
-
+AIC(mod.pipo)
+plotmo(mod.pipo)
 
 ## CV to get prediction error rate
 cv.glm(boo, mod.pipo, K=5)$delta # 5-fold cross-validation: raw & adjusted
@@ -103,15 +104,14 @@ for(i in 1:5){
   area <- auc(roccurve)
   AUC <- cbind(AUC, area)
 }
-(AUC.5fld.v1 <- rowMeans(AUC)) # 0.7999728 
-rm(roccurve, area, AUC)
+(AUC.5fld.v1 <- rowMeans(AUC)) 
 
 
-### Least signif: all terraclimate variables
+### Least signif: all terraclimate variables; leave in reburn to see
 # Update model
 mod.pipo.v2 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV + REBURN)
 summary(mod.pipo.v2)
-AIC(mod.pipo.v2) # 221.2348
+AIC(mod.pipo.v2)
 plotmo(mod.pipo.v2)
 
 ## CV to get prediction error rate
@@ -131,13 +131,13 @@ for(i in 1:5){
   area <- auc(roccurve)
   AUC <- cbind(AUC, area)
 }
-(AUC.5fld.v2 <- rowMeans(AUC)) # 0.7269562
+(AUC.5fld.v2 <- rowMeans(AUC)) 
 rm(roccurve, area, AUC)
 
 ### Drop reburn, too 
 mod.pipo.v3 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV)
 summary(mod.pipo.v3)
-AIC(mod.pipo.v3) # 220.963
+AIC(mod.pipo.v3)
 plotmo(mod.pipo.v3)
 
 ## CV to get prediction error rate
@@ -187,67 +187,121 @@ for(i in 1:5){
 (AUC.5fld.v4 <- rowMeans(AUC)) # 0.6179613
 rm(roccurve, area, AUC)
 
+
+### Compare options
 AUC.5fld.v1 # highest AUC
-AUC.5fld.v2 # high AUC
-AUC.5fld.v3 # med AUC
+AUC.5fld.v2 # med AUC
+AUC.5fld.v3 # high AUC
 AUC.5fld.v4 # lowest AUC
 
-cv.glm(boo, mod.pipo, K=5)$delta # lowest error rate
-cv.glm(boo, mod.pipo.v2, K=5)$delta # lowest error rate
-cv.glm(boo, mod.pipo.v3, K=5)$delta # still pretty low error rate
-cv.glm(boo, mod.pipo.v4, K=5)$delta # still pretty low error rate
+cv.glm(boo, mod.pipo, K=5)$delta  # Not specifying # folds runs leave-one-out
+cv.glm(boo, mod.pipo.v2, K=5)$delta # 
+cv.glm(boo, mod.pipo.v3, K=5)$delta # lowest 
+cv.glm(boo, mod.pipo.v4, K=5)$delta # 
 
 AIC(mod.pipo, mod.pipo.v2, mod.pipo.v3, mod.pipo.v4)
-# v3 < v2 < v4 < v1 w/ v2 and v3 quite close.
+# v3 < v4 < v2 < v1 
 
-cv.glm(boo, mod.pipo, K=5)$delta # highest error rate
-# Not specifying # folds runs leave-one-out
-cv.glm(boo, mod.pipo)$delta # 
-cv.glm(boo, mod.pipo.v2)$delta # 
-cv.glm(boo, mod.pipo.v3)$delta # lowest
-cv.glm(boo, mod.pipo.v4)$delta # 
+plotmo(mod.pipo.v3)
 
-# toss-up btwn 2 & 3, but all told 3 is best
-# 3 is more parsimonious w/o REBURN so retain tbat model.
-# But relatinoship w/ reburn interesting.
+# details re: customzing pdps here https://bgreenwell.github.io/pdp/articles/pdp.html
+# partial default is NO plot (plot=TRUE plots it). Here, add and manipulate w/ autoplot
+p1 <- mod.pipo.v3 %>%  
+  partial(pred.var = "BALive_pipo", prob = TRUE) %>% 
+    autoplot(smooth = TRUE, 
+           xlab = "Live PIPO BA",
+           ylab = "f(live PIPO BA)") +
+  coord_cartesian(ylim=c(0,1)) +
+  theme_bw(base_size = 14)
+p1
 
-mod.pipo.final <- mod.pipo.v3
-plotmo(mod.pipo.final)
+p2 <- mod.pipo.v3 %>%  
+  partial(pred.var = "def59_z_13", prob = TRUE) %>%
+  autoplot(smooth = TRUE,
+           xlab = "Post-fire deficit z-score",
+           ylab = "f(post-fire deficit z-score)") +
+  coord_cartesian(ylim=c(0,1)) +
+  theme_bw(base_size = 14)
+p2
 
-# What about only BA > 35 which was breakpt in trees
-poo <- boo %>% filter(BALive_pipo > 35)
-mod.temp <- update(mod.pipo.final, data = poo)
-summary(mod.temp)
-plotmo(mod.temp)
+p3 <- mod.pipo.v3 %>%  
+  partial(pred.var = "FIRE.SEV", prob = TRUE) %>%
+  autoplot(smooth = TRUE,
+           xlab = "Fire severity",
+           ylab = "f(fire severity)") +
+  coord_cartesian(ylim=c(0,1)) +
+  theme_bw(base_size = 14)
+p3
 
-# What about N of 40? which was breakpt in trees
-poo <- boo %>% filter(LAT_FS > 40)
-mod.elev = glm(regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV + ELEV,
-               data = poo, family = binomial)
-summary(mod.elev)
-plotmo(mod.temp)
+# dev.off()
+# tiff(paste0(out.dir,"pipo_GTE10_pdps_",currentDate,".tiff"),
+#       width = 600, height = 400, units = "px")
+# grid.arrange(p1, p2, p3, ncol = 3)
+# dev.off()
 
-
-## What about interactions? # Maybe FIRE.SEV & Z-score make sense, but nix.
-# mod.pipo.ax = glm(regen_pipo ~ BALive_pipo * def59_z_13 * FIRE.SEV * REBURN, data = boo, family = binomial)
-# summary(mod.pipo.ax)
+##############################################
+# IN HERE< FIGURE OUT WAY TO DISAPLY PARTIALS WITHOUT HAVING FIRE SEV & REBURN EXTENDED
+# install.packages("egg")
+# library(egg)
+# p_fixed <- set_panel_size(p3,
+#                           width  = unit(10, "cm"),
+#                           height = unit(4, "in"))
+# grid.newpage()
+# grid.draw(p_fixed)
+# 
+# 
+# gl = lapply(list(p1,p2,p3,p4), ggplotGrob)     
+# library(gtable)
+# g = do.call(rbind, c(gl, size="first"))
+# g$widths = do.call(unit.pmax, lapply(gl, "[[", "widths"))
+# 
+# grid.newpage()
+# grid.draw(g) 
+# 
+# 
+# lh <- rbind(abla_plot, laoc_plot, pico_plot, size = "first")
+# rh <- rbind(pien_plot, pipo_plot, psme_plot, size = "first")
+# g <- cbind(lh, rh, size = "first")
+# 
+# # install.packages("cowplot")
+# library(cowplot)
+# currentDate <- Sys.Date()
+# plot_grid(g, legend, ncol = 1, align = "v", rel_heights = c(3, 0.25))
+# dev.off()
+##############################################################################################
 
 
 
 boo$regen_pipo <- factor(boo$regen_pipo)
 ## Is there a pattern to failure?
+
 p <- ggplot() +
-  geom_sf(data = Wsts) +
-  geom_point(data = boo,
-             aes(x = LON_FS, y = LAT_FS, col = regen_pipo)) +
-  scale_color_manual(values = c("blue", "yellow"),
-                     labels = c("no regen", "regen"))
-p # Maybe somethign in sky islands? Particular fire...?
+  # state outlines
+  geom_sf(data = NAmer, color = "#808B96", fill = "white") +
+  geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE") +
+  coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
+  geom_point(data = boo, aes(x = LON_FS, y = LAT_FS, col = regen_pipo),
+             size = 4, alpha = 0.7) +
+  scale_color_manual(values = c("#F98400", "#046C9A"),
+                     labels = c("No juveniles present", "Juveniles present")) + 
+  theme_bw(base_size = 12) +
+  theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+        panel.background = element_rect(fill = "#808B96"),
+        axis.title = element_blank(),
+        legend.title = element_blank(),
+        legend.background = element_rect(color = "#808B96"),
+        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        legend.position=c(0,0))
+p
+
+tiff(paste0(out.dir,"pipo_GTE10yr_juvNojuv_map_",currentDate,".tiff"),
+   width = 450, height = 600, units = "px")
+p
+dev.off()
 
 
 
-
-
+##############################################################################
 ######################################## POINT OF NO RETURN RE: RECOVERY? PSME
 
 # Orig glm tree with partitions
@@ -263,8 +317,9 @@ plotmo(tree, type = "link", pmethod = "partdep") # gives log-odds; pdps use avg.
 ######################################## JUST LOOK AT GTE 8 YRS POST-FIRE. PSME
 ## Keep sites visited 8 or more years post-fire & gurantee some seed source 
 # After model selected, scale variables to be able to compare
+
 data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
-moo <- data.psme[data.psme$YEAR.DIFF > 7 & data.psme$BALive_psme > 0,]
+moo <- data.psme[data.psme$YEAR.DIFF > 9,] #& data.psme$BALive_psme > 0,]
 moo$BAProp_psme <- moo$BALive_psme/moo$BALiveTot
 
 
@@ -276,9 +331,10 @@ plotmo(mod.psme)
 
 ###### Model selection: proceed with retaining/dropping out variables
 ### Orig
+moo$FIRE.SEV <- factor(moo$FIRE.SEV, ordered = TRUE)
 mod.psme = glm(regen_psme ~ BALive_psme + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = moo, family = binomial)
 summary(mod.psme)
-AIC(mod.psme) # 260.8357
+AIC(mod.psme)
 
 ## CV to get prediction error rate
 cv.glm(moo, mod.psme, K=5)$delta # 5-fold cross-validation: raw & adjusted
@@ -297,15 +353,15 @@ for(i in 1:5){
   area <- auc(roccurve)
   AUC <- cbind(AUC, area)
 }
-(AUC.5fld.v1 <- rowMeans(AUC)) # 0.8445903
+(AUC.5fld.v1 <- rowMeans(AUC)) 
 rm(roccurve, area, AUC)
 
 
 stepAIC(mod.psme)
-# Suggests keeping in on;ly ppt.tc and def.tc
-mod.psme.v2 <- update(mod.psme, regen_psme ~ ppt.tc + def.tc)
-
-AIC(mod.psme.v2) # 251.1467
+## KEep what stepAIC says
+mod.psme.v2 <- update(mod.psme, regen_psme ~ BALive_psme + def.tc)
+summary(mod.psme.v2)
+AIC(mod.psme.v2) 
 
 ## CV to get prediction error rate
 cv.glm(moo, mod.psme.v2, K=5)$delta # 5-fold cross-validation: raw & adjusted
@@ -324,12 +380,10 @@ for(i in 1:5){
   area <- auc(roccurve)
   AUC <- cbind(AUC, area)
 }
-(AUC.5fld.v2 <- rowMeans(AUC)) # 0.7213352
-rm(roccurve, area, AUC)
+(AUC.5fld.v2 <- rowMeans(AUC)) 
 
 
-summary(mod.psme)
-
+### Candidate comparison
 AUC.5fld.v1 
 AUC.5fld.v2 
 
@@ -338,22 +392,63 @@ AIC(mod.psme, mod.psme.v2)
 cv.glm(moo, mod.psme, K=5)$delta 
 cv.glm(moo, mod.psme.v2, K=5)$delta 
 
-cv.glm(moo, mod.psme)$delta 
-cv.glm(moo, mod.psme.v2)$delta 
+### PLOT PARTIALS
+p1 <- mod.psme.v2 %>%  
+  partial(pred.var = "BALive_psme", prob = TRUE) %>%
+  autoplot(smooth = TRUE,
+           xlab = "Live PSME BA",
+           ylab = "f(live PSME BA)") +
+  coord_cartesian(ylim=c(0,1)) +
+  theme_bw(base_size = 14)
+p1
+
+p2 <- mod.psme.v2 %>%  
+  partial(pred.var = "def.tc", prob = TRUE) %>%
+  autoplot(smooth = TRUE,
+           xlab = "Deficit",
+           ylab = "f(deficit)") +
+  coord_cartesian(ylim=c(0,1)) +
+  theme_bw(base_size = 14)
+p2
+
+# dev.off()
+# tiff(paste0(out.dir,"psme_GTE10_pdps_",currentDate,".tiff"),
+#       width = 600, height = 400, units = "px")
+# grid.arrange(p1, p2, ncol = 2)
+# dev.off()
 
 
+
+
+
+
+### Is there a pattern to failure?
 moo$regen_psme <- factor(moo$regen_psme)
 ## Is there a pattern to failure?
+
 p <- ggplot() +
-  geom_sf(data = Wsts) +
-  geom_point(data = moo,
-             aes(x = LON_FS, y = LAT_FS, col = regen_psme)) +
-  scale_color_manual(values = c("blue", "yellow"),
-                     labels = c("no regen", "regen"))
-p # Maybe somethign in sky islands? Particular fire...?
+  # state outlines
+  geom_sf(data = NAmer, color = "#808B96", fill = "white") +
+  geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE") +
+  coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
+  geom_point(data = moo, aes(x = LON_FS, y = LAT_FS, col = regen_psme),
+             size = 4, alpha = 0.7) +
+  scale_color_manual(values = c("#F98400", "#046C9A"),
+                     labels = c("No juveniles present", "Juveniles present")) + 
+  theme_bw(base_size = 12) +
+  theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+        panel.background = element_rect(fill = "#808B96"),
+        axis.title = element_blank(),
+        legend.title = element_blank(),
+        legend.background = element_rect(color = "#808B96"),
+        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        legend.position=c(0,0))
+p
 
-
-
+# tiff(paste0(out.dir,"psme_GTE10yr_juvNojuv_map_",currentDate,".tiff"),
+#    width = 450, height = 600, units = "px")
+# p
+# dev.off()
 
 
 
