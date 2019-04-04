@@ -64,7 +64,9 @@ currentDate <- Sys.Date()
 
 ####################################
 ## Get background of W states
-NAmer <- st_read(dsn = "//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/boundaries/NorthAmer_StatesProvinces.shp") %>% 
+# NAmer <- st_read(dsn = "//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin/boundaries/NorthAmer_StatesProvinces.shp") %>% 
+#   st_buffer(dist = 0) # fix invalid geometries (warning re: lat/long vs. dd)
+NAmer <- st_read(dsn = "NorthAmer_StatesProvinces.shp") %>% 
   st_buffer(dist = 0) # fix invalid geometries (warning re: lat/long vs. dd)
 NAmer <- NAmer[!NAmer$NAME == "Guam",]
 NAmer.outline <- st_union(NAmer)
@@ -85,9 +87,11 @@ nonIntWest  <- NAmer[! NAmer$NAME %in% IntWsts.names, ]
 # Functions
 
 ### COEFFICIENT OF VARIATION
-# CV <- function(x) {100*sd(x) / mean(x)}
+CV <- function(x) {100*sd(x) / mean(x)}
 
 
+
+############################################################################################
 ### MORANS I FUNCTION
 Moran_tpha <-function(x)
 {cbind(x$long, x$lat) %>%
@@ -107,6 +111,8 @@ Moran_space <-function(x, y)
   Moran.I(y, temp)}
 
 
+
+############################################################################################
 ### Multiplot function
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   library(grid)
@@ -144,6 +150,8 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
   }
 }
 
+
+############################################################################################
 # Text extraction
 left = function(text, num_char) {
   substr(text, 1, num_char)
@@ -157,6 +165,8 @@ right = function(text, num_char) {
   substr(text, nchar(text) - (num_char-1), nchar(text))
 }
 
+
+############################################################################################
 # Mode
 Mode <- function(x) {
   ux <- unique(x)
@@ -164,84 +174,9 @@ Mode <- function(x) {
 }
 
 
-# Map theme
-theme_map <- function(x) {
-  theme_minimal() +
-    theme(
-      text = element_text(family = "sans", color = "#22211d"),
-      axis.line = element_blank(),
-      # axis.text.x = element_blank(),
-      # axis.text.y = element_blank(),
-      axis.ticks = element_blank(),
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
-      # panel.grid.minor = element_line(color = "#ebebe5", size = 0.2),
-      panel.grid.major = element_line(color = "#ebebe5", size = 0.2),
-      panel.grid.minor = element_blank(),
-      plot.background = element_rect(fill = "#ffffff", color = NA), 
-      panel.background = element_rect(fill = "#ffffff", color = NA), 
-      legend.background = element_rect(fill = "#ffffff", color = NA),
-      panel.border = element_blank()
-    )
-}
 
 
-### *****************************************************************
-### Multiplot function
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-  
-  # Make a list from the ... arguments and plotlist
-  plots <- c(list(...), plotlist)
-  
-  numPlots = length(plots)
-  
-  # If layout is NULL, then use 'cols' to determine layout
-  if (is.null(layout)) {
-    # Make the panel
-    # ncol: Number of columns of plots
-    # nrow: Number of rows needed, calculated from # of cols
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-  
-  if (numPlots==1) {
-    print(plots[[1]])
-    
-  } else {
-    # Set up the page
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    # Make each plot, in the correct location
-    for (i in 1:numPlots) {
-      # Get the i,j matrix positions of the regions that contain this subplot
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
-
-
-
-# # CEL's SCATTERPLOT THEME
-## make scatter theme so I don't have to keep repeating it
-theme_cel <- function(base_size=12, base_family="sans") {
-  library(grid)
-  library(ggthemes)
-  (theme_foundation(base_size=base_size, base_family=base_family)
-    + theme(text = element_text(size=12),
-            axis.text.x = element_text(color="black", size=8),
-            axis.text.y = element_text(color="black", size=8),
-            panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank(),
-            plot.background = element_blank())
-  )
-}
-
-
+############################################################################################
 # Wes palette
 install.packages("wesanderson")
 library(wesanderson)
