@@ -213,6 +213,14 @@ data.wwoburn.samp[which(data.wwoburn.samp$FIRE.SEV == 0),]
 data.wwoburn.samp <- data.wwoburn.samp[-3035,]
 data.wwoburn.samp %>% count(FIRE.SEV)
 
+# FIRE.SEV     n
+# <int> <int>
+# 1        1   455
+# 2        2   551
+# 3        3   445
+# 4        4   452
+# 5       NA 18956
+
 
 ## Lots ~Yellowstone, Idaho
 temp <- data.wwoburn.samp[! is.na(data.wwoburn.samp$FIRE.YR) ,]
