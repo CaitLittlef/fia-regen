@@ -41,14 +41,15 @@ p <- ggplot() +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
-  theme_bw(base_size = 12) +
+  theme_bw(base_size = 18) +
   theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
         panel.background = element_rect(fill = "#808B96"),
         axis.title = element_blank(),
         # legend.title = element_blank(),
         legend.background = element_rect(color = "#808B96"),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
-        legend.position=c(0,0))
+        legend.position=c(0,0),
+        legend.text=element_text(size=12))
 p
 # tiff(paste0(out.dir,"def_map_",currentDate,".tiff"),
 #    width = 450, height = 600, units = "px")
