@@ -1,6 +1,7 @@
 # data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv") # w/o fire
 # data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-02-27.csv")
-data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-03-21.csv")
+# data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-03-21.csv")
+data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-04-24.csv")
 data$X <- NULL # In case there's weird X col added
 
 ## Spp in data 
@@ -48,14 +49,25 @@ data.pied <- data %>%
 data.pipo <- data %>%
   filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0) %>%
   dplyr::rename(BALive_pipo = BALive_122)  
+data.psme <- data %>%
+  filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0) %>%
+  dplyr::rename(BALive_psme = BALive_202)
+
+# To send to John for site index extraction
+# data.pipo.psme <- data %>%
+#   filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0 |
+#            BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0)
+# temp <- data.pipo.psme %>%
+#   dplyr::select(PLT_CN, PLOTID, UNIQUEID, QA_STATUS, STATECD, COUNTYCD, PLOT, INVYR, DUFF_DEPTH, LITTER_DEPTH)
+# write.csv(temp, "fia_regen_plots.csv")
+
+
+
 # data %>%
 #   filter(BALive_122 >0) %>%
 #   dplyr::rename(BALive_pipo = BALive_122) # 3222 records if exclude dead
 # data %>%
 #   filter(BAMortDown_122 >0) # 670 mort standing; 508 mort down
-data.psme <- data %>%
-  filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0) %>%
-  dplyr::rename(BALive_psme = BALive_202)
 
 
 
@@ -70,7 +82,7 @@ data.pipo <- data.pipo[data.pipo$regen_pipo_tpa < 10000,]
 
 
 hist(data.psme$BALive_psme,50)
-max(data.psme$BALive_psme) #345
+max(data.psme$BALive_psme) #365
 hist(data.psme$TPALive_202,50)
 max(data.psme$TPALive_202) # 3664
 data.psme <- data.psme[data.psme$BALive_psme < 350,]
@@ -85,8 +97,8 @@ hist(data.pied$regen_pied_tpa)
 
 
 # Save
-write.csv(data.pied, "data.pied.csv")
-write.csv(data.pipo, "data.pipo.csv")
-write.csv(data.psme, "data.psme.csv")
+write.csv(data.pied, paste0("data.pied_", currentDate,".csv"))
+write.csv(data.pipo, paste0("data.pipo_", currentDate,".csv"))
+write.csv(data.psme, paste0("data.psme_", currentDate,".csv"))
 
 rm(BA.cols, TPA.cols)
