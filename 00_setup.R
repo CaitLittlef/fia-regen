@@ -12,17 +12,18 @@ out.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/output/"
 
 #####################################
 # Install packages if not already installed
-required.packages <- c("ggplot2", "raster", "sf", "rgdal", "dplyr",
+required.packages <- c("plyr", "ggplot2", "raster", "sf", "rgdal", "dplyr",
                        "tidyverse", "maptools", "rgeos", 
                        "partykit", "vcd", "maps", "mgcv", "tmap",
-                       "MASS", "pROC", "ResourceSelection", "caret", "broom",
+                       "MASS", "pROC", "ResourceSelection", "caret", "broom", "boot",
                        "dismo", "pscl", "randomForest", "pdp", "classInt", "plotmo",
-                       "ggspatial")
+                       "ggspatial", "lmtest")
 new.packages <- required.packages[!(required.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)>0) install.packages(new.packages)
 rm(required.packages, new.packages)
 
 # Libraries
+# library(plyr)
 library(ggplot2)
 library(raster)
 # library(sp)
@@ -42,6 +43,7 @@ library(pROC)
 library(ResourceSelection)
 library(caret)
 library(broom)
+library(boot)
 library(dismo)
 library(pscl)
 library(randomForest)
@@ -49,6 +51,7 @@ library(pdp)
 library(classInt)
 library(plotmo)
 library(ggspatial)
+library(lmtest)
 
 # rm(GCtorture)
 
@@ -182,7 +185,8 @@ install.packages("wesanderson")
 library(wesanderson)
 pal.d1 <- wes_palette("Darjeeling1")
 pal.d2 <- wes_palette("Darjeeling2")
-pal <- c("#000000", "#000000", "#046C9A", "#FF0000", "#00A08A", "#00A08A", "#F98400", "#F2AD00", "#D55E00", "#5BBCD6", "#F98400")
+pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#FF0000", "#000000", "#5BBCD6","#F2AD00", "#F98400")
+# pal colors are X, X, blue, X, teal, red, X, light blue, yellow, orange
 
 #046C9A # blue
 #F98400 # orange
