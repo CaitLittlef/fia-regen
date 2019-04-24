@@ -6,7 +6,7 @@
 ## Load data
 plot <- read.csv('SP_PLOT_data.csv')                  ## plot data
 cond.tree.seed <- read.csv('SP_COND_TREE_SEED.csv')   ## seedling & tree data
-climate <- read.csv('SP_ClimateLayers.csv')           ## ClimateWNA data
+climate <- read.csv('SP_ClimateLayers.csv')           ## ClimateNA data
 prism.1971.2000 <- read.csv('SP_Prism_71_00.csv')     ## PRISM norms 1971-2000
 prism.1981.2010 <- read.csv('SP_Prism_81_10.csv')     ## PRISM norms 1981-2010
 mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate monitoring branch (NOAA)
@@ -18,7 +18,7 @@ mtbs <- read.csv('SP_MTBS_CMBJoin.csv')               ## severity; CMB=climate m
 # plot(plot$LON_FS, plot$LAT_FS, pch=19, cex=0.05)
 # CO, OR, not present; WY "sparse"
 # How many pts each? 
-count(plot, STATECD)
+dplyr::count(plot, STATECD)
 # STATECD     n
 # 1        4 19867 AZ
 # 2        6    12 CA
@@ -70,7 +70,21 @@ cond.tree.seed <-filter(cond.tree.seed, CONDPROP_UNADJ==1)
 dim(cond.tree.seed) # 27540
 
 
+## Any treatment?
+dplyr::count(cond.tree.seed, TRTCD1)
+# TRTCD1     n
+# <int> <int>
+# 1      0 26964 # no tx
+# 2     10   498 # cut
+# 3     20    17 # site prep
+# 4     30     9 # artificial regen
+# 5     40     8 # natural regen
+# 6     50    44 # other silv
+cond.tree.seed <- cond.tree.seed %>%
+  filter(TRTCD1 == 0 | TRTCD1 == 40)
+cond.tree.seed %>% count(TRTCD2) # good to go
 
+# !! ^ THIS IS RECENT CHANGE (190424) & NUMS BELOW DON'T REFLECT N !! #
 
 #####################################
 ## UNIQUE IDS FOR PLOTS
@@ -162,6 +176,8 @@ data.wwoburn %>%
   count(PLOTID) %>%
   filter(n>1) # 398 sampled more than once after a burn/burns
 
+# Pull out burn severity columns; keep only those with 4 digits (year); .=any character; $=end
+mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.wwoburn.samp), value=TRUE)
 
 ## List plots that burned and were sampled after burn
 # Keeping latest visit, latest fire (or sites that didn't burn, hence is.na())
@@ -180,8 +196,6 @@ if(any(duplicated(data.wwoburn.samp))) cat("YOU'VE BEEN DUPED!!") # 20860
 
 
 ## Assign burn severity to each record & yrs btwn fire and sampling
-# Pull out burn severity columns; keep only those with 4 digits (year); .=any character; $=end
-mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.wwoburn.samp), value=TRUE)
 moo <- data.wwoburn.samp[mtbs.cols] %>% as.data.frame() # weird class change; force df    
 moo$FIRE.YR <- data.wwoburn.samp$FIRE.YR
 moo$INVYR <- data.wwoburn.samp$INVYR
