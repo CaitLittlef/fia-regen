@@ -2,7 +2,8 @@ currentDate <- Sys.Date()
 
 ## Load data.all if necessary
 # data.all <- read.csv("DATA_PlotFirePrism-noTerra_PostFireSamp_n1971.csv")
-data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
+# data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20859.csv")
+data.all <- read.csv("DATA_PlotwwoFirePrismClimWNA-noTerra_n20543_190424.csv")
 # data.all$X <- NULL
 
 ## set directory for terraclimate
@@ -116,13 +117,13 @@ def.z.lm[1:10,]
 # def.z.lm[def.z.lm$PLOTID == "1_16_13",]$mod # gives equation
 
 ## Test a few plots: do slope & intercept make sense?
-# moo <- zoo[zoo$PLOTID == "1_16_13",] 
+moo <- zoo[zoo$PLOTID == "1_16_13",]
 # moo <- zoo[zoo$PLOTID == "41_30_103",]
 # moo <- zoo[zoo$PLOTID == "3061_8_71",] 
-moo <- zoo[zoo$PLOTID == "70_16_57",]
-def.z.lm[def.z.lm$PLOTID == "70_16_57",]
+# moo <- zoo[zoo$PLOTID == "70_16_57",]
+def.z.lm[def.z.lm$PLOTID == "1_16_13",]
 plot(moo$def.year, moo$def.z)
-abline(-111.60282769, 0.05595875); abline(h=0)
+abline(-34.59488731, 0.01736898); abline(h=0)
 # Alt for plotting:
 moo <- filter(zoo, grepl("^10_", PLOTID))
 p <- ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
@@ -144,25 +145,25 @@ def.data$def59.z.slope <- doo$def59.z.slope
 
 ## Also take slp btwn 1st & last; inappropriate?
 ## Create trend lines; put into df (do() extracts tidied model outputs)
-def.z.lm84_17 <- zoo %>%
-  group_by(PLOTID) %>%
-  filter(def.year == "1984" | def.year == "2017") %>%
-  do(tidy(lm(def.z ~ def.year, data =.)))
-def.z.lm84_17 <- as.data.frame(def.z.lm84_17)
-def.z.lm84_17[1:10,]
-moo <- filter(zoo, grepl("^10_", PLOTID))
-moo <- filter(moo, def.year == "1984" | def.year == "2017")
-plot(moo$def.year, moo$def.z)
-
-
-## Keep only slopes
-doo <- def.z.lm84_17 %>%
-  filter(term == "def.year") %>%
-  dplyr::select(PLOTID, estimate) %>%
-  rename(def59.z.slope84_17 = estimate)
-
-## Add onto deficit data.
-def.data$def59.z.slope84_17 <- doo$def59.z.slope84_17
+# def.z.lm84_17 <- zoo %>%
+#   group_by(PLOTID) %>%
+#   filter(def.year == "1984" | def.year == "2017") %>%
+#   do(tidy(lm(def.z ~ def.year, data =.)))
+# def.z.lm84_17 <- as.data.frame(def.z.lm84_17)
+# def.z.lm84_17[1:10,]
+# moo <- filter(zoo, grepl("^10_", PLOTID))
+# moo <- filter(moo, def.year == "1984" | def.year == "2017")
+# plot(moo$def.year, moo$def.z)
+# 
+# 
+# ## Keep only slopes
+# doo <- def.z.lm84_17 %>%
+#   filter(term == "def.year") %>%
+#   dplyr::select(PLOTID, estimate) %>%
+#   rename(def59.z.slope84_17 = estimate)
+# 
+# ## Add onto deficit data.
+# def.data$def59.z.slope84_17 <- doo$def59.z.slope84_17
 
 
 # # Create quad fit; put into df (do() extracts tidied model outputs)
@@ -184,7 +185,7 @@ def.data$def59.z.slope84_17 <- doo$def59.z.slope84_17
 
 
 ###################################### GET POST-FIRE cONDITIONS
-## Create avg z-score for yrs 0-3 post-fire, MAY-SEPT
+## Create avg z-score for yrs 0-5 post-fire, MAY-SEPT
 # Pull out def columns; ^=beginning; .=any character; $=end
 # Careful to explicitly select cols w/  summary variables!
 # e.g., using select(., starts_with...) may inadvertantly reference existing vars.
@@ -221,18 +222,38 @@ foo$def59_z_3 <-
           substr(names(foo),5,8))+3
   )]
 
+foo$def59_z_4 <- 
+  foo[cbind(
+    seq_len(nrow(foo)),
+    match(paste0(foo$FIRE.YR),
+          substr(names(foo),5,8))+4
+  )]
+
+foo$def59_z_5 <- 
+  foo[cbind(
+    seq_len(nrow(foo)),
+    match(paste0(foo$FIRE.YR),
+          substr(names(foo),5,8))+5
+  )]
+
+# Create averages for windows post-fire
 foo <- foo %>%
-  mutate(def59_z_03 = rowMeans(dplyr::select(.,"def59_z_0", "def59_z_1", "def59_z_2", "def59_z_3")))
+  mutate(def59_z_12 = rowMeans(dplyr::select(.,"def59_z_1", "def59_z_2")))
 foo <- foo %>%
   mutate(def59_z_13 = rowMeans(dplyr::select(.,"def59_z_1", "def59_z_2", "def59_z_3")))
+foo <- foo %>%
+  mutate(def59_z_14 = rowMeans(dplyr::select(.,"def59_z_1", "def59_z_2", "def59_z_3", "def59_z_4")))
+foo <- foo %>%
+  mutate(def59_z_15 = rowMeans(dplyr::select(.,"def59_z_1", "def59_z_2", "def59_z_3", "def59_z_4", "def59_z_5")))
 
-## Create avg z-score for yrs 0-3 post-fire, JUNE-AUG
+
+## Create avg z-score for yrs 0-5 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
 def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(def.data), value=TRUE)
 boo <- def.data[def68.cols] %>% as.data.frame() # weird class change; force df    
 boo$FIRE.YR <- data.all$FIRE.YR
 
-# Return avg of def 0-3 yrs post-fire. Vars get duped if I don't have seq_len()
+# Return avg of def 0-5 yrs post-fire. Vars get duped if I don't have seq_len()
 boo$def68_z_0 <- 
   boo[cbind(
     seq_len(nrow(boo)),
@@ -261,34 +282,60 @@ boo$def68_z_3 <-
           substr(names(boo),5,8))+3
   )]
 
+
+boo$def68_z_4 <- 
+  boo[cbind(
+    seq_len(nrow(boo)),
+    match(paste0(boo$FIRE.YR),
+          substr(names(boo),5,8))+4
+  )]
+
+
+boo$def68_z_5 <- 
+  boo[cbind(
+    seq_len(nrow(boo)),
+    match(paste0(boo$FIRE.YR),
+          substr(names(boo),5,8))+5
+  )]
+
+
+# Create averages for windows post-fire
 boo <- boo %>%
-  mutate(def68_z_03 = rowMeans(dplyr::select(.,"def68_z_0", "def68_z_1", "def68_z_2", "def68_z_3")))
+  mutate(def68_z_12 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2")))
 boo <- boo %>%
   mutate(def68_z_13 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2", "def68_z_3")))
+boo <- boo %>%
+  mutate(def68_z_14 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4")))
+boo <- boo %>%
+  mutate(def68_z_15 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4", "def68_z_5")))
 
 def.data$def59_z_0 <- foo$def59_z_0
 def.data$def59_z_1 <- foo$def59_z_1
 def.data$def59_z_2 <- foo$def59_z_2
 def.data$def59_z_3 <- foo$def59_z_3
-def.data$def59_z_03 <- foo$def59_z_03
+def.data$def59_z_12 <- foo$def59_z_12
 def.data$def59_z_13 <- foo$def59_z_13
+def.data$def59_z_14 <- foo$def59_z_14
+def.data$def59_z_15 <- foo$def59_z_15
 
 def.data$def68_z_0 <- boo$def68_z_0
 def.data$def68_z_1 <- boo$def68_z_1
 def.data$def68_z_2 <- boo$def68_z_2
 def.data$def68_z_3 <- boo$def68_z_3
-def.data$def68_z_03 <- boo$def68_z_03
+def.data$def68_z_12 <- boo$def68_z_12
 def.data$def68_z_13 <- boo$def68_z_13
+def.data$def68_z_14 <- boo$def68_z_14
+def.data$def68_z_15 <- boo$def68_z_15
 
 
 #########################################
 ## Save as csv
 sapply(def.data, class) # make sure all are real cols, not lists
-# write.csv(def.data, paste0("def_z_n20859_",currentDate,".csv"))
+# write.csv(def.data, paste0("def_z_n20543_",currentDate,".csv"))
 
 ## Save as csv
 sapply(terraclim, class) # make sure all are real cols, not lists
-# write.csv(terraclim, paste0("tc_n20859_",currentDate,".csv"))
+# write.csv(terraclim, paste0("tc_n20543_",currentDate,".csv"))
 
 
 
@@ -304,7 +351,7 @@ data.all <- data.all %>%
 ## Save as csv
 sapply(data.all, class) # make sure all are real cols, not lists
 # write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971_",currentDate,".csv"))
-write.csv(data.all, paste0("DATA_PlotwwoFireClim_n20859_",currentDate,".csv"))
+# write.csv(data.all, paste0("DATA_PlotwwoFireClim_n20543_",currentDate,".csv"))
 
 ## Tidy up
 # rm(rst, pts, pts.trans, FIA.CRS, coords, output, i, loop.ready, def.dir, def.list, def.data, def59.cols, def68.cols, temp, foo, boo, moo)
