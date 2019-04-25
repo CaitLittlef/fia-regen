@@ -16,19 +16,21 @@ data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
 # data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo)) 
 # data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
-data.psme$regen_psmeo <- as.numeric(as.character(data.psme$regen_psme)) 
-data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
-data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
+# data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme)) 
+# data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
+data.pipo$FIRE.SEV <- as.numeric(data.pipo$FIRE.SEV) # for partial dependence plots
+# data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
 data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
-data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
+data.pipo$REBURN <- as.numeric(data.pipo$REBURN) # for partial dependence plots
+# data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
 
 # Create CMD relative chng (from observed z-score slopes)
 data.pipo$CMD_CHNG <- data.pipo$def59.z.slope
-data.psme$CMD_CHNG <- data.psme$def59.z.slope
+# data.psme$CMD_CHNG <- data.psme$def59.z.slope
 
 # Create proportion BA
 data.pipo$BAProp_pipo <- data.pipo$BALive_pipo/data.pipo$BALiveTot
-data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
+# data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
 
 
 
@@ -39,7 +41,11 @@ data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
 ## Set sample size.
 # sample.size <- 50
 # sample.size <- 75
-sample.size <- 250
+# sample.size <- 100
+# sample.size <- 150
+# sample.size <- 200
+sample.size <- 250 # any smaller kept failing.
+
 # sample.size <- 1000
 # sample.size <- 10000
 # sample.size <- 25000
@@ -82,7 +88,7 @@ explan.vars <- c("YEAR.DIFF", "BALive_pipo", "BALiveTot",
           "def59_z_1", 
           # "def59_z_12", "def59_z_13", "def59_z_14", "def59_z_15",
           # "ELEV",
-          "REBURN", "FIRE.SEV")
+          "FIRE.SEV", "REBURN")
 
 ################
 ### BRT LOOP ###   
@@ -159,6 +165,8 @@ par(mai=c(0.6,0.1,0.1,0.1), mfrow=c(2,2))
 gbm.plot(models[[i]], write.title=FALSE, y.label = "fitted function", smooth=TRUE, common.scale = FALSE) # marginal response curves
 dev.off()
 
+plotmo(models[[i]], type = "response", pmethod = "partdep")
+
 #####################################################################
 ## COMPILE ALL MODEL PERFORMANCE STATS & VARIABLE INFLUENCE VALUES ##
 #####################################################################
@@ -230,6 +238,13 @@ for (i in rows){
 # dplyr's bind_rows automagically splices contents of lists per col names. 
 stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of lists per col names.
 
+# Boxplot of relative influence; plot by median
+temp <- stats.new[,5:12]
+med <- apply(temp[,5:12], MARGIN = 2, FUN = median, na.rm = TRUE)
+order <- order(med, decreasing = TRUE)
+par(cex.axis=0.75)
+boxplot(temp[,order], las=2)
+
 # Write to new csv
 currentDate <- Sys.Date()
 write.csv(stats.new, paste0(out.dir,"pipo_brt_stats_z1_noELEV_ORDERED_",currentDate,".csv"))
@@ -257,6 +272,12 @@ write.csv(stats.sum, paste0(out.dir,"pipo_brt_stats_z1_noELEV_SUMMARY_",currentD
 ## OVERLAY ALL ITERATIONS OF BRTS ##
 ####################################
 
+# ref: https://stats.stackexchange.com/questions/122721/r-partial-dependency-plots-from-gbm-package-values-and-y-axis/122802
+
+#If factor variable
+# predictors[[j]] <- factor(predictors[[j]],levels = levels(gbm.object$gbm.call$dataframe[,gbm.object$gbm.call$gbm.x[k]]))
+
+
 par(mfrow=c(1,1))
 
 predictors<-list(rep(NA,length(models))) ## space for data: however many models are run
@@ -274,11 +295,15 @@ myplots <- list()
 
 for (i in 1:length(explan.vars)){ 
   
-  ## Loop through the models and populate the lists of predictors and responses -- these are marginal effects of selected variables.
-  ## Calculate the x and y limits for plotting. With type = "response" specified, do not need to adjust response scale as in dismo partial plots function (subtract mean)
+  ## Loop through the models and populate the lists of predictors and (marginal) responses.
+  ## With plot.gbm, other vars are "integrated out" -- not true pdp with mean of other vars.
+  ## Calc x & y lims for plotting.
+  ## With type = "response", don't need to subtract mean to put on scale of response var.
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
-    r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE) # return.grid only gives eval pts & avg predictions. no graphics. c.f. gbm.plot
+    # r1 <- plotmo(gbm.mod, nresponse = i, type = "response", pmethod = "partdep", return.grid = TRUE)
+    r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE)
+    # return.grid only gives eval pts & avg predictions. no graphics. c.f. gbm.plot
     predictors[[j]]<-r1[,1]
     responses[[j]]<-r1[,2]# - mean(r1[,2])
     
