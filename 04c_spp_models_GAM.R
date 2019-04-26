@@ -10,7 +10,7 @@ gam.check(gam.test) # Suggests k=3 may be too low.
 # Check with residuals: can remove any pattern by increasing k.
 hist(residuals(gam.test)) # more resids < 0 mean more fits are > obs.
 # Here, bs is a smoother to help avoid overfitting
-gam(residuals(gam.test) ~ s(YEAR.DIFF, k = 20, bs = "cs"), data = data.pipo)
+gam(residuals(gam.test) ~ s(YEAR.DIFF, k = 5, bs = "cs"), data = data.pipo)
 # GCV (gen cross-val) score, with smaller better.
 # k = 3 in main model, GCV = 0.9409415 is generally smallest.
 # k = 5 in main model, GCV = 0.9414019
@@ -22,18 +22,19 @@ plot.gam(gam.test, pages = 1, resid = T) # number plots = number smooths; plots 
 
 # Predicting gives component smooth functions, not on scale of response var.
 # If >1 covar, use type = terms to get col for each covar
-new.yr <- seq(1, 30, 0.5) # use new data to predict
+new.yr <- seq(0, 32, 0.5) # use new data to predict
 # new.df <- data.frame(YEAR.DIFF = 1:30, BALive_pipo = median(data.pipo$BALive_pipo))
 predRegen<-predict(gam.test, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
 up <- (predRegen$fit + 1.96 * predRegen$se.fit) 
 down <- (predRegen$fit - 1.96 * predRegen$se.fit) 
-pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, seup, sedwn))
+pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, up, down))
 # predRegen<-predict(gam.test, newdata = newd, type = "terms")
 
 # plot(data.pipo$YEAR.DIFF, gam.test$fitted.values)
 # points(new.yr, predRegen$fit, add = T, col = "blue")
 # lines(new.yr,predRegen,col="blue",lwd=2)
 
+data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 pipo.plot.all <- ggplot() + 
   geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
              shape = 16, size=1.5, alpha = 0.5,
@@ -43,27 +44,20 @@ pipo.plot.all <- ggplot() +
               alpha = 0.25, fill = "grey") +
   scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
   scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
-  labs(x = "Years between fire and sampling",
+  labs(x = "Years since fire",
        y = "Probability of juvenile presence") +
   coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
-  theme_bw(base_size = 14) 
+  theme_bw(base_size = 18) 
 pipo.plot.all
-
+# tiff(paste0(out.dir,"pipo.plot.all_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# pipo.plot.all
+# dev.off()
 
 
 
 
 #### Are there diff asymptotes for each node?
-data.pipo$regen_pipo <- as.factor(data.pipo$regen_pipo)
-glm.tree.pipo <- glmtree(regen_pipo ~ YEAR.DIFF
-                         | BALive_pipo + FIRE.SEV,
-                         data = data.pipo,
-                         family = "binomial",
-                         minsplit = 50,
-                         ordinal = "L2")
-plot(glm.tree.pipo)
-
-
 ## Get obs for each node (orig as df) and save row.names (match orig dataset)
 # Create new col in df to assign node number
 data.pipo$node <- NA 
@@ -82,10 +76,6 @@ for (i in loop.ready){
   data.pipo$node[rownames(data.pipo) %in% obs] <- paste0(node)
 }
 
-# What's fire sev like for higher BA node?
-data.pipo %>%
-  filter(node == "node5") %>%
-  count(., FIRE.SEV) # 24 plots med or high
 
 ## Run gams on obs from each node
 new.yr <- seq(0,32,0.5) # new YEAR.DIFF data for prediction
@@ -130,22 +120,28 @@ for (i in loop.ready){
                 alpha = 0.25, fill = pal[i]) +
     scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
     scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
-    labs(x = "Years between fire and sampling",
+    labs(x = "Years since fire",
          y = "Probability of juvenile presence",
          title = paste0("n = ",nrow(data.temp))) + 
     # scale_x/y_cont removes pts beyond limits; coord_cart overrides even if not plotted 
     coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
-    theme_bw(base_size = 14) 
+    theme_bw(base_size = 18) 
     plot.list[[i]] <- plot
 
 }
+plot.list[[1]]
+plot.list[[2]]
 plot.list[[3]]
 plot.list[[4]]
 plot.list[[5]]
 
-# tiff(paste0(out.dir,"pipo_tree_node3_",currentDate,".tiff"),
+# tiff(paste0(out.dir,"pipo_tree_node1_",currentDate,".tiff"),
 #       width = 400, height = 400, units = "px")
-# plot.list[[3]]
+# plot.list[[1]]
+# dev.off()
+# tiff(paste0(out.dir,"pipo_tree_node2_",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# plot.list[[2]]
 # dev.off()
 # tiff(paste0(out.dir,"pipo_tree_node4_",currentDate,".tiff"),
 #       width = 400, height = 400, units = "px")
@@ -156,40 +152,84 @@ plot.list[[5]]
 # plot.list[[5]]
 # dev.off()
 
+plot(glm.tree.pipo)
 
 ## Create plots for each node; can't align with expression. Fake it w/ phantom()
-labels = c(expression("BA < 35" ~ ft^{2}~"/acre,"~ "no-low severity"),
-           expression(~phantom(0)~"BA < 35" ~ ft^{2}~"/acre,"~ "med-hi severity"),
-           expression("BA > 35" ~ ft^{2}~"/acre"~phantom(1000000000000))) # to align
+# labels = c(expression("BA < 35 "~ft^{2}~"/acre, no-low severity"),
+#            expression("BA < 35 "~ft^{2}~"/acre, mod-hi severity"),
+#            expression("BA > 35 "~ft^{2}~"/acre"~phantom(, no-low severity))) # to align
+
+# labels = c(expression("BA < 43 "~ft^{2}~"/acre"),
+#            expression("BA > 43 "~ft^{2}~"/acre"))
+
+labels = c(expression("def 1-5 < -0.032 mm"~phantom(100000000)),
+           expression("def 1-5 > -0.032 mm, 86"~ft^{2}~"/acre"),
+           expression("def 1-5 > -0.032 mm, 86"~ft^{2}~"/acre"))
+labels = c("all sites have live BA > 0")
 
 p <- ggplot() +
-  # state outlines
   geom_sf(data = NAmer, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE") +
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
   geom_point(data = data.pipo, aes(x = LON_FS, y = LAT_FS, col = node),
-             size = 4, alpha = 0.7) +
+             size = 5, alpha = 0.7) +
   scale_color_manual(values = pal[loop.ready],
                      labels = labels) + 
-  theme_bw(base_size = 12) +
+  theme_bw(base_size = 18) +
   theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
         panel.background = element_rect(fill = "#808B96"),
         axis.title = element_blank(),
         legend.title = element_blank(),
         legend.background = element_rect(color = "#808B96"),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
-        legend.position=c(0,0))
+        legend.position=c(0,0),
+        legend.text=element_text(size=12))
 p
+dev.off()
 # tiff(paste0(out.dir,"pipo_tree_map_",currentDate,".tiff"),
 #    width = 450, height = 600, units = "px")
 # p
 # dev.off()
 
 
-
+################################################# PSME
+## PSME
 ################################################# PSME
 ## Is there an asymptote? Check with GAM
 data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
+gam.test <- gam(regen_psme ~ s(YEAR.DIFF, k=5) , data=data.psme, family = "binomial")
+new.yr <- seq(0, 32, 0.5) # use new data to predict
+predRegen<-predict(gam.test, list(YEAR.DIFF = new.yr), type = "response", se = TRUE)
+up <- (predRegen$fit + 1.96 * predRegen$se.fit) 
+down <- (predRegen$fit - 1.96 * predRegen$se.fit) 
+pred.df <- data.frame(cbind(new.yr, pred = predRegen$fit, up, down))
+
+# Plot results
+data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
+psme.plot.all <- ggplot() + 
+  geom_point(data = data.psme, aes(x=YEAR.DIFF, y=regen_psme),
+             shape = 16, size=1.5, alpha = 0.5,
+             position = position_jitter(width = 1, height = 0)) +
+  geom_line(data = pred.df, aes(x=new.yr, y = pred), lty = 1, size = 1) +
+  geom_ribbon(data = pred.df, aes(x=new.yr, ymin = down, ymax = up),
+              alpha = 0.25, fill = "grey") +
+  scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
+  scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
+  labs(x = "Years since fire",
+       y = "Probability of juvenile presence") +
+  coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
+  theme_bw(base_size = 18) 
+psme.plot.all
+# tiff(paste0(out.dir,"psme.plot.all",currentDate,".tiff"),
+#       width = 400, height = 400, units = "px")
+# psme.plot.all
+# dev.off()
+
+
+
+
+
+### ARE THERE ASYMPTOTES FOR EACH NODE?
 ## Get obs for each node (orig as df) and save row.names (match orig dataset)
 # Create new col in df to assign node number
 data.psme$node <- NA 
@@ -249,29 +289,33 @@ for (i in loop.ready){
                 alpha = 0.25, fill = pal[i]) +
     scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
     scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
-    labs(x = "Years between fire and sampling",
+    labs(x = "Years since fire",
          y = "Probability of juvenile presence",
          title = paste0("n = ",nrow(data.temp))) + 
     # scale_x/y_cont removes pts beyond limits; coord_cart overrides even if not plotted 
     coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) + 
-    theme_bw(base_size = 14)
+    theme_bw(base_size = 18)
   plot.list[[i]] <- plot
   
 }
+plot.list[[2]]
 plot.list[[3]]
 plot.list[[4]]
+plot.list[[5]]
 plot.list[[6]]
 plot.list[[7]]
+plot.list[[8]]
+plot.list[[9]]
 
 # lowest BA & higher CMD has best probability.
-hist(data.psme$def.tc[data.psme$node == "node3"])
+hist(data.psme$def.tc[data.psme$node == "node3"], 30)
 hist(data.psme$def.tc[data.psme$node == "node4"], 30)
-hist(data.psme$def.tc[data.psme$node == "node6"])
+hist(data.psme$def.tc[data.psme$node == "node6"], 30)
 hist(data.psme$def.tc[data.psme$node == "node7"], 30)
 
 data.psme %>%
-  filter(node == "node4") %>%
-  count(def.tc > 500)
+  filter(node == "node6") %>%
+  count(BALive_psme == 0, regen_psme == 1) 
 data.psme %>%
   filter(node == "node4") %>%
   count(LAT_FS > 42) # S. border of Idaho
@@ -281,9 +325,9 @@ data.psme %>%
   count(LAT_FS > 37) # S. border of UT & CO
 127/(101 + 127) # 0.56
 data.psme %>%
-  filter(node == "node4") %>%
-  filter(YEAR.DIFF > 20) %>%
-  count(LAT_FS > 42, regen_psme)
+  filter(node == "node6") %>%
+  filter(YEAR.DIFF > 15) %>%
+  count(LAT_FS > 42, regen_psme == 1)
 
 #  `LAT_FS > 42`    regen_psme     n
 # <lgl>              <dbl> <int>
@@ -291,30 +335,60 @@ data.psme %>%
 #   2 TRUE                   1     5 # ID & MT
 
 
-# tiff(paste0(out.dir,"psme_tree_node3_",currentDate,".tiff"),
-#       width = 400, height = 400, units = "px")
-# plot.list[[3]]
-# dev.off()
-# tiff(paste0(out.dir,"psme_tree_node4_",currentDate,".tiff"),
-#       width = 400, height = 400, units = "px")
-# plot.list[[4]]
-# dev.off()
-# tiff(paste0(out.dir,"psme_tree_node6_",currentDate,".tiff"),
-#       width = 400, height = 400, units = "px")
-# plot.list[[6]]
-# dev.off()
-# tiff(paste0(out.dir,"psme_tree_node7_",currentDate,".tiff"),
-#       width = 400, height = 400, units = "px")
-# plot.list[[7]]
-# dev.off()
+tiff(paste0(out.dir,"psme_ba-gte0_tree_node2_",currentDate,".tiff"),
+     width = 400, height = 400, units = "px")
+plot.list[[2]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node3_",currentDate,".tiff"),
+      width = 400, height = 400, units = "px")
+plot.list[[3]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node4_",currentDate,".tiff"),
+      width = 400, height = 400, units = "px")
+plot.list[[4]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node5_",currentDate,".tiff"),
+      width = 400, height = 400, units = "px")
+plot.list[[5]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node6_",currentDate,".tiff"),
+      width = 400, height = 400, units = "px")
+plot.list[[6]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node7_",currentDate,".tiff"),
+     width = 400, height = 400, units = "px")
+plot.list[[7]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node8_",currentDate,".tiff"),
+     width = 400, height = 400, units = "px")
+plot.list[[8]]
+dev.off()
+tiff(paste0(out.dir,"psme_tree_node9_",currentDate,".tiff"),
+     width = 400, height = 400, units = "px")
+plot.list[[9]]
+dev.off()
 
 plot(glm.tree.psme)
 
 ## Create plots for each node; can't align with expression. Fake it w/ phantom()
-labels = c(expression("BA < 15" ~ ft^{2}~"/acre,"~ "deficit < 422 mm"),
-           expression("BA < 15" ~ ft^{2}~"/acre,"~ "deficit > 422 mm"),
-           expression("BA > 15" ~ ft^{2}~"/acre,"~ "deficit < 506 mm"),
-           expression("BA > 15" ~ ft^{2}~"/acre,"~ "deficit > 506 mm"))
+# labels = c("tmax < 14.5", "tmax > 14.5")
+
+# labels = c(expression("BA < 15" ~ ft^{2}~"/acre,"~ "deficit < 422 mm"),
+#            expression("BA < 15" ~ ft^{2}~"/acre,"~ "deficit > 422 mm"),
+#            expression("BA > 15" ~ ft^{2}~"/acre,"~ "deficit < 506 mm"),
+#            expression("BA > 15" ~ ft^{2}~"/acre,"~ "deficit > 506 mm"))
+
+# labels = c(expression("BA < 15" ~ ft^{2}~"/acre,"~ "elev < 6812 ft"),
+#            expression("BA < 15" ~ ft^{2}~"/acre,"~ "elev > 6812 ft"),
+#            expression("BA > 15" ~ ft^{2}~"/acre,"~ "def < 506 mm"),
+#            expression("BA > 15" ~ ft^{2}~"/acre,"~ "def > 506 mm"))
+
+labels = c(expression("BA < 15" ~ ft^{2}~"/acre, elev < 6812 ft"),
+           expression("BA < 15" ~ ft^{2}~"/acre, elev > 6812 ft, def < 339 mm"),
+           expression("BA < 15" ~ ft^{2}~"/acre, elev > 6812 ft, def > 339 mm"),
+           expression("BA > 15" ~ ft^{2}~"/acre, def < 506 mm"),
+           expression("BA > 15" ~ ft^{2}~"/acre, def > 506 mm"))
+
 
 p <- ggplot() +
   # state outlines
@@ -322,17 +396,18 @@ p <- ggplot() +
   geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE") +
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
   geom_point(data = data.psme, aes(x = LON_FS, y = LAT_FS, col = node),
-             size = 4, alpha = 0.7) +
+             size = 5, alpha = 0.7) +
   scale_color_manual(values = pal[loop.ready],
                      labels = labels) + 
-  theme_bw(base_size = 12) +
+  theme_bw(base_size = 18) +
   theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
         panel.background = element_rect(fill = "#808B96"),
         axis.title = element_blank(),
         legend.title = element_blank(),
         legend.background = element_rect(color = "#808B96"),
-        legend.justification=c(0,0), # defines which side of legend .position coords refer to 
-        legend.position=c(0,0))
+        legend.justification=c(0,0), # defines which side of legend .position coords refer to
+        legend.position=c(0,0),
+        legend.text=element_text(size=12))
 p
 # tiff(paste0(out.dir,"psme_tree_map_",currentDate,".tiff"),
 #    width = 450, height = 600, units = "px")
