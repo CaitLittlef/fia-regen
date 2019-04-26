@@ -3,12 +3,12 @@
 currentDate <- Sys.Date()
 
 ## Load data; remove extraneous column if necessary
-data.pipo <- read.csv("data.pipo.csv") ; data.pipo$X <- NULL
+data.pipo <- read.csv("data.pipo_2019-04-24.csv") ; data.pipo$X <- NULL
 # identical(data.pipo$FIRE.YR.x, data.pipo$FIRE.YR.y)
 data.pipo$FIRE.YR <- data.pipo$FIRE.YR.x
 data.pipo$FIRE.YR.x <- NULL ; data.pipo$FIRE.YR.y <- NULL
 
-data.psme <- read.csv("data.psme.csv") ; data.psme$X <- NULL
+data.psme <- read.csv("data.psme_2019-04-24.csv") ; data.psme$X <- NULL
 # identical(data.psme$FIRE.YR.x, data.psme$FIRE.YR.y)
 data.psme$FIRE.YR <- data.psme$FIRE.YR.x
 data.psme$FIRE.YR.x <- NULL ; data.psme$FIRE.YR.y <- NULL
@@ -66,13 +66,15 @@ gam.pipo <- gam(regen_pipo ~ s(YEAR.DIFF, k = 5), data = data.pipo, family = "bi
 gam.psme <- gam(regen_psme ~ s(YEAR.DIFF, k = 5), data = data.psme, family = "binomial")
 plotmo(gam.pipo)
 plotmo(gam.psme)
-# Something happens around 8 years?
+# Something happens around 15 years?
 
 
 
 ######################################## JUST LOOK AT GTE 10 YRS POST-FIRE. PIPO
-## Keep sites visited 8 or more years post-fire & gurantee some seed source 
+## Keep sites visited 10 or more years post-fire & gurantee some seed source 
 # After model selected, scale variables to be able to compare
+data.pipo %>% count(YEAR.DIFF > 9)
+# data.pipo %>% count(YEAR.DIFF > 14)
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 boo <- data.pipo[data.pipo$YEAR.DIFF > 9,]# & data.pipo$BALive_pipo > 0,]
 boo$BAProp_pipo <- boo$BALive_pipo/boo$BALiveTot
@@ -82,10 +84,26 @@ boo$BAProp_pipo <- boo$BALive_pipo/boo$BALiveTot
 ###### Model selection: proceed with retaining/dropping out variables
 ### Orig
 boo$FIRE.SEV <- factor(boo$FIRE.SEV, ordered = TRUE)
-mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = boo, family = binomial)
+mod.pipo = glm(regen_pipo ~
+                 BALive_pipo + BALiveTot
+               + def.tc
+               + tmax.tc
+               + ppt.tc
+               + CMD_CHNG 
+               + def59_z_1
+               + def59_z_12
+               + def59_z_13
+               + def59_z_14
+               + def59_z_15
+               # + ELEV
+               + REBURN 
+               + FIRE.SEV
+               ,
+               data = boo, family = binomial)
 summary(mod.pipo)
-AIC(mod.pipo)
-plotmo(mod.pipo)
+# stepAIC(mod.pipo)
+plotmo(mod.pipo, pmethod = "partdep")
+## !! WHY DO PDPs CHANGE WITH EACH NEW POST-FIRE Z-SCORE YR?? !! ##
 
 ## CV to get prediction error rate
 cv.glm(boo, mod.pipo, K=5)$delta # 5-fold cross-validation: raw & adjusted
@@ -109,7 +127,7 @@ for(i in 1:5){
 
 ### Least signif: all terraclimate variables; leave in reburn to see
 # Update model
-mod.pipo.v2 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV + REBURN)
+mod.pipo.v2 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_15 + FIRE.SEV + REBURN)
 summary(mod.pipo.v2)
 AIC(mod.pipo.v2)
 plotmo(mod.pipo.v2)
@@ -135,7 +153,7 @@ for(i in 1:5){
 rm(roccurve, area, AUC)
 
 ### Drop reburn, too 
-mod.pipo.v3 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_13 + FIRE.SEV)
+mod.pipo.v3 <- update(mod.pipo, regen_pipo ~ BALive_pipo + def59_z_15 + FIRE.SEV)
 summary(mod.pipo.v3)
 AIC(mod.pipo.v3)
 plotmo(mod.pipo.v3)
@@ -157,12 +175,12 @@ for(i in 1:5){
   area <- auc(roccurve)
   AUC <- cbind(AUC, area)
 }
-(AUC.5fld.v3 <- rowMeans(AUC)) # 0.722767
+(AUC.5fld.v3 <- rowMeans(AUC)) # 0.8079471
 rm(roccurve, area, AUC)
 
 
 ### Keep only z-score deficit 
-mod.pipo.v4 <- update(mod.pipo, regen_pipo ~ def59_z_13 )
+mod.pipo.v4 <- update(mod.pipo, regen_pipo ~ def59_z_15 )
 summary(mod.pipo.v4)
 AIC(mod.pipo.v4) # 220.963
 plotmo(mod.pipo.v4)
@@ -190,13 +208,13 @@ rm(roccurve, area, AUC)
 
 ### Compare options
 AUC.5fld.v1 # highest AUC
-AUC.5fld.v2 # med AUC
-AUC.5fld.v3 # high AUC
+AUC.5fld.v2 # high AUC
+AUC.5fld.v3 # med AUC
 AUC.5fld.v4 # lowest AUC
 
 cv.glm(boo, mod.pipo, K=5)$delta  # Not specifying # folds runs leave-one-out
 cv.glm(boo, mod.pipo.v2, K=5)$delta # 
-cv.glm(boo, mod.pipo.v3, K=5)$delta # lowest 
+cv.glm(boo, mod.pipo.v3, K=5)$delta # 
 cv.glm(boo, mod.pipo.v4, K=5)$delta # 
 
 AIC(mod.pipo, mod.pipo.v2, mod.pipo.v3, mod.pipo.v4)
@@ -209,38 +227,49 @@ plotmo(mod.pipo.v3)
 p1 <- mod.pipo.v3 %>%  
   partial(pred.var = "BALive_pipo", prob = TRUE) %>% 
     autoplot(smooth = TRUE, 
+           col = "#046C9A",
            xlab = "Live PIPO BA",
-           ylab = "f(live PIPO BA)") +
+           ylab = "Probability of juvenile presence") +
   coord_cartesian(ylim=c(0,1)) +
-  theme_bw(base_size = 14)
+  theme_bw(base_size = 18)
 p1
 
 p2 <- mod.pipo.v3 %>%  
-  partial(pred.var = "def59_z_13", prob = TRUE) %>%
+  partial(pred.var = "def59_z_15", prob = TRUE) %>%
   autoplot(smooth = TRUE,
            xlab = "Post-fire deficit z-score",
-           ylab = "f(post-fire deficit z-score)") +
+           ylab = "Probability of juvenile presence") +
   coord_cartesian(ylim=c(0,1)) +
-  theme_bw(base_size = 14)
+  theme_bw(base_size = 18)
 p2
 
 p3 <- mod.pipo.v3 %>%  
   partial(pred.var = "FIRE.SEV", prob = TRUE) %>%
   autoplot(smooth = TRUE,
+           col = "#046C9A",
+           cex = 5,
            xlab = "Fire severity",
-           ylab = "f(fire severity)") +
+           ylab = "Probability of juvenile presence") +
   coord_cartesian(ylim=c(0,1)) +
-  theme_bw(base_size = 14)
+  theme_bw(base_size = 18)
 p3
 
-# dev.off()
+dev.off()
 # tiff(paste0(out.dir,"pipo_GTE10_pdps_",currentDate,".tiff"),
-#       width = 600, height = 400, units = "px")
+#       width = 1000, height = 400, units = "px")
 # grid.arrange(p1, p2, p3, ncol = 3)
+# dev.off()
+# tiff(paste0(out.dir,"pipo_GTE10_pdps_p1p2_",currentDate,".tiff"),
+#       width = 660, height = 400, units = "px")
+# grid.arrange(p1, p2, ncol = 2)
+# dev.off()
+# tiff(paste0(out.dir,"pipo_GTE10_pdps_p3_",currentDate,".tiff"),
+#       width = 330, height = 400, units = "px")
+# grid.arrange(p3, ncol = 1)
 # dev.off()
 
 ##############################################
-# IN HERE< FIGURE OUT WAY TO DISAPLY PARTIALS WITHOUT HAVING FIRE SEV & REBURN EXTENDED
+# IN HERE< FIGURE OUT WAY TO DISAPLY PARTIALS WITHOUT HAVING FIRE SEV & REBURN PLOT AREA EXTENDED
 # install.packages("egg")
 # library(egg)
 # p_fixed <- set_panel_size(p3,
@@ -272,7 +301,10 @@ p3
 
 
 
+
 boo$regen_pipo <- factor(boo$regen_pipo)
+boo %>%
+  count(regen_pipo)
 ## Is there a pattern to failure?
 
 p <- ggplot() +
@@ -284,20 +316,22 @@ p <- ggplot() +
              size = 4, alpha = 0.7) +
   scale_color_manual(values = c("#F98400", "#046C9A"),
                      labels = c("No juveniles present", "Juveniles present")) + 
-  theme_bw(base_size = 12) +
+  theme_bw(base_size = 18) +
   theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
         panel.background = element_rect(fill = "#808B96"),
         axis.title = element_blank(),
         legend.title = element_blank(),
         legend.background = element_rect(color = "#808B96"),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
-        legend.position=c(0,0))
+        legend.position=c(0,0),
+        legend.text = element_text(size=12))
 p
 
 tiff(paste0(out.dir,"pipo_GTE10yr_juvNojuv_map_",currentDate,".tiff"),
    width = 450, height = 600, units = "px")
 p
 dev.off()
+
 
 
 
@@ -314,27 +348,44 @@ plotmo(tree, type = "response", pmethod = "partdep") # gives probabilities; pdps
 plotmo(tree, type = "link", pmethod = "partdep") # gives log-odds; pdps use avg.
 
 
-######################################## JUST LOOK AT GTE 8 YRS POST-FIRE. PSME
-## Keep sites visited 8 or more years post-fire & gurantee some seed source 
+######################################## JUST LOOK AT GTE 10 YRS POST-FIRE. PSME
+## Keep sites visited 10 or more years post-fire & gurantee some seed source 
 # After model selected, scale variables to be able to compare
-
+data.psme %>% count(YEAR.DIFF > 9)
+# data.psme %>% count(YEAR.DIFF > 14)
 data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
 moo <- data.psme[data.psme$YEAR.DIFF > 9,] #& data.psme$BALive_psme > 0,]
 moo$BAProp_psme <- moo$BALive_psme/moo$BALiveTot
 
 
 ## What predicts regen failure in the long-run?
-mod.psme = glm(regen_psme ~ BALive_psme + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = moo, family = binomial)
+mod.psme = glm(regen_psme ~ BALive_psme + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + CMD_CHNG + ELEV + FIRE.SEV + REBURN, data = moo, family = binomial)
 summary(mod.psme)  
 plotmo(mod.psme)
-
+stepAIC(mod.psme)
 
 ###### Model selection: proceed with retaining/dropping out variables
 ### Orig
 moo$FIRE.SEV <- factor(moo$FIRE.SEV, ordered = TRUE)
-mod.psme = glm(regen_psme ~ BALive_psme + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = moo, family = binomial)
+mod.psme = glm(regen_psme ~
+                 BALive_psme + BALiveTot
+               + def.tc
+               + tmax.tc
+               + ppt.tc
+               + CMD_CHNG 
+               + def59_z_1
+               + def59_z_12
+               + def59_z_13
+               + def59_z_14
+               + def59_z_15
+               # + ELEV
+               + REBURN 
+               + FIRE.SEV
+               ,
+               data = moo, family = binomial)
 summary(mod.psme)
-AIC(mod.psme)
+stepAIC(mod.psme)
+plotmo(mod.psme)
 
 ## CV to get prediction error rate
 cv.glm(moo, mod.psme, K=5)$delta # 5-fold cross-validation: raw & adjusted
@@ -383,40 +434,69 @@ for(i in 1:5){
 (AUC.5fld.v2 <- rowMeans(AUC)) 
 
 
+## In original summary, only def.tc was signif
+mod.psme.v3 <- update(mod.psme, regen_psme ~ def.tc)
+summary(mod.psme.v3)
+AIC(mod.psme.v3) 
+
+## CV to get prediction error rate
+cv.glm(moo, mod.psme.v3, K=5)$delta # 5-fold cross-validation: raw & adjusted
+# nb no K sets K=n so is basically leave-one-out
+
+## 5-fold AUC
+moo<-moo[sample(nrow(moo)),]
+folds <- cut(seq(1,nrow(moo)),breaks=5,labels=FALSE)
+AUC <- NULL
+for(i in 1:5){
+  foldIndexes <- which(folds==i,arr.ind=TRUE)
+  foldData <- moo[foldIndexes, ]
+  mod <- update(mod.psme.v3, data = foldData)
+  foldPred <- predict(mod, foldData, type = "response")
+  roccurve <- roc(regen_psme ~ foldPred, data = foldData) 
+  area <- auc(roccurve)
+  AUC <- cbind(AUC, area)
+}
+(AUC.5fld.v3 <- rowMeans(AUC)) 
+
+
+
 ### Candidate comparison
 AUC.5fld.v1 
-AUC.5fld.v2 
+AUC.5fld.v2
+AUC.5fld.v3
 
-AIC(mod.psme, mod.psme.v2)
+AIC(mod.psme, mod.psme.v2, mod.psme.v3)
 
 cv.glm(moo, mod.psme, K=5)$delta 
 cv.glm(moo, mod.psme.v2, K=5)$delta 
+cv.glm(moo, mod.psme.v3, K=5)$delta 
+
 
 ### PLOT PARTIALS
 p1 <- mod.psme.v2 %>%  
   partial(pred.var = "BALive_psme", prob = TRUE) %>%
   autoplot(smooth = TRUE,
            xlab = "Live PSME BA",
-           ylab = "f(live PSME BA)") +
+           ylab = "Probability of juvenile presence") +
   coord_cartesian(ylim=c(0,1)) +
-  theme_bw(base_size = 14)
+  theme_bw(base_size = 18)
 p1
 
 p2 <- mod.psme.v2 %>%  
   partial(pred.var = "def.tc", prob = TRUE) %>%
   autoplot(smooth = TRUE,
            xlab = "Deficit",
-           ylab = "f(deficit)") +
+           ylab = "Probability of juvenile presence") +
   coord_cartesian(ylim=c(0,1)) +
-  theme_bw(base_size = 14)
+  theme_bw(base_size = 18)
 p2
 
 # dev.off()
 # tiff(paste0(out.dir,"psme_GTE10_pdps_",currentDate,".tiff"),
-#       width = 600, height = 400, units = "px")
+#       width = 660, height = 400, units = "px")
 # grid.arrange(p1, p2, ncol = 2)
 # dev.off()
-
+moo %>% count(regen_psme)
 
 
 
@@ -424,6 +504,8 @@ p2
 
 ### Is there a pattern to failure?
 moo$regen_psme <- factor(moo$regen_psme)
+moo %>% count(regen_psme)
+moo %>% count()
 ## Is there a pattern to failure?
 
 p <- ggplot() +
@@ -435,14 +517,15 @@ p <- ggplot() +
              size = 4, alpha = 0.7) +
   scale_color_manual(values = c("#F98400", "#046C9A"),
                      labels = c("No juveniles present", "Juveniles present")) + 
-  theme_bw(base_size = 12) +
+  theme_bw(base_size = 18) +
   theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
         panel.background = element_rect(fill = "#808B96"),
         axis.title = element_blank(),
         legend.title = element_blank(),
         legend.background = element_rect(color = "#808B96"),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
-        legend.position=c(0,0))
+        legend.position=c(0,0),
+        legend.text = element_text(size=12))
 p
 
 # tiff(paste0(out.dir,"psme_GTE10yr_juvNojuv_map_",currentDate,".tiff"),
@@ -451,25 +534,3 @@ p
 # dev.off()
 
 
-
-
-
-#### RANDOM FORESTS: DON'T USE BUT YOU DO SEE MUCH BIGGER THRESHOLD EFFECT WITH DEFICIT Z-SCORE
-# ## What predicts regen failure in the long-run?
-# mod.pipo = glm(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_13 + FIRE.SEV + REBURN, data = boo, family = binomial)
-# summary(mod.pipo)  
-# plotmo(mod.pipo)
-# # Partial dependence plots -- note you see a much greater threshold with rf than glm.
-# boo$regen_pipo <- factor(boo$regen_pipo, levels= c("1", "0"), ordered = FALSE) ; levels(boo$regen_pipo)[1]
-# rf <- randomForest(regen_pipo ~ BALive_pipo + ppt.tc + tmax.tc + def.tc + aet.tc + def59_z_3 + FIRE.SEV,
-#                    data = boo, importance = TRUE)
-# pdp::partial(rf, pred.var = "def59_z_3",
-#              plot = TRUE, rug = TRUE, prob = TRUE)
-# # ^ As deficit increases, you're less likely to get level 1 of this factor -- i.e., regen.
-# 
-# boo$regen_pipo <- as.numeric(as.character(boo$regen_pipo))
-# rf <- randomForest(regen_pipo  ~ BALive_pipo + MAP_1995 + CMD_1995 + def59_z_13 + FIRE.SEV,
-#                    data = boo, importance = TRUE)
-# pdp::partial(rf, pred.var = "def59_z_13",
-#              plot = TRUE, rug = TRUE, prob = TRUE)
-# # ^ As deficit increases, you're less likely to see out outcome of 1 -- i.e., 1 regen (numeric)
