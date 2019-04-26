@@ -16,7 +16,7 @@ required.packages <- c("plyr", "ggplot2", "raster", "sf", "rgdal", "dplyr",
                        "tidyverse", "maptools", "rgeos", 
                        "partykit", "vcd", "maps", "mgcv", "tmap",
                        "MASS", "pROC", "ResourceSelection", "caret", "broom", "boot",
-                       "dismo", "pscl", "randomForest", "pdp", "classInt", "plotmo",
+                       "dismo", "gbm", "usdm", "pscl", "randomForest", "pdp", "classInt", "plotmo",
                        "ggspatial", "lmtest")
 new.packages <- required.packages[!(required.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)>0) install.packages(new.packages)
@@ -45,6 +45,8 @@ library(caret)
 library(broom)
 library(boot)
 library(dismo)
+library(gbm)
+library(usdm)
 library(pscl)
 library(randomForest)
 library(pdp)
@@ -185,7 +187,7 @@ install.packages("wesanderson")
 library(wesanderson)
 pal.d1 <- wes_palette("Darjeeling1")
 pal.d2 <- wes_palette("Darjeeling2")
-pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#FF0000", "#000000", "#5BBCD6","#F2AD00", "#F98400")
+pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#00A08A", "#F98400", "#FF0000", "#00A08A", "#5BBCD6","#F2AD00", "#F98400")
 # pal colors are X, X, blue, X, teal, red, X, light blue, yellow, orange
 
 #046C9A # blue
