@@ -16,27 +16,43 @@ data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
 # data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo)) 
 # data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
-# data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme)) 
+data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
+
 # data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
 data.pipo$FIRE.SEV <- as.numeric(data.pipo$FIRE.SEV) # for partial dependence plots
 # data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
-data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+data.psme$FIRE.SEV <- as.numeric(data.psme$FIRE.SEV, ordered = TRUE)
+
+# data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 data.pipo$REBURN <- as.numeric(data.pipo$REBURN) # for partial dependence plots
+# data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+data.psme$REBURN <- as.numeric(data.psme$REBURN) # for partial dependence plots
 # data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
+
 
 # Create CMD relative chng (from observed z-score slopes)
 data.pipo$CMD_CHNG <- data.pipo$def59.z.slope
-# data.psme$CMD_CHNG <- data.psme$def59.z.slope
+data.psme$CMD_CHNG <- data.psme$def59.z.slope
 
 # Create proportion BA
 data.pipo$BAProp_pipo <- data.pipo$BALive_pipo/data.pipo$BALiveTot
-# data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
+data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
 
 
 
 #################
 ### BRT SETUP ###   
 #################
+
+## PIPO OR PSME??
+data.brt <- data.pipo %>%
+  rename(regen_brt = regen_pipo,
+         BALive_brt = BALive_pipo) ; sp <- c("pipo")
+
+data.brt <- data.psme %>%
+  rename(regen_brt = regen_psme,
+         BALive_brt = BALive_psme) ; sp <- c("psme")
+
 
 ## Set sample size.
 # sample.size <- 50
@@ -82,13 +98,16 @@ var <- list()
 rel.inf <- list()
 
 # List vars -- put factors last so plot creation doesn't stop midway thru.
-explan.vars <- c("YEAR.DIFF", "BALive_pipo", "BALiveTot",
+explan.vars <- c("YEAR.DIFF", "BALive_brt", "BALiveTot",
           "def.tc", "tmax.tc", "ppt.tc", "CMD_CHNG",
           "DUFF_DEPTH", "LITTER_DEPTH",
           "def59_z_1", 
           # "def59_z_12", "def59_z_13", "def59_z_14", "def59_z_15",
           # "ELEV",
           "FIRE.SEV", "REBURN")
+
+## WHAT SPECIES ARE YOU RUNNING?
+print(sp)
 
 ################
 ### BRT LOOP ###   
@@ -98,11 +117,11 @@ start <- Sys.time()
 for (i in num.loops){
 
   # Pull random sample
-  sample <- data.pipo[which(data.pipo$UNIQUEID %in% sample(data.pipo$UNIQUEID, sample.size)), ]
+  sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
   
   models[[i]] <-gbm.step(data=sample, 
                   gbm.x = explan.vars, 
-                  gbm.y = "regen_pipo",          
+                  gbm.y = "regen_brt",          
                   family = "bernoulli", # for 0/1
                   tree.complexity = TC, # number of nodes in a tree
                   learning.rate = LR, 
@@ -112,7 +131,7 @@ for (i in num.loops){
                   max.trees=1000, # max out at this number of trees
                   verbose=TRUE) # show me what happens!
   # Capture model name (here, iteration i), percent deviance explained, CV corrleation, num trees used.
-  model.name.temp <- paste0("pipo_brt_",i)
+  model.name.temp <- paste0(sp,i)
   BRT.perc.dev.expl.temp <- round(1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null),2) # percent deviance explained
   CV.correlation.temp  <- round(models[[i]]$cv.statistics$correlation.mean,2) # cross-validated correlation
   tree.temp <-
@@ -138,27 +157,6 @@ print(Sys.time() - start)
 #####################
 ### 1 MODEL PLOTS ###   
 #####################
-
-## Recreate default holdout deviance vs. number of trees plot (automatic with gbm.step)
-# attach(models[[5]]) # Can't query model_1, named above. Dunno why. Call actual name from gbm.step
-# 
-# y.bar <- min(cv.values) 
-# y.min <- min(cv.values - cv.loss.ses)
-# y.max <- max(cv.values + cv.loss.ses)
-# 
-# par(mai=c(1,1,1,1), mfrow=c(1,1))
-# plot(trees.fitted, cv.values, type = 'l', ylab = "Holdout deviance", xlab = "Number of trees", ylim = c(y.min,y.max))
-# abline(h = y.bar, col = 3)
-# 
-# lines(trees.fitted, cv.values + cv.loss.ses, lty=2)  
-# lines(trees.fitted, cv.values - cv.loss.ses, lty=2)  
-# 
-# target.trees <- trees.fitted[match(TRUE,cv.values == y.bar)]
-# abline(v = target.trees, col=4)
-# title(paste0(colnames(sample)[1], ", n=", sample.size, ", LR=", LR))
-# 
-# detach(models[[5]])
-
 
 ## Partial deviance of each variable
 par(mai=c(0.6,0.1,0.1,0.1), mfrow=c(2,2))
@@ -192,7 +190,7 @@ colnames(stats) <- colnames
 
 # Save as csv
 currentDate <- Sys.Date()
-csvFileName <- paste0("pipo_brt_stats_z1_noELEV_",currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_z1_noELEV_",currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
 
@@ -239,15 +237,19 @@ for (i in rows){
 stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of lists per col names.
 
 # Boxplot of relative influence; plot by median
-temp <- stats.new[,5:12]
-med <- apply(temp[,5:12], MARGIN = 2, FUN = median, na.rm = TRUE)
+temp <- stats.new[,5:16]
+med <- apply(temp[,1:12], MARGIN = 2, FUN = median, na.rm = TRUE)
 order <- order(med, decreasing = TRUE)
 par(cex.axis=0.75)
 boxplot(temp[,order], las=2)
+# tiff(paste0(out.dir, sp, "_brt_stats_z1_noELEV_ORDERED_RELINF.tif"))
+# boxplot(temp[,order], las=2)
+# dev.off()
 
 # Write to new csv
 currentDate <- Sys.Date()
-write.csv(stats.new, paste0(out.dir,"pipo_brt_stats_z1_noELEV_ORDERED_",currentDate,".csv"))
+write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_z1_noELEV_ORDERED_",currentDate,".csv"))
+
 
 # Get mean & sd of all stats and relative influences
 stats.sum <- stats.new %>%
@@ -256,7 +258,7 @@ stats.sum <- stats.new %>%
 
 # Write to new csv
 currentDate <- Sys.Date()
-write.csv(stats.sum, paste0(out.dir,"pipo_brt_stats_z1_noELEV_SUMMARY_",currentDate,".csv"))
+write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_z1_noELEV_SUMMARY_",currentDate,".csv"))
 
 # Clean up
 # remove(list = ls(pattern = "stats"), name, col.to, col.from, currentDate) 
@@ -285,8 +287,8 @@ responses<-list(rep(NA,length(models)))
 
 # Create folder for plots
 currentDate <- Sys.Date()
-dir.create(paste0(out.dir, "pipo_brt_plots_z1_noELEV_", currentDate))
-plot.dir <- paste0(out.dir, "pipo_brt_plots_z1_noELEV_", currentDate)
+dir.create(paste0(out.dir, sp,"_brt_plots_z1_noELEV_", currentDate))
+plot.dir <- paste0(out.dir, sp,"_brt_plots_z1_noELEV_", currentDate)
 
 ## Create a list to store the plots in
 myplots <- list()
@@ -351,21 +353,6 @@ for (i in 1:length(explan.vars)){
   dev.off()
 }  
 
-## FIXME
-# There are many functions for plottings ggplot stuff together (GROBjects).
-# It's less clear how to handle non-GROBs (e.g., gtable, cowplot's plot_grid, multiplot won't work).
-# I've recorded plots (recordPlot) but when I try to show each in sequence, multiple panels are overriden
-# I.e., I can call each plot, but each plot takes over whole area, seemingly overriding par(mfrow)
-
-# par(mfrow=c(5,2))
-# for(i in length(myplots)){
-# myplots[[i]]
-# }
-# dev.off()
-# N.b., just calling plot is same as this:
-# replayPlot(myplots[[3]])
-
-
 
 
 ##########################################
@@ -377,8 +364,10 @@ responses<-list()
 temp.lo <- list()
 all.lo <- NULL
 
-## Loop through the models and populate the lists of predictors and responses -- these are marginal effects of selected variables.
-## Calculate the x and y limits for plotting and adjust the response scale as in dismo partial plots function (subtract mean)
+## Loop through the models and populate the lists of predictors and responses. 
+# these are marginal effects of selected variables.
+# Calculate the x and y limits for plotting.
+# Adjust the response scale as in dismo partial plots function (subtract mean)
 
 # Can't just call vars in order of how they appear in model, b/c each model has diff order. 
 #So, specify which var to use as predictor in gbm::plot.gbm below 
@@ -399,20 +388,27 @@ for(i in 1:(length(explan.vars)-2)){
 
 # Save these loess values for this type of drought so I can plot average across all droughts.
 currentDate <- Sys.Date()
-write.csv(all.lo, paste0(out.dir, "pipo_brt_lo.pred_z1_noELEV_noREBURN_noFIRESEV_", currentDate,".csv"))
+write.csv(all.lo, paste0(out.dir, sp,"_brt_lo.pred_z1_noELEV_noREBURN_noFIRESEV_", currentDate,".csv"))
 
 # Once all drougth types are run, proceed with BRT_05_PlotVarInf_AllDroughts.R 
+
+
+
+
+
+
+
 
 #######################
 ### SAVE MODELS JIC ###   
 #######################
 
 # Save models JIC. save() needs names and will look to global envi unless I say look to list.
-names(models) <- paste0("model_", 1:length(num.loops)) # First assign names to each of the models.
-currentDate <- Sys.Date()
-Rdata.name <- paste0(scratchdir, "/", drought.type, "_noEVInoC_", currentDate,".Rdata")
-save(list=names(models),
-     file=paste0(Rdata.name),
-     envir=as.environment(models))
+# names(models) <- paste0("model_", 1:length(num.loops)) # First assign names to each of the models.
+# currentDate <- Sys.Date()
+# Rdata.name <- paste0(scratchdir, "/", drought.type, "_noEVInoC_", currentDate,".Rdata")
+# save(list=names(models),
+#      file=paste0(Rdata.name),
+#      envir=as.environment(models))
 # load() # Insert that .Rdata here to reload models
 
