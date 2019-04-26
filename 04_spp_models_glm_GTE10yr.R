@@ -384,8 +384,10 @@ mod.psme = glm(regen_psme ~
                ,
                data = moo, family = binomial)
 summary(mod.psme)
-stepAIC(mod.psme)
+mod.psme.step <- stepAIC(mod.psme)
 plotmo(mod.psme)
+plotmo(mod.psme.step)
+
 
 ## CV to get prediction error rate
 cv.glm(moo, mod.psme, K=5)$delta # 5-fold cross-validation: raw & adjusted
@@ -436,6 +438,7 @@ for(i in 1:5){
 
 ## In original summary, only def.tc was signif
 mod.psme.v3 <- update(mod.psme, regen_psme ~ def.tc)
+
 summary(mod.psme.v3)
 AIC(mod.psme.v3) 
 
