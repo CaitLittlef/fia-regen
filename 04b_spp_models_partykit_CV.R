@@ -4,9 +4,9 @@
 # Rule of thumb for thresholding: prevalence of ones
 data.pipo %>%
   count(regen_pipo)
-# 0: 429
-# 1: 109
-# 109/429 = 0.2540793
+# 0: 417
+# 1: 104
+# 104/417 = 0.2494005
 
 # Randomly shuffle data
 data<-data.pipo[sample(nrow(data.pipo)),]
@@ -46,7 +46,6 @@ for(i in 1:10){
   }
 (cv.acc <- rowMeans(acc)) #; rm(acc.temp, acc, cm)
 (cv.auc <- rowMeans(auc)) #; rm(auc.temp, auc)
-
 
 
 
@@ -100,7 +99,6 @@ for(i in 1:10){
 }
 (cv.acc <- rowMeans(acc)) #; rm(acc.temp, acc, cm)
 (cv.auc <- rowMeans(auc)) #; rm(auc.temp, auc)
-# ^ Percentage correctly classified obs of all obs.
 
 
 data.psme %>%
