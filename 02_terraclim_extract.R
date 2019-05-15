@@ -86,7 +86,7 @@ def.data$FIRE.YR <- data.all$FIRE.YR
 
 
 ###################################### GET Z-SCORE TREND
-## Grab slope of z-scores for each plot
+## Grab slope of z-scores for each plot as reflection of climate change.
 # If deficit is increasing, z-scores will be increasingly positive.
 # Steeper slope means changing faster.
 # All z-scores should add to zero, but here values (up to 2018) are past normal period (1981-2010)...
@@ -122,14 +122,16 @@ moo <- zoo[zoo$PLOTID == "1_16_13",]
 # moo <- zoo[zoo$PLOTID == "3061_8_71",] 
 # moo <- zoo[zoo$PLOTID == "70_16_57",]
 def.z.lm[def.z.lm$PLOTID == "1_16_13",]
+# def.z.lm[def.z.lm$PLOTID == "41_30_103",]
 plot(moo$def.year, moo$def.z)
 abline(-34.59488731, 0.01736898); abline(h=0)
+# abline(5.179523331, -0.002553094); abline(h=0)
 # Alt for plotting:
 moo <- filter(zoo, grepl("^10_", PLOTID))
-p <- ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
-     geom_point()
-p + stat_smooth(aes(group = PLOTID),
-                method = "lm")
+# p <- ggplot(moo, aes(x=def.year, y=def.z, color = PLOTID)) +
+#      geom_point()
+# p + stat_smooth(aes(group = PLOTID),
+#                 method = "lm")
 
 
 ## Keep only slopes
@@ -192,8 +194,9 @@ def.data$def59.z.slope <- doo$def59.z.slope
 def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
 foo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
 foo$FIRE.YR <- data.all$FIRE.YR
+foo$YEAR.DIFF <- data.all$YEAR.DIFF
 
-# Return avg of def 0-3 yrs post-fire. Vars get duped if I don't have seq_len()
+# Return of def 0-5 yrs post-fire. Vars get duped if I don't have seq_len()
 foo$def59_z_0 <- 
   foo[cbind(
     seq_len(nrow(foo)),
@@ -247,11 +250,45 @@ foo <- foo %>%
   mutate(def59_z_15 = rowMeans(dplyr::select(.,"def59_z_1", "def59_z_2", "def59_z_3", "def59_z_4", "def59_z_5")))
 
 
+# Find max post-fire z-score within 5 yrs. 
+foop <- foo[(c("YEAR.DIFF", "def59_z_1", "def59_z_2", "def59_z_3", "def59_z_4", "def59_z_5"))]
+
+fmax <- function(x) {
+  yr <- (x[1])
+  if (is.na(yr)) {
+    return(NA)
+    } else if (yr < 5) {
+    return(max(x[2:(1+yr)]))
+    } else {
+    return(max(x[2:6]))
+  }
+}
+
+
+foop$max <- apply(foop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
+
+
+
+foo <- foo %>%
+  mutate(def59_z_max15 = ifelse(YEAR.DIFF == 1,
+                                def59_z_1,
+                                ifelse(YEAR.DIFF == 2,
+                                       max(rowwise(def59_z_1, def59_z_2)),
+                                       ifelse(YEAR.DIFF == 3,
+                                              rowMaxs(def59_z_1, def59_z_2, def59_z_3),
+                                              ifelse(YEAR.DIFF == 4,
+                                                     rowMaxs(def59_z_1, def59_z_2, def59_z_3, def59_z_4),
+                                                     rowMaxs(def59_z_1, def59_z_2, def59_z_3, def59_z_4, def59_z_5))))))
+
+select(iris, starts_with('Petal')) %>% rowwise() %>% sum()
+
+
 ## Create avg z-score for yrs 0-5 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
 def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(def.data), value=TRUE)
 boo <- def.data[def68.cols] %>% as.data.frame() # weird class change; force df    
 boo$FIRE.YR <- data.all$FIRE.YR
+boo$YEAR.DIFF <- data.all$YEAR.DIFF
 
 # Return avg of def 0-5 yrs post-fire. Vars get duped if I don't have seq_len()
 boo$def68_z_0 <- 
@@ -309,23 +346,44 @@ boo <- boo %>%
 boo <- boo %>%
   mutate(def68_z_15 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4", "def68_z_5")))
 
+
+# Find max post-fire z-score within 5 yrs. 
+boo <- boo %>%
+  mutate(def68_z_max15 = ifelse(YEAR.DIFF == 1,
+                                max(boo$def68_z_1),
+                                ifelse(YEAR.DIFF == 2,
+                                       max(boo$def68_z_1, boo$def68_z_2),
+                                       ifelse(YEAR.DIFF == 3,
+                                              max(boo$def68_z_1, boo$def68_z_2, boo$def68_z_3),
+                                              ifelse(YEAR.DIFF == 4,
+                                                     max(boo$def68_z_1, boo$def68_z_2, boo$def68_z_3, boo$def68_z_4),
+                                                     max(boo$def68_z_1, boo$def68_z_2, boo$def68_z_3, boo$def68_z_4, boo$def68_z_5))))))
+
+
+
 def.data$def59_z_0 <- foo$def59_z_0
 def.data$def59_z_1 <- foo$def59_z_1
 def.data$def59_z_2 <- foo$def59_z_2
 def.data$def59_z_3 <- foo$def59_z_3
+def.data$def59_z_4 <- foo$def59_z_4
+def.data$def59_z_4 <- foo$def59_z_5
 def.data$def59_z_12 <- foo$def59_z_12
 def.data$def59_z_13 <- foo$def59_z_13
 def.data$def59_z_14 <- foo$def59_z_14
 def.data$def59_z_15 <- foo$def59_z_15
+def.data$def59_z_max15 <- foo$def59_z_max15
 
 def.data$def68_z_0 <- boo$def68_z_0
 def.data$def68_z_1 <- boo$def68_z_1
 def.data$def68_z_2 <- boo$def68_z_2
 def.data$def68_z_3 <- boo$def68_z_3
+def.data$def68_z_4 <- boo$def68_z_4
+def.data$def68_z_5 <- boo$def68_z_5
 def.data$def68_z_12 <- boo$def68_z_12
 def.data$def68_z_13 <- boo$def68_z_13
 def.data$def68_z_14 <- boo$def68_z_14
 def.data$def68_z_15 <- boo$def68_z_15
+def.data$def68_z_max15 <- boo$def68_z_max15
 
 
 #########################################
@@ -355,12 +413,6 @@ sapply(data.all, class) # make sure all are real cols, not lists
 
 ## Tidy up
 # rm(rst, pts, pts.trans, FIA.CRS, coords, output, i, loop.ready, def.dir, def.list, def.data, def59.cols, def68.cols, temp, foo, boo, moo)
-
-
-
-
-
-
 
 
 
