@@ -264,23 +264,8 @@ fmax <- function(x) {
   }
 }
 
+foo$def59_z_max15 <- apply(foop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
 
-foop$max <- apply(foop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
-
-
-
-foo <- foo %>%
-  mutate(def59_z_max15 = ifelse(YEAR.DIFF == 1,
-                                def59_z_1,
-                                ifelse(YEAR.DIFF == 2,
-                                       max(rowwise(def59_z_1, def59_z_2)),
-                                       ifelse(YEAR.DIFF == 3,
-                                              rowMaxs(def59_z_1, def59_z_2, def59_z_3),
-                                              ifelse(YEAR.DIFF == 4,
-                                                     rowMaxs(def59_z_1, def59_z_2, def59_z_3, def59_z_4),
-                                                     rowMaxs(def59_z_1, def59_z_2, def59_z_3, def59_z_4, def59_z_5))))))
-
-select(iris, starts_with('Petal')) %>% rowwise() %>% sum()
 
 
 ## Create avg z-score for yrs 0-5 post-fire, JUNE-AUG
@@ -347,17 +332,9 @@ boo <- boo %>%
   mutate(def68_z_15 = rowMeans(dplyr::select(.,"def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4", "def68_z_5")))
 
 
-# Find max post-fire z-score within 5 yrs. 
-boo <- boo %>%
-  mutate(def68_z_max15 = ifelse(YEAR.DIFF == 1,
-                                max(boo$def68_z_1),
-                                ifelse(YEAR.DIFF == 2,
-                                       max(boo$def68_z_1, boo$def68_z_2),
-                                       ifelse(YEAR.DIFF == 3,
-                                              max(boo$def68_z_1, boo$def68_z_2, boo$def68_z_3),
-                                              ifelse(YEAR.DIFF == 4,
-                                                     max(boo$def68_z_1, boo$def68_z_2, boo$def68_z_3, boo$def68_z_4),
-                                                     max(boo$def68_z_1, boo$def68_z_2, boo$def68_z_3, boo$def68_z_4, boo$def68_z_5))))))
+# Find max post-fire z-score within 5 yrs. (see function defined above with foo)
+boop <- boo[(c("YEAR.DIFF", "def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4", "def68_z_5"))]
+boo$def68_z_max15 <- apply(boop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
 
 
 
