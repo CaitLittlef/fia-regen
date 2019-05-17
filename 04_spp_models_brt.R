@@ -49,9 +49,9 @@ data.brt <- data.pipo %>%
   rename(regen_brt = regen_pipo,
          BALive_brt = BALive_pipo) ; sp <- c("pipo")
 
-data.brt <- data.psme %>%
-  rename(regen_brt = regen_psme,
-         BALive_brt = BALive_psme) ; sp <- c("psme")
+# data.brt <- data.psme %>%
+#   rename(regen_brt = regen_psme,
+#          BALive_brt = BALive_psme) ; sp <- c("psme")
 
 
 ## Set sample size.
@@ -88,24 +88,37 @@ TC <- 5
 num.loops <- 1:10
 # num.loops <- 1:20
 
-# Create empty list to store models in; create vectors to store 
-models <- list()
-model.name <- NULL
-BRT.perc.dev.expl <- NULL
-CV.correlation <- NULL
-trees <- NULL
-var <- list()
-rel.inf <- list()
 
-# List vars -- put factors last so plot creation doesn't stop midway thru.
+## List vars (put factors last so plot creation doesn't stop midway thru)
+# Iteratively remove each var to explore improvement in AUC
+
 explan.vars <- c("YEAR.DIFF", "BALive_brt", "BALiveTot",
-          "def.tc", "tmax.tc", "ppt.tc", "CMD_CHNG",
+          "def.tc",
+          # "tmax.tc",
+          "ppt.tc", "CMD_CHNG",
           "DUFF_DEPTH", "LITTER_DEPTH",
-          "def59_z_1",
+          # "def59_z_1",
           # "def59_z_12", "def59_z_13", "def59_z_14", "def59_z_15",
           # "ELEV",
           "def59_z_max15",
-          "FIRE.SEV", "REBURN")
+          "FIRE.SEV",
+          "REBURN")
+
+# version <- c("all")
+# version <- c("xREBURN")
+# version <- c("xREBURN_xFIRESEV")
+# version <- c("xFIRESEV")
+version <- c("xtmax.tc")
+
+## Create empty list to store models in; create vectors to store 
+models <- list()
+model.name <- NULL
+brt.perc.dev.expl <- NULL
+cv.correlation <- NULL
+cv.auc <- NULL
+trees <- NULL
+var <- list()
+rel.inf <- list()
 
 ## WHAT SPECIES ARE YOU RUNNING?
 print(sp)
@@ -129,14 +142,20 @@ for (i in num.loops){
                   tree.complexity = TC, # number of nodes in a tree
                   learning.rate = LR, 
                   bag.fraction = 0.5, # pretty universally used
-                  n.trees=5, # start with this number of trees
+                  n.trees=500, # start with this number of trees
                   step.size=5, # iteratively add this number of trees
                   max.trees=1000, # max out at this number of trees
                   verbose=TRUE) # show me what happens!
-  # Capture model name (here, iteration i), percent deviance explained, CV corrleation, num trees used.
+  ## Grab info/stats
+  # Model name
   model.name.temp <- paste0(sp,i)
-  BRT.perc.dev.expl.temp <- round(1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null),2) # percent deviance explained
-  CV.correlation.temp  <- round(models[[i]]$cv.statistics$correlation.mean,2) # cross-validated correlation
+  # Percent deviance explained
+  brt.perc.dev.expl.temp <- 1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null)
+  # CV correlation
+  cv.correlation.temp  <- models[[i]]$cv.statistics$correlation.mean
+  # CV AUC
+  cv.auc.temp  <- models[[i]]$cv.statistics$discrimination.mean
+  # Number of trees in best model
   tree.temp <-
     models[[i]]$trees.fitted[match(TRUE, models[[i]]$cv.values == min(models[[i]]$cv.values))]
   
@@ -146,15 +165,15 @@ for (i in num.loops){
 
   # Add temp of each metric to vector
   model.name <- c(model.name, model.name.temp)
-  BRT.perc.dev.expl <- c(BRT.perc.dev.expl, BRT.perc.dev.expl.temp)
-  CV.correlation <- c(CV.correlation, CV.correlation.temp)
+  brt.perc.dev.expl <- c(brt.perc.dev.expl, brt.perc.dev.expl.temp)
+  cv.correlation <- c(cv.correlation, cv.correlation.temp)
+  cv.auc <- c(cv.auc, cv.auc.temp)
   trees <- c(trees, tree.temp )
   var <- c(var, var.temp)
   rel.inf <- c(rel.inf, rel.inf.temp)
 
 }
 print(Sys.time() - start)
-
 
 
 #####################
@@ -168,28 +187,30 @@ print(Sys.time() - start)
 
 # plotmo(models[[i]], type = "response", pmethod = "partdep")
 
+
 #####################################################################
 ## COMPILE ALL MODEL PERFORMANCE STATS & VARIABLE INFLUENCE VALUES ##
 #####################################################################
 
-# how many variables?
-length(explan.vars)
-# change matrix function ncol and actual col names per that number.
+# calculate my own auc; get vector cv.auc.by.hand
+source("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/04b_spp_models_brt_CV.R")
 
+# Size of matrix will adjust depending on number of explanatory variables
 var.mat <- matrix(unlist(var), ncol = length(explan.vars), byrow = TRUE) 
 rel.inf.mat <- matrix(unlist(as.numeric(rel.inf)), ncol = length(explan.vars), byrow = TRUE) 
 
-stats <- cbind.data.frame(model.name, CV.correlation, BRT.perc.dev.expl,
+stats <- cbind.data.frame(model.name, cv.correlation, cv.auc, as.numeric(cv.auc.by.hand), brt.perc.dev.expl,
                  trees, var.mat, rel.inf.mat)
-colnames <- c("model.name", "CV.correlation", "BRT.perc.dev.expl", "num.trees",
-              paste0("var.",1:(length(explan.vars))),
+colnames <- c("model.name", "cv.correlation", "cv.auc", "cv.auc.by.hand", "brt.perc.dev.expl", "num.trees",
+              paste0("var.",1:(length(explan.vars))), # create col names based on num vars.
               paste0("rel.inf.",1:(length(explan.vars))))
 colnames(stats) <- colnames              
 
+### WHY ARE MY AUC VALUES DIFF THAN DISCRIM VALUE IN MODEL OUTPUT?? ###
 
 # Save as csv
 currentDate <- Sys.Date()
-csvFileName <- paste0(sp,"_brt_stats",currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_", version, "_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
 
@@ -237,18 +258,18 @@ for (i in rows){
 stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of lists per col names.
 
 # Boxplot of relative influence; plot by median
-temp <- stats.new[,-(1:4)] # retain only cols with variables
+temp <- stats.new[,-(1:6)] # retain only cols with variables
 med <- apply(temp, MARGIN = 2, FUN = median, na.rm = TRUE)
 order <- order(med, decreasing = TRUE)
 par(cex.axis=0.75)
 boxplot(temp[,order], las=2)
-tiff(paste0(out.dir, sp, "_brt_stats_z1_noELEV_ORDERED_RELINF", currentDate,".tif"))
+tiff(paste0(out.dir, sp, "_brt_stats_ORDERED_RELINF_", version, "_", currentDate,".tif"))
 boxplot(temp[,order], las=2)
 dev.off()
 
 # Write to new csv
 currentDate <- Sys.Date()
-write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_ORDERED_",currentDate,".csv"))
+write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_ORDERED_", version, "_",  currentDate,".csv"))
 
 
 # Get mean & sd of all stats and relative influences
@@ -258,7 +279,7 @@ stats.sum <- stats.new %>%
 
 # Write to new csv
 currentDate <- Sys.Date()
-write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_SUMMARY_",currentDate,".csv"))
+write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_SUMMARY_",version, "_",currentDate,".csv"))
 
 # Clean up
 # remove(list = ls(pattern = "stats"), name, col.to, col.from, currentDate) 
