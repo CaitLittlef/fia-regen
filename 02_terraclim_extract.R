@@ -337,7 +337,7 @@ boop <- boo[(c("YEAR.DIFF", "def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4", 
 boo$def68_z_max15 <- apply(boop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
 
 
-
+# Put computed vals back into major dataset
 def.data$def59_z_0 <- foo$def59_z_0
 def.data$def59_z_1 <- foo$def59_z_1
 def.data$def59_z_2 <- foo$def59_z_2
