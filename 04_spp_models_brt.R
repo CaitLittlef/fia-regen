@@ -54,19 +54,6 @@ data.brt <- data.pipo %>%
 #          BALive_brt = BALive_psme) ; sp <- c("psme")
 
 
-## Set sample size.
-# sample.size <- 50
-# sample.size <- 75
-# sample.size <- 100
-# sample.size <- 150
-# sample.size <- 200
-# sample.size <- 250 # any smaller kept failing.
-
-# sample.size <- 1000
-# sample.size <- 10000
-# sample.size <- 25000
-# sample.size <- 50000
-
 ## Set learning rate
 # if (sample.size < 1500){ LR<-0.002}
 # if (sample.size > 4500){ LR<-0.01}
@@ -84,6 +71,7 @@ TC <- 5
 
 # How many bootstraps?
 # num.loops <- 1
+# num.loops <- 1:2
 # num.loops <- 1:5
 num.loops <- 1:10
 # num.loops <- 1:20
@@ -92,33 +80,30 @@ num.loops <- 1:10
 ## List vars (put factors last so plot creation doesn't stop midway thru)
 # Iteratively remove each var to explore improvement in AUC
 
-explan.vars <- c("YEAR.DIFF", "BALive_brt", "BALiveTot",
+explan.vars <- c("YEAR.DIFF",
+          "BALive_brt",
+          "BALiveTot",
           "def.tc",
-          # "tmax.tc",
-          "ppt.tc", "CMD_CHNG",
-          "DUFF_DEPTH", "LITTER_DEPTH",
-          # "def59_z_1",
-          # "def59_z_12", "def59_z_13", "def59_z_14", "def59_z_15",
-          # "ELEV",
+          "tmax.tc",
+          "ppt.tc",
+          "CMD_CHNG",
+          "DUFF_DEPTH",
+          "LITTER_DEPTH",
           "def59_z_max15",
           "FIRE.SEV",
           "REBURN")
+# explan.vars <- explan.vars[-2]
 
-# version <- c("all")
-# version <- c("xREBURN")
-# version <- c("xREBURN_xFIRESEV")
-# version <- c("xFIRESEV")
-version <- c("xtmax.tc")
-
-## Create empty list to store models in; create vectors to store 
+## Create empty list to store models in; create vectors to store stats, etc.
 models <- list()
 model.name <- NULL
 brt.perc.dev.expl <- NULL
 cv.correlation <- NULL
-cv.auc <- NULL
+cv.discrim <- NULL
 trees <- NULL
 var <- list()
 rel.inf <- list()
+cv.auc <- NULL
 
 ## WHAT SPECIES ARE YOU RUNNING?
 print(sp)
@@ -127,34 +112,48 @@ print(sp)
 ### BRT LOOP ###   
 ################
 
-start <- Sys.time()
-for (i in num.loops){
+### !!! IF NOT ITERATIVELY DROPPING, CHNG:
+# 1) for (v in 2:length(explan.vars)) 
+# 2) version <- paste0("x",explan.vars[v])
+# 3) gbm.x = explan.vars[-v],
 
-  # Pull random sample
+start <- Sys.time()
+# for (v in 1){ # if doing all vars, not dropping iteratively
+for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
+  for (i in num.loops){
+    
+  # If iteratively dropping var, activate x to ID which has been left out.
+  # Also change gbm.x in formula below!
+  # version <- "allvars"
+  version <- paste0("x",explan.vars[v])
+    
+  # Pull random sample; if defined sample.size above
   # sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
   # Or use all
   sample <- data.brt
   
+  # Loop through model creation i times
   models[[i]] <-gbm.step(data=sample, 
-                  gbm.x = explan.vars, 
+                  # gbm.x = explan.vars,
+                  gbm.x = explan.vars[-v],
                   gbm.y = "regen_brt",          
-                  family = "bernoulli", # for 0/1
+                  family = "bernoulli", 
                   tree.complexity = TC, # number of nodes in a tree
                   learning.rate = LR, 
                   bag.fraction = 0.5, # pretty universally used
-                  n.trees=500, # start with this number of trees
+                  n.trees=500, # starting number of trees
                   step.size=5, # iteratively add this number of trees
                   max.trees=1000, # max out at this number of trees
-                  verbose=TRUE) # show me what happens!
+                  verbose=TRUE) 
   ## Grab info/stats
   # Model name
-  model.name.temp <- paste0(sp,i)
+  model.name.temp <- paste0(sp,".",version,".",i)
   # Percent deviance explained
   brt.perc.dev.expl.temp <- 1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null)
   # CV correlation
   cv.correlation.temp  <- models[[i]]$cv.statistics$correlation.mean
-  # CV AUC
-  cv.auc.temp  <- models[[i]]$cv.statistics$discrimination.mean
+  # CV discrim (ie auc; see source code for gbm.step)
+  cv.discrim.temp  <- models[[i]]$cv.statistics$discrimination.mean
   # Number of trees in best model
   tree.temp <-
     models[[i]]$trees.fitted[match(TRUE, models[[i]]$cv.values == min(models[[i]]$cv.values))]
@@ -167,23 +166,39 @@ for (i in num.loops){
   model.name <- c(model.name, model.name.temp)
   brt.perc.dev.expl <- c(brt.perc.dev.expl, brt.perc.dev.expl.temp)
   cv.correlation <- c(cv.correlation, cv.correlation.temp)
-  cv.auc <- c(cv.auc, cv.auc.temp)
+  cv.discrim <- c(cv.discrim, cv.discrim.temp)
   trees <- c(trees, tree.temp )
   var <- c(var, var.temp)
   rel.inf <- c(rel.inf, rel.inf.temp)
-
+  
+  ## Calc 10-fold auc
+  data <- sample[sample(row(sample)),] # shuffle data
+  breaks <- 10 # create folds
+  folds <- cut(seq(1,nrow(data)),breaks=breaks,labels=FALSE)
+  
+  auc.all.folds <- vector()
+  cv.auc.temp <- vector()
+  
+  for(f in 1:breaks){ # number of folds
+    
+    # Segment data by fold
+    testIndexes <- which(folds==f,arr.ind=TRUE)
+    testData <- data[testIndexes, ]
+    trainData <- data[-testIndexes, ]
+    
+    # Run new predictions on test data; n.b., and i is defined in model loop above
+    predTest <- predict.gbm(models[[i]], n.trees = tree.temp, testData, type = "response")
+    # Generate curve and store AUC. Use same fold for comparison.
+    roccurve <- roc(testData$regen_brt ~ predTest)
+    auc.each.fold <-  pROC::auc(roccurve)
+    auc.all.folds <- cbind(auc.all.folds, auc.each.fold)
+    cv.auc.temp <- rowMeans(auc.all.folds) # cv auc for a single model, all folds
+  }
+  cv.auc <- c(cv.auc, cv.auc.temp)
+  }
 }
+
 print(Sys.time() - start)
-
-
-#####################
-### 1 MODEL PLOTS ###   
-#####################
-
-## Partial deviance of each variable
-# par(mai=c(0.6,0.1,0.1,0.1), mfrow=c(2,2))
-# gbm.plot(models[[i]], write.title=FALSE, y.label = "fitted function", smooth=TRUE, common.scale = FALSE) # marginal response curves
-# dev.off()
 
 # plotmo(models[[i]], type = "response", pmethod = "partdep")
 
@@ -193,26 +208,39 @@ print(Sys.time() - start)
 #####################################################################
 
 # calculate my own auc; get vector cv.auc.by.hand
-source("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/04b_spp_models_brt_CV.R")
+# source("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/04b_spp_models_brt_CV.R")
+
+# How many vars? If all, retain first.
+num.vars <- ifelse(version == "allvars", length(explan.vars), length(explan.vars)-1)
 
 # Size of matrix will adjust depending on number of explanatory variables
-var.mat <- matrix(unlist(var), ncol = length(explan.vars), byrow = TRUE) 
-rel.inf.mat <- matrix(unlist(as.numeric(rel.inf)), ncol = length(explan.vars), byrow = TRUE) 
+var.mat <- matrix(unlist(var), ncol = num.vars, byrow = TRUE) 
+rel.inf.mat <- matrix(unlist(as.numeric(rel.inf)), ncol = num.vars, byrow = TRUE) 
 
-stats <- cbind.data.frame(model.name, cv.correlation, cv.auc, as.numeric(cv.auc.by.hand), brt.perc.dev.expl,
+stats <- cbind.data.frame(model.name, cv.correlation, cv.discrim, cv.auc, brt.perc.dev.expl,
                  trees, var.mat, rel.inf.mat)
-colnames <- c("model.name", "cv.correlation", "cv.auc", "cv.auc.by.hand", "brt.perc.dev.expl", "num.trees",
-              paste0("var.",1:(length(explan.vars))), # create col names based on num vars.
-              paste0("rel.inf.",1:(length(explan.vars))))
+colnames <- c("model.name", "cv.correlation", "cv.discrim", "cv.auc", "brt.perc.dev.expl", "num.trees",
+              paste0("var.", 1:num.vars), # create col names based on num vars.
+              paste0("rel.inf.", 1:num.vars))
 colnames(stats) <- colnames              
 
-### WHY ARE MY AUC VALUES DIFF THAN DISCRIM VALUE IN MODEL OUTPUT?? ###
+## n.b., auc vals I calc are diff than cv.discrim (auc). Why? See code for gbm.step.
+# I think cv.discrim may be based on 10 folds of bag fraction (training) not full set. 
 
 # Save as csv
 currentDate <- Sys.Date()
-csvFileName <- paste0(sp,"_brt_stats_", version, "_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_all_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_1x_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
+# Get mean & sd of all stats and relative influences
+stats.sum <- stats[,1:6]
+stats.sum$version <- gsub('.([^.]*)$', '', stats$model.name) # match everything before last .
+stats.sum <- stats[,6] %>%
+  dplyr::select(-model.name) %>%
+  summarize_all(list(mean, sd)) # nb this will name _fn1 and _fn2, not _mean and _sd
+
+### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
 
 ######################################
 ## CREATE ORDERED STATS LIST BY VAR ##
@@ -229,9 +257,9 @@ var.cols <- grep(pattern="^var.*", x=colnames(stats))
 rel.inf.cols <- grep(pattern="^rel.inf.*", x=colnames(stats))
 
 # Run loop to rename values and store in list.
-for (i in rows){
+for (k in rows){
   # Pull out one row at a time from stats table
-  stats.row <- stats[i,] # Don't have to specify rows hereafter b/c there's only 1.
+  stats.row <- stats[k,] # Don't have to specify rows hereafter b/c there's only 1.
   colnames(stats.row)
   
   # Take variables (as row entires) and unlist, in order. Unname takes off col names.
@@ -250,7 +278,7 @@ for (i in rows){
   stats.row <- stats.row %>% dplyr::select(-(var.cols)) 
   
   # Fill list with each new row of stats AND asso. col names. These are technically dataframes
-  stats.list[[i]] <- stats.row
+  stats.list[[k]] <- stats.row
 }
 
 # Bind all the rows stored as separate list columns (done to maintain col names).
@@ -268,14 +296,13 @@ boxplot(temp[,order], las=2)
 dev.off()
 
 # Write to new csv
-currentDate <- Sys.Date()
-write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_ORDERED_", version, "_",  currentDate,".csv"))
-
+# currentDate <- Sys.Date()
+# write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_ORDERED_", version, "_",  currentDate,".csv"))
 
 # Get mean & sd of all stats and relative influences
 stats.sum <- stats.new %>%
   dplyr::select(-model.name) %>%
-  summarize_all(funs(mean, sd))
+  summarize_all(list(mean, sd)) # nb this will name _fn1 and _fn2, not _mean and _sd
 
 # Write to new csv
 currentDate <- Sys.Date()
@@ -289,6 +316,17 @@ write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_SUMMARY_",version, "_",curren
 # remove(sample, LR, num.loops, sample.size, start, currentDate,
 #        model.name, CV.correlation, BRT.perc.dev.expl, csvFileName, stats)
 
+
+# Combine all summary tables into single dataframe to eval change in AUC
+list.files <- list.files(out.dir, pattern = "pipo_brt_stats_SUMMARY_", full.names = TRUE)
+list <- list.files(out.dir, pattern = "pipo_brt_stats_SUMMARY_", full.names = FALSE)
+summaries <- bind_rows(lapply(list.files,read.csv))
+rownames(summaries) <- list
+
+# ^ Funny that AUC improves more from dropping YEAR.DIFF than several others??
+
+# partial(models[[1]], pred.var = "YEAR.DIFF", pred.grid = data.brt, pred.fun)
+# https://bgreenwell.github.io/pdp/reference/partial.html
 
 
 ####################################
