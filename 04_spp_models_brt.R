@@ -92,7 +92,11 @@ explan.vars <- c("YEAR.DIFF",
           "def59_z_max15",
           "FIRE.SEV",
           "REBURN")
-# explan.vars <- explan.vars[-2]
+
+## After iteratively dropping (below) to see which boosts AUC, re-define explan.vars
+# explan.vars <- explan.vars[-9] # remove LITTER_DEPTH (biggest increase in auc)
+explan.vars <- explan.vars[-c(7,9)] # remove CMD_CHNG, TOO
+# ^ This is the final dataset, as removing others doesn't improve 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
 models <- list()
@@ -117,15 +121,16 @@ print(sp)
 # 2) version <- paste0("x",explan.vars[v])
 # 3) gbm.x = explan.vars[-v],
 
-start <- Sys.time()
-# for (v in 1){ # if doing all vars, not dropping iteratively
-for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
+start <- Sys.time() # nb looping auc code takes lots longer than running brt_CV.R after
+for (v in 1){ # if doing all vars, not dropping iteratively
+# for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
   for (i in num.loops){
     
   # If iteratively dropping var, activate x to ID which has been left out.
   # Also change gbm.x in formula below!
   # version <- "allvars"
-  version <- paste0("x",explan.vars[v])
+  version <- "fin"
+  # version <- paste0("x",explan.vars[v])
     
   # Pull random sample; if defined sample.size above
   # sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
@@ -134,8 +139,8 @@ for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF
   
   # Loop through model creation i times
   models[[i]] <-gbm.step(data=sample, 
-                  # gbm.x = explan.vars,
-                  gbm.x = explan.vars[-v],
+                  gbm.x = explan.vars,
+                  # gbm.x = explan.vars[-v],
                   gbm.y = "regen_brt",          
                   family = "bernoulli", 
                   tree.complexity = TC, # number of nodes in a tree
@@ -143,7 +148,7 @@ for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF
                   bag.fraction = 0.5, # pretty universally used
                   n.trees=500, # starting number of trees
                   step.size=5, # iteratively add this number of trees
-                  max.trees=1000, # max out at this number of trees
+                  max.trees=1250, # max out at this number of trees
                   verbose=TRUE) 
   ## Grab info/stats
   # Model name
@@ -211,7 +216,7 @@ print(Sys.time() - start)
 # source("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/04b_spp_models_brt_CV.R")
 
 # How many vars? If all, retain first.
-num.vars <- ifelse(version == "allvars", length(explan.vars), length(explan.vars)-1)
+num.vars <- ifelse((version == "allvars" | version == "fin"), length(explan.vars), length(explan.vars)-1)
 
 # Size of matrix will adjust depending on number of explanatory variables
 var.mat <- matrix(unlist(var), ncol = num.vars, byrow = TRUE) 
@@ -224,21 +229,38 @@ colnames <- c("model.name", "cv.correlation", "cv.discrim", "cv.auc", "brt.perc.
               paste0("rel.inf.", 1:num.vars))
 colnames(stats) <- colnames              
 
-## n.b., auc vals I calc are diff than cv.discrim (auc). Why? See code for gbm.step.
+## If auc vals I calc are diff than cv.discrim (auc). Why? See code for gbm.step.
 # I think cv.discrim may be based on 10 folds of bag fraction (training) not full set. 
 
 # Save as csv
 currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_all_", currentDate,".csv")
-csvFileName <- paste0(sp,"_brt_stats_1x_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x2_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x3_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
-# Get mean & sd of all stats and relative influences
+## If iteratnively dropping, get mean & sd of all stats and relative influences
 stats.sum <- stats[,1:6]
+# Create column that just has model version (i.e., which var is dropped), not 1, 2, 3...10
 stats.sum$version <- gsub('.([^.]*)$', '', stats$model.name) # match everything before last .
-stats.sum <- stats[,6] %>%
+stats.sum <- stats.sum %>%
+  group_by(version) %>%
   dplyr::select(-model.name) %>%
   summarize_all(list(mean, sd)) # nb this will name _fn1 and _fn2, not _mean and _sd
+
+# Save as csv
+currentDate <- Sys.Date()
+# csvFileName <- paste0(sp,"_brt_stats_x1_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x2_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x3_sum_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
+write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
+
+## w/o litter & cmd gives highest auc; removing others does not increase.
+# Set that final model agian and proceed below.
+
 
 ### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
 
@@ -291,13 +313,13 @@ med <- apply(temp, MARGIN = 2, FUN = median, na.rm = TRUE)
 order <- order(med, decreasing = TRUE)
 par(cex.axis=0.75)
 boxplot(temp[,order], las=2)
-tiff(paste0(out.dir, sp, "_brt_stats_ORDERED_RELINF_", version, "_", currentDate,".tif"))
+tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"))
 boxplot(temp[,order], las=2)
 dev.off()
 
 # Write to new csv
-# currentDate <- Sys.Date()
-# write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_ORDERED_", version, "_",  currentDate,".csv"))
+currentDate <- Sys.Date()
+write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_", version, "_relinf_ordered_",  currentDate,".csv"))
 
 # Get mean & sd of all stats and relative influences
 stats.sum <- stats.new %>%
@@ -306,22 +328,9 @@ stats.sum <- stats.new %>%
 
 # Write to new csv
 currentDate <- Sys.Date()
-write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_SUMMARY_",version, "_",currentDate,".csv"))
-
-# Clean up
-# remove(list = ls(pattern = "stats"), name, col.to, col.from, currentDate) 
-# remove(var, var.mat1, var.mat2)
-# remove(rel.inf, rel.inf.mat1, rel.inf.mat2)
-# remove(list = ls(pattern = ".temp"))
-# remove(sample, LR, num.loops, sample.size, start, currentDate,
-#        model.name, CV.correlation, BRT.perc.dev.expl, csvFileName, stats)
+write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",currentDate,".csv"))
 
 
-# Combine all summary tables into single dataframe to eval change in AUC
-list.files <- list.files(out.dir, pattern = "pipo_brt_stats_SUMMARY_", full.names = TRUE)
-list <- list.files(out.dir, pattern = "pipo_brt_stats_SUMMARY_", full.names = FALSE)
-summaries <- bind_rows(lapply(list.files,read.csv))
-rownames(summaries) <- list
 
 # ^ Funny that AUC improves more from dropping YEAR.DIFF than several others??
 
@@ -487,6 +496,17 @@ write.csv(all.lo, paste0(out.dir, sp,"_brt_lo.pred_z1_noELEV_noREBURN_noFIRESEV_
 
 
 
+
+## Clean up
+# remove(list = ls(pattern = "stats"), name, col.to, col.from, currentDate) 
+# remove(var, var.mat1, var.mat2)
+# remove(rel.inf, rel.inf.mat1, rel.inf.mat2)
+# remove(list = ls(pattern = ".temp"))
+# remove(sample, LR, num.loops, sample.size, start, currentDate,
+#        model.name, CV.correlation, BRT.perc.dev.expl, csvFileName, stats)
+
+
+
 #######################
 ### SAVE MODELS JIC ###   
 #######################
@@ -499,4 +519,6 @@ write.csv(all.lo, paste0(out.dir, sp,"_brt_lo.pred_z1_noELEV_noREBURN_noFIRESEV_
 #      file=paste0(Rdata.name),
 #      envir=as.environment(models))
 # load() # Insert that .Rdata here to reload models
+
+
 
