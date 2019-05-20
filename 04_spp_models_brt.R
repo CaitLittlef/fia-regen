@@ -87,15 +87,15 @@ explan.vars <- c("YEAR.DIFF",
           "tmax.tc",
           "ppt.tc",
           "CMD_CHNG",
+          "def59_z_max15",
           "DUFF_DEPTH",
           "LITTER_DEPTH",
-          "def59_z_max15",
           "FIRE.SEV",
           "REBURN")
 
 ## After iteratively dropping (below) to see which boosts AUC, re-define explan.vars
-# explan.vars <- explan.vars[-9] # remove LITTER_DEPTH (biggest increase in auc)
-explan.vars <- explan.vars[-c(7,9)] # remove CMD_CHNG, TOO
+# explan.vars <- explan.vars[-10] # remove LITTER_DEPTH (biggest increase in auc)
+explan.vars <- explan.vars[-c(7,10)] # remove CMD_CHNG, TOO
 # ^ This is the final dataset, as removing others doesn't improve 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
@@ -121,7 +121,10 @@ print(sp)
 # 2) version <- paste0("x",explan.vars[v])
 # 3) gbm.x = explan.vars[-v],
 
-start <- Sys.time() # nb looping auc code takes lots longer than running brt_CV.R after
+# nb looping auc code takes lots longer than running brt_CV.R after.
+# If I do after, see code_ref for reading in indivd csvs and bind_rows to compare 
+
+start <- Sys.time() 
 for (v in 1){ # if doing all vars, not dropping iteratively
 # for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
   for (i in num.loops){
@@ -129,9 +132,10 @@ for (v in 1){ # if doing all vars, not dropping iteratively
   # If iteratively dropping var, activate x to ID which has been left out.
   # Also change gbm.x in formula below!
   # version <- "allvars"
-  version <- "fin"
   # version <- paste0("x",explan.vars[v])
+  version <- "fin"
     
+      
   # Pull random sample; if defined sample.size above
   # sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
   # Or use all
@@ -205,7 +209,6 @@ for (v in 1){ # if doing all vars, not dropping iteratively
 
 print(Sys.time() - start)
 
-# plotmo(models[[i]], type = "response", pmethod = "partdep")
 
 
 #####################################################################
@@ -338,14 +341,17 @@ write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",cur
 # https://bgreenwell.github.io/pdp/reference/partial.html
 
 
-####################################
-## OVERLAY ALL ITERATIONS OF BRTS ##
-####################################
+#############################################
+## PARTIAL DEPENDENCE PLOTS EACH VAR KINDA ##
+#############################################
+
+## pdps account for average effect of other vars. BUT, plotmo isn't full shebang.
+# plotmo(models[[i]], type = "response", pmethod = "partdep")
+# ^ plotmo is "poor mans" pdp b/c holds other vals at median (or avg with pmethod = partdep).
+# Even with pmethod = partdep, I think TRUE pdp would compute at all vals of other vars...
+# ... and then average those predicted variables for maybe every val of var of interest?
 
 # ref: https://stats.stackexchange.com/questions/122721/r-partial-dependency-plots-from-gbm-package-values-and-y-axis/122802
-
-#If factor variable
-# predictors[[j]] <- factor(predictors[[j]],levels = levels(gbm.object$gbm.call$dataframe[,gbm.object$gbm.call$gbm.x[k]]))
 
 
 par(mfrow=c(1,1))
@@ -361,23 +367,21 @@ plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate)
 ## Create a list to store the plots in
 myplots <- list()
 
-## Loop through the variables and overlay loess fit for each model on one plot per variable
+## Loop through the variables and overlay loess fit for each model on one plot per variable.
+# N.b., FIRE.SEV and REBURN (factors) are at end and not looped through here (hence length - 2).
+# If I want to create those plots, modify:
+# predictors[[j]] <- factor(predictors[[j]],levels = levels(gbm.object$gbm.call$dataframe[,gbm.object$gbm.call$gbm.x[k]]))
 
-for (i in 1:length(explan.vars)){ 
+for (i in 1:(length(explan.vars)-2)){ 
   
   ## Loop through the models and populate the lists of predictors and (marginal) responses.
-  ## With plot.gbm, other vars are "integrated out" -- not true pdp with mean of other vars.
+  ## With plot.gbm, other vars are "integrated out" -- not true pdp with mean effect of other vars.
   ## Calc x & y lims for plotting.
   ## With type = "response", don't need to subtract mean to put on scale of response var.
-  
-  
-  ## !!!!!!!!!!! BUT CONFIRM THIS ^ !!!!!!!!!!!
-  
-  
-  
+
+
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
-    # r1 <- plotmo(gbm.mod, nresponse = i, type = "response", pmethod = "partdep", return.grid = TRUE)
     r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE)
     # return.grid only gives eval pts & avg predictions. no graphics. c.f. gbm.plot
     predictors[[j]]<-r1[,1]
@@ -394,7 +398,6 @@ for (i in 1:length(explan.vars)){
   xmin=min(unlist(predictors))
   xmax=max(unlist(predictors))
 
-  
   ## Create first plot of first model (j = 1), then overlay next models.
   ## This will be dummy for getting plot set-up (so hist doesn't get too big)
   j <- 1
@@ -443,12 +446,129 @@ for (i in 1:length(explan.vars)){
   abline(v = quant[2], lty = 2, lwd = 2, col = "red")
   
   
-
   ## Store the plots in a list
   myplots[[i]] <- recordPlot()
   
   dev.off()
 }  
+
+
+
+############################################
+## PDP FOR YEARS.DIFF -- OTHER VAR LEVELS ##
+############################################
+
+par(mfrow=c(1,1))
+# Which var am I varying?
+var <- "BALive_brt" # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
+# Only looking at YEAR.DIFF here
+i <- 1 # explan.vars[i] still exists in loop below & 1 = YEAR.DIFF
+
+## Create list for dumping predictors (here, all YEAR.DIFF) & responses x 10 models
+predictors<-list(rep(NA,length(models))) 
+responses<-list(rep(NA,length(models)))
+
+## Create a list to store the plots in
+myplots <- list()
+
+## Create folder for plots
+currentDate <- Sys.Date()
+dir.create(paste0(out.dir, sp,"_brt_yr.diff_pdp_by_",var,"_", currentDate))
+plot.dir <- paste0(out.dir, sp,"_brt_yr.diff_pdp_by_",var,"_", currentDate)
+
+## For predictions, create 100 new YEAR.DIFF values.
+year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by = 0.25)
+
+## Here, create new dataset with new vals for all but...
+print(var)
+newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
+  mutate(BALiveTot = mean(BALiveTot),
+         def.tc = mean(def.tc),
+         tmax.tc = mean(tmax.tc),
+         ppt.tc = mean(ppt.tc),
+         def59_z_max15 = mean(def59_z_max15),
+         DUFF_DEPTH = mean(DUFF_DEPTH),
+         FIRE.SEV = mode(FIRE.SEV),
+         REBURN = mode(REBURN))
+newdata <- newdata[1:length(year.new),] # keep just enough (of all the same vals) for new years.
+newdata$YEAR.DIFF <- year.new
+
+# Create new data to predict with (x 10 mods) for each of 5 quantiles; predict with 5 x new data
+for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
+  # Loop through each of the j models
+  for(j in 1:length(models)){
+    gbm.mod<-models[[j]]
+    # r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE)
+    r1 <- predict(gbm.mod,
+                  newdata = transform(newdata, BALive_brt = quantile(BALive_brt)[q]),
+                  n.trees = gbm.mod$n.trees,
+                  type = "response")
+    predictors[[j]] <- newdata$YEAR.DIFF 
+    responses[[j]] <- r1
+  }
+  
+  # currentDate <- Sys.Date()
+  tiff(paste0(plot.dir, "/BALive_brt_q",q,"_ba",quantile(data.brt$BALive_brt)[q], ".tif"))
+  
+  # ymin=min(unlist(responses))
+  # ymax=max(unlist(responses))
+  xmin=min(unlist(predictors))
+  xmax=max(unlist(predictors))
+  ymin = 0.15
+  ymax = 0.40
+  
+  ## Create first plot of first model (j = 1), then overlay next models.
+  ## This will be dummy for getting plot set-up (so hist doesn't get too big)
+  j <- 1
+  par(mar=c(5.5,5.1,4.1,2.1))
+  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
+  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5, 
+       xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
+  
+  
+  ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
+  par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 25 gives top margin
+  hist(data.brt[,explan.vars[i]],
+       xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
+       col = "light grey")
+  
+  ## Re-do first plot of first model (j = 1), b/c hist covered it up, then overlay next models
+  j <- 1
+  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+  temp.lo <- loess(responses[[m]] ~ predictors[[m]], span = 0.5)
+  plot(predictors[[m]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5, 
+       xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
+  
+  
+  ## Overlay models (starting with number 2 til the second to last
+  for(j in 2:(length(models)-1)){
+    ## variable i, model j
+    par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+    temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
+    plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
+         xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
+  }
+  
+  ## create final overlay with last model; add labels here.
+  ## variable i, j=last
+  j <- length(models)
+  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
+  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
+       ylab="Prob. of juv. presence", xlab=explan.vars[i], ylim=c(ymin,ymax),xlim=c(xmin,xmax),
+       main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
+  
+  
+  ## Add 5th & 95th percentile values so we can know which bounds to trust
+  (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
+  abline(v = quant[1], lty = 2, lwd = 2, col = "red")
+  abline(v = quant[2], lty = 2, lwd = 2, col = "red")
+  
+  dev.off()
+}  
+
+
+
 
 
 
