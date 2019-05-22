@@ -18,16 +18,15 @@ data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
 # data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
 data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
 
-# data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
-data.pipo$FIRE.SEV <- as.numeric(data.pipo$FIRE.SEV) # for partial dependence plots
-# data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
-data.psme$FIRE.SEV <- as.numeric(data.psme$FIRE.SEV, ordered = TRUE)
+data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
+# data.pipo$FIRE.SEV <- as.numeric(data.pipo$FIRE.SEV) 
+data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
+# data.psme$FIRE.SEV <- as.numeric(data.psme$FIRE.SEV, ordered = TRUE)
 
-# data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
-data.pipo$REBURN <- as.numeric(data.pipo$REBURN) # for partial dependence plots
-# data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
-data.psme$REBURN <- as.numeric(data.psme$REBURN) # for partial dependence plots
-# data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
+data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+# data.pipo$REBURN <- as.numeric(data.pipo$REBURN) 
+data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+# data.psme$REBURN <- as.numeric(data.psme$REBURN) 
 
 
 # Create CMD relative chng (from observed z-score slopes)
@@ -65,8 +64,8 @@ LR<-0.001
 # LR<-0.0001
 
 ## Set tree complexity
-# TC <- 3
-TC <- 5
+TC <- 3
+# TC <- 5
 # TC <- 10
 
 # How many bootstraps?
@@ -95,8 +94,8 @@ explan.vars <- c("YEAR.DIFF",
 
 ## After iteratively dropping (below) to see which boosts AUC, re-define explan.vars
 # explan.vars <- explan.vars[-10] # remove LITTER_DEPTH (biggest increase in auc)
-explan.vars <- explan.vars[-c(7,10)] # remove CMD_CHNG, TOO
-# ^ This is the final dataset, as removing others doesn't improve 
+# explan.vars <- explan.vars[-c(7,10)] # remove CMD_CHNG, TOO
+# ^ This is the final dataset, as removing others doesn't improve AUC 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
 models <- list()
@@ -107,7 +106,7 @@ cv.discrim <- NULL
 trees <- NULL
 var <- list()
 rel.inf <- list()
-cv.auc <- NULL
+auc <- NULL
 
 ## WHAT SPECIES ARE YOU RUNNING?
 print(sp)
@@ -125,26 +124,27 @@ print(sp)
 # If I do after, see code_ref for reading in indivd csvs and bind_rows to compare 
 
 start <- Sys.time() 
-for (v in 1){ # if doing all vars, not dropping iteratively
-# for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
+# for (v in 1){ # if not iteratively dropping vars
+for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
+# for (v in 9:12){ # if poops out, complete from pt of pooping
   for (i in num.loops){
+  # for (i in 10){ # if poops out, complete run from pt of pooping
     
   # If iteratively dropping var, activate x to ID which has been left out.
   # Also change gbm.x in formula below!
-  # version <- "allvars"
+  version <- "allvars"
   # version <- paste0("x",explan.vars[v])
-  version <- "fin"
+  # version <- "fin"
     
-      
   # Pull random sample; if defined sample.size above
   # sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
   # Or use all
-  sample <- data.brt
+  data <- data.brt
   
   # Loop through model creation i times
-  models[[i]] <-gbm.step(data=sample, 
-                  gbm.x = explan.vars,
-                  # gbm.x = explan.vars[-v],
+  models[[i]] <-gbm.step(data=data, 
+                  # gbm.x = explan.vars,
+                  gbm.x = explan.vars[-v],
                   gbm.y = "regen_brt",          
                   family = "bernoulli", 
                   tree.complexity = TC, # number of nodes in a tree
@@ -161,7 +161,7 @@ for (v in 1){ # if doing all vars, not dropping iteratively
   brt.perc.dev.expl.temp <- 1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null)
   # CV correlation
   cv.correlation.temp  <- models[[i]]$cv.statistics$correlation.mean
-  # CV discrim (ie auc; see source code for gbm.step)
+  # CV discrim (ie training auc; see source code for gbm.step)
   cv.discrim.temp  <- models[[i]]$cv.statistics$discrimination.mean
   # Number of trees in best model
   tree.temp <-
@@ -180,31 +180,12 @@ for (v in 1){ # if doing all vars, not dropping iteratively
   var <- c(var, var.temp)
   rel.inf <- c(rel.inf, rel.inf.temp)
   
-  ## Calc 10-fold auc
-  data <- sample[sample(row(sample)),] # shuffle data
-  breaks <- 10 # create folds
-  folds <- cut(seq(1,nrow(data)),breaks=breaks,labels=FALSE)
-  
-  auc.all.folds <- vector()
-  cv.auc.temp <- vector()
-  
-  for(f in 1:breaks){ # number of folds
-    
-    # Segment data by fold
-    testIndexes <- which(folds==f,arr.ind=TRUE)
-    testData <- data[testIndexes, ]
-    trainData <- data[-testIndexes, ]
-    
-    # Run new predictions on test data; n.b., and i is defined in model loop above
-    predTest <- predict.gbm(models[[i]], n.trees = tree.temp, testData, type = "response")
-    # Generate curve and store AUC. Use same fold for comparison.
-    roccurve <- roc(testData$regen_brt ~ predTest)
-    auc.each.fold <-  pROC::auc(roccurve)
-    auc.all.folds <- cbind(auc.all.folds, auc.each.fold)
-    cv.auc.temp <- rowMeans(auc.all.folds) # cv auc for a single model, all folds
-  }
-  cv.auc <- c(cv.auc, cv.auc.temp)
-  }
+  ## Calc auc
+  pred <- predict.gbm(models[[i]], n.trees = tree.temp, data, type = "response")
+  roccurve <- roc(data$regen_brt ~ pred)
+  auc.temp <- pROC::auc(roccurve)
+  auc <- c(auc, auc.temp)
+  } 
 }
 
 print(Sys.time() - start)
@@ -225,15 +206,15 @@ num.vars <- ifelse((version == "allvars" | version == "fin"), length(explan.vars
 var.mat <- matrix(unlist(var), ncol = num.vars, byrow = TRUE) 
 rel.inf.mat <- matrix(unlist(as.numeric(rel.inf)), ncol = num.vars, byrow = TRUE) 
 
-stats <- cbind.data.frame(model.name, cv.correlation, cv.discrim, cv.auc, brt.perc.dev.expl,
+stats <- cbind.data.frame(model.name, cv.correlation, cv.discrim, auc, brt.perc.dev.expl,
                  trees, var.mat, rel.inf.mat)
-colnames <- c("model.name", "cv.correlation", "cv.discrim", "cv.auc", "brt.perc.dev.expl", "num.trees",
+colnames <- c("model.name", "cv.correlation", "cv.discrim", "auc", "brt.perc.dev.expl", "num.trees",
               paste0("var.", 1:num.vars), # create col names based on num vars.
               paste0("rel.inf.", 1:num.vars))
 colnames(stats) <- colnames              
 
-## If auc vals I calc are diff than cv.discrim (auc). Why? See code for gbm.step.
-# I think cv.discrim may be based on 10 folds of bag fraction (training) not full set. 
+# What's var in auc values? min-max = 0.0095 -- maybe drop vars that decrease auc by meager <0.01.
+mean(auc) ; sd(auc) ; range(auc) ; max(auc) - min(auc)
 
 # Save as csv
 currentDate <- Sys.Date()
@@ -241,10 +222,10 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x2_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_", currentDate,".csv")
-csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
-## If iteratnively dropping, get mean & sd of all stats and relative influences
+## If iteratively dropping, get mean & sd of all stats and relative influences
 stats.sum <- stats[,1:6]
 # Create column that just has model version (i.e., which var is dropped), not 1, 2, 3...10
 stats.sum$version <- gsub('.([^.]*)$', '', stats$model.name) # match everything before last .
@@ -259,13 +240,15 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x2_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_sum_", currentDate,".csv")
 csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
-write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
+# write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 
 ## w/o litter & cmd gives highest auc; removing others does not increase.
 # Set that final model agian and proceed below.
 
 
 ### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
+
+
 
 ######################################
 ## CREATE ORDERED STATS LIST BY VAR ##
@@ -316,7 +299,7 @@ med <- apply(temp, MARGIN = 2, FUN = median, na.rm = TRUE)
 order <- order(med, decreasing = TRUE)
 par(cex.axis=0.75)
 boxplot(temp[,order], las=2)
-tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"))
+# tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"))
 boxplot(temp[,order], las=2)
 dev.off()
 
@@ -333,12 +316,6 @@ stats.sum <- stats.new %>%
 currentDate <- Sys.Date()
 write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",currentDate,".csv"))
 
-
-
-# ^ Funny that AUC improves more from dropping YEAR.DIFF than several others??
-
-# partial(models[[1]], pred.var = "YEAR.DIFF", pred.grid = data.brt, pred.fun)
-# https://bgreenwell.github.io/pdp/reference/partial.html
 
 
 #############################################
@@ -364,35 +341,27 @@ currentDate <- Sys.Date()
 dir.create(paste0(out.dir, sp,"_brt_plots_", currentDate))
 plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate)
 
-## Create a list to store the plots in
-myplots <- list()
 
-## Loop through the variables and overlay loess fit for each model on one plot per variable.
-# N.b., FIRE.SEV and REBURN (factors) are at end and not looped through here (hence length - 2).
-# If I want to create those plots, modify:
-# predictors[[j]] <- factor(predictors[[j]],levels = levels(gbm.object$gbm.call$dataframe[,gbm.object$gbm.call$gbm.x[k]]))
-
+## Loop through vars and overlay loess fit for each mod on one plot per var.
+# N.b., FIRE.SEV and REBURN (factors) are at end and not here in loop (hence length - 2).
 for (i in 1:(length(explan.vars)-2)){ 
   
-  ## Loop through the models and populate the lists of predictors and (marginal) responses.
-  ## With plot.gbm, other vars are "integrated out" -- not true pdp with mean effect of other vars.
-  ## Calc x & y lims for plotting.
-  ## With type = "response", don't need to subtract mean to put on scale of response var.
-
+  # Loop through the models and populate  lists of predictors & (marginal) responses.
+  # With plot.gbm, other vars  "integrated out" -- not true pdp with mean effect of other vars.
+  # With type = "response", automagically on scale of repsonse var (don't need to subtract mean)
+  # Return.grid skips plot and gives grid of predictor vals and response vals
 
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
     r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE)
-    # return.grid only gives eval pts & avg predictions. no graphics. c.f. gbm.plot
     predictors[[j]]<-r1[,1]
-    responses[[j]]<-r1[,2]# - mean(r1[,2])
+    responses[[j]]<-r1[,2]
   }
   
   # currentDate <- Sys.Date()
   tiff(paste0(plot.dir, "/", explan.vars[[i]], ".tif"))
-  # pdf(paste0(plot.dir, "/", explan.vars[[i]], ".pdf"))
-  # par(mar=c(5.5,5.1,4.1,2.1))
   
+  # Get limits for plotting
   ymin=min(unlist(responses))
   ymax=max(unlist(responses))
   xmin=min(unlist(predictors))
@@ -413,6 +382,7 @@ for (i in 1:(length(explan.vars)-2)){
        xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
        col = "light grey")
   
+  
   ## Re-do first plot of first model (j = 1), b/c hist covered it up, then overlay next models
   j <- 1
   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
@@ -429,6 +399,7 @@ for (i in 1:(length(explan.vars)-2)){
     plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
          xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
   }
+  
   
   ## create final overlay with last model; add labels here.
   ## variable i, j=last
@@ -452,6 +423,103 @@ for (i in 1:(length(explan.vars)-2)){
   dev.off()
 }  
 
+#############################
+#############################
+#### FIX THIS HOT GARB!! ####
+#############################
+#############################
+
+## Same deal except for factors -- figure out why central val = 1 added back in!!
+# FIRE.SEV
+for(j in 1:length(models)){
+  gbm.mod<-models[[j]]
+  r1 <- gbm::plot.gbm(gbm.mod, i.var = "FIRE.SEV", type = "response", return.grid = TRUE)
+  predictors[[j]]<-r1[,1]
+  responses[[j]]<-r1[,2]
+}
+# currentDate <- Sys.Date()
+tiff(paste0(plot.dir, "/FIRE.SEV.tif"))
+
+# Get limits for plotting
+ymin=min(unlist(responses))
+ymax=max(unlist(responses))
+# xmin=min(unlist(predictors))
+# xmax=max(unlist(predictors))
+
+# Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
+# Jitter pts in x and y else looks sparse.
+# Add distribution (hist) of FIRE.SEV values
+j <- 1
+par(mar=c(5.5,5.1,4.1,2.1))
+plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
+## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
+par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 12.1 gives top margin
+hist(as.numeric(data.brt$FIRE.SEV),
+     xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
+     col = "light grey")
+## Replot j = 1 b/c hist covered it
+par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
+## Proceed with subsequent models til second to last
+for(j in 2:(length(models)-1)){
+  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+  plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), factor = 0.25), xlab ="", xaxt='n',yaxt='n', ylab = "")
+}
+## Final model
+  j <- length(models)
+  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+  plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), 0.25), xlab ="Fire severity", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
+dev.off()
+
+
+# REBURN
+for(j in 1:length(models)){
+  gbm.mod<-models[[j]]
+  r1 <- gbm::plot.gbm(gbm.mod, i.var = "REBURN", type = "response", return.grid = TRUE)
+  predictors[[j]]<-as.numeric(r1[,1])
+  responses[[j]]<-r1[,2]
+}
+# currentDate <- Sys.Date()
+tiff(paste0(plot.dir, "/REBURN"))
+
+# Get limits for plotting
+ymin=min(unlist(responses))
+ymax=max(unlist(responses))
+# xmin=min(unlist(predictors))
+# xmax=max(unlist(predictors))
+
+# Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
+# Jitter pts in x and y else looks sparse.
+# Add distribution (hist) of REBURN values
+j <- 1
+par(mar=c(5.5,5.1,4.1,2.1))
+plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
+## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
+par(new = TRUE, mar=c(5.5,5.1,12.1,2.1)) # 12.1 gives top margin
+hist(as.numeric(data.brt$REBURN),
+     xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
+     col = "light grey")
+## Replot j = 1 b/c hist covered it
+par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
+## Proceed with subsequent models til second to last
+for(j in 2:(length(models)-1)){
+  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+  plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="", xaxt='n',yaxt='n', ylab = "")
+}
+## Final model
+j <- length(models)
+par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="Reburn", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
+dev.off()
+
+
+#########################
+#########################
+#### END OF HOT GARB ####
+#########################
+#########################
+
 
 
 ############################################
@@ -459,8 +527,18 @@ for (i in 1:(length(explan.vars)-2)){
 ############################################
 
 par(mfrow=c(1,1))
-# Which var am I varying?
-var <- "BALive_brt" # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
+# Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
+var <- "BALive_brt"
+# var <- "BALiveTot"
+# var <- "def.tc" 
+# var <- "tmax.tc"
+# var <- "ppt.tc" 
+# var <- "def59_z_max15"
+# var <- "DUFF_DEPTH" 
+# var <- "FIRE.SEV"
+# var <- "REBURN"
+
+
 # Only looking at YEAR.DIFF here
 i <- 1 # explan.vars[i] still exists in loop below & 1 = YEAR.DIFF
 
@@ -468,13 +546,10 @@ i <- 1 # explan.vars[i] still exists in loop below & 1 = YEAR.DIFF
 predictors<-list(rep(NA,length(models))) 
 responses<-list(rep(NA,length(models)))
 
-## Create a list to store the plots in
-myplots <- list()
-
 ## Create folder for plots
 currentDate <- Sys.Date()
-dir.create(paste0(out.dir, sp,"_brt_yr.diff_pdp_by_",var,"_", currentDate))
-plot.dir <- paste0(out.dir, sp,"_brt_yr.diff_pdp_by_",var,"_", currentDate)
+dir.create(paste0(out.dir, sp,"_yr.diff_pdp_by_",var,"_", currentDate))
+plot.dir <- paste0(out.dir, sp,"_yr.diff_pdp_by_",var,"_", currentDate)
 
 ## For predictions, create 100 new YEAR.DIFF values.
 year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by = 0.25)
@@ -482,33 +557,51 @@ year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by
 ## Here, create new dataset with new vals for all but...
 print(var)
 newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
-  mutate(BALiveTot = mean(BALiveTot),
+  mutate(
+         # BALive_brt = mean(BALive_brt), # turn on/off
+         BALiveTot = mean(BALiveTot),
          def.tc = mean(def.tc),
          tmax.tc = mean(tmax.tc),
          ppt.tc = mean(ppt.tc),
          def59_z_max15 = mean(def59_z_max15),
          DUFF_DEPTH = mean(DUFF_DEPTH),
          FIRE.SEV = mode(FIRE.SEV),
-         REBURN = mode(REBURN))
+         REBURN = mode(REBURN)
+         )
 newdata <- newdata[1:length(year.new),] # keep just enough (of all the same vals) for new years.
 newdata$YEAR.DIFF <- year.new
+YN <- levels(newdata$REBURN) # To call REBURN levels without redefining var, create YN look-up
+
 
 # Create new data to predict with (x 10 mods) for each of 5 quantiles; predict with 5 x new data
 for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
+# for (q in 1:3){ # Pick quantiles (10, 50 90)
+# for (q in 1:4){ # For 4 levels of FIRE.SEV; convenient: factor num = sev; chng tiff name below, too.
+# for (q in 1:2){ # For 2 levels of REBURN; chng tiff name below, too.
   # Loop through each of the j models
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
-    # r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE)
     r1 <- predict(gbm.mod,
                   newdata = transform(newdata, BALive_brt = quantile(BALive_brt)[q]),
+                  # newdata = transform(newdata, BALiveTot = quantile(BALiveTot)[q]),
+                  # newdata = transform(newdata, def.tc = quantile(def.tc)[q]),
+                  # newdata = transform(newdata, tmax.tc = quantile(data.brt[,var])[q]),
+                  # newdata = transform(newdata, def.tc = quantile(ppt.tc)[q]),
+                  # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15)[q]),
+                  # newdata = transform(newdata, DUFF_DEPTH = quantile(DUFF_DEPTH)[q]),
+                  # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
+                  # newdata = transform(newdata, REBURN = as.factor(YN[q])),
                   n.trees = gbm.mod$n.trees,
-                  type = "response")
+                  type = "response",
+                  se.fit = TRUE)
     predictors[[j]] <- newdata$YEAR.DIFF 
     responses[[j]] <- r1
   }
   
   # currentDate <- Sys.Date()
-  tiff(paste0(plot.dir, "/BALive_brt_q",q,"_ba",quantile(data.brt$BALive_brt)[q], ".tif"))
+  tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_q",q,"_", quantile(data.brt[,var])[q], ".tif"))
+  # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", q, ".tif"))
+  # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", YN[q], ".tif"))
   
   # ymin=min(unlist(responses))
   # ymax=max(unlist(responses))
@@ -566,8 +659,6 @@ for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
   
   dev.off()
 }  
-
-
 
 
 
