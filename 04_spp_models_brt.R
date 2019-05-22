@@ -93,8 +93,7 @@ explan.vars <- c("YEAR.DIFF",
           "REBURN")
 
 ## After iteratively dropping (below) to see which boosts AUC, re-define explan.vars
-# explan.vars <- explan.vars[-10] # remove LITTER_DEPTH (biggest increase in auc)
-# explan.vars <- explan.vars[-c(7,10)] # remove CMD_CHNG, TOO
+explan.vars <- explan.vars[-c(2,5,7,9,10,11,12)] # have iteratively removed vars.
 # ^ This is the final dataset, as removing others doesn't improve AUC 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
@@ -124,17 +123,17 @@ print(sp)
 # If I do after, see code_ref for reading in indivd csvs and bind_rows to compare 
 
 start <- Sys.time() 
-# for (v in 1){ # if not iteratively dropping vars
-for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
-# for (v in 9:12){ # if poops out, complete from pt of pooping
+for (v in 1){ # if not iteratively dropping vars
+# for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
+# for (v in 2:12){ # if poops out, complete from pt of pooping
   for (i in num.loops){
-  # for (i in 10){ # if poops out, complete run from pt of pooping
+  # for (i in 8:10){ # if poops out, complete run from pt of pooping
     
   # If iteratively dropping var, activate x to ID which has been left out.
   # Also change gbm.x in formula below!
-  version <- "allvars"
+  # version <- "allvars"
   # version <- paste0("x",explan.vars[v])
-  # version <- "fin"
+  version <- "fin"
     
   # Pull random sample; if defined sample.size above
   # sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
@@ -143,8 +142,8 @@ for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF
   
   # Loop through model creation i times
   models[[i]] <-gbm.step(data=data, 
-                  # gbm.x = explan.vars,
-                  gbm.x = explan.vars[-v],
+                  gbm.x = explan.vars,
+                  # gbm.x = explan.vars[-v],
                   gbm.y = "regen_brt",          
                   family = "bernoulli", 
                   tree.complexity = TC, # number of nodes in a tree
@@ -213,7 +212,8 @@ colnames <- c("model.name", "cv.correlation", "cv.discrim", "auc", "brt.perc.dev
               paste0("rel.inf.", 1:num.vars))
 colnames(stats) <- colnames              
 
-# What's var in auc values? min-max = 0.0095 -- maybe drop vars that decrease auc by meager <0.01.
+# What's var in auc?
+# For all variables included, min-max = 0.0095 -- maybe drop vars that increase auc by meager <0.01.
 mean(auc) ; sd(auc) ; range(auc) ; max(auc) - min(auc)
 
 # Save as csv
@@ -222,6 +222,12 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x2_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x4_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x5_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x6_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x7_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x8_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
@@ -239,15 +245,44 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x1_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x2_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_sum_", currentDate,".csv")
-csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x4_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x5_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x6_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x7_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_x8_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
 # write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 
-## w/o litter & cmd gives highest auc; removing others does not increase.
-# Set that final model agian and proceed below.
+# See which variable drop maximizes AUC, doesn't kill % dev explained
+stats.sum <- as.data.frame(stats.sum)
+stats.sum[which.max(stats.sum$auc_fn1),]
+stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1
+stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
+
+# All vars: auc: 0.796601181; %dev: 0.099744762
+# First drop: w/o LITTER_DEPTH auc: 0.796598875; %dev: 0.110703033
+# AUC is smaller than all vars model, but very tiny decrease
+# 0.796601181 - 0.796598875 = 0.000002306
+# Second drop: w/o REBURN auc: 0.796771813
+# Third drop: w/o CMD_CHNG auc: 0.796615016
+# Fourth drop: w/o FIRE.SEV auc: 0.796182669;
+# AUC is smaller than all vars model, but very tiny decrease
+# 0.796601181 - 0.796182669 = 0.000418512
+# Fifth drop: w/o DUFF_DEPTH auc: 0.796665744
+# Sixth drop: w/o BALive_brt auc: 0.7971869
+# Seventh drop: w/o tmax.tc auc: 0.7936993;
+# AUC is smaller than all vars model, and decrease is getting bigger...
+# 0.796601181 - 0.7936993 = 0.002901881
+# Eighth drop: w/o ppt.tc auc: 0.7860738; %dev: 0.1051987
+# AUC is getting substantially smaller, so STOP and do NOT remove ppt.
+# 0.796601181 - 0.7860738 = 0.01052738 -- that's beyond 0.01 threshold.
+
+# Final model explan.vars 
+# [1] "YEAR.DIFF"     "BALiveTot"     "def.tc"        "ppt.tc"        "def59_z_max15"
+
 
 
 ### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
-
 
 
 ######################################
@@ -343,8 +378,9 @@ plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate)
 
 
 ## Loop through vars and overlay loess fit for each mod on one plot per var.
-# N.b., FIRE.SEV and REBURN (factors) are at end and not here in loop (hence length - 2).
-for (i in 1:(length(explan.vars)-2)){ 
+# N.b., if FIRE.SEV and REBURN (factors), -2 and use code at end of loop. 
+# for (i in 1:(length(explan.vars)-2)){
+for (i in 1:(length(explan.vars))){   
   
   # Loop through the models and populate  lists of predictors & (marginal) responses.
   # With plot.gbm, other vars  "integrated out" -- not true pdp with mean effect of other vars.
@@ -429,89 +465,89 @@ for (i in 1:(length(explan.vars)-2)){
 #############################
 #############################
 
-## Same deal except for factors -- figure out why central val = 1 added back in!!
-# FIRE.SEV
-for(j in 1:length(models)){
-  gbm.mod<-models[[j]]
-  r1 <- gbm::plot.gbm(gbm.mod, i.var = "FIRE.SEV", type = "response", return.grid = TRUE)
-  predictors[[j]]<-r1[,1]
-  responses[[j]]<-r1[,2]
-}
-# currentDate <- Sys.Date()
-tiff(paste0(plot.dir, "/FIRE.SEV.tif"))
-
-# Get limits for plotting
-ymin=min(unlist(responses))
-ymax=max(unlist(responses))
-# xmin=min(unlist(predictors))
-# xmax=max(unlist(predictors))
-
-# Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
-# Jitter pts in x and y else looks sparse.
-# Add distribution (hist) of FIRE.SEV values
-j <- 1
-par(mar=c(5.5,5.1,4.1,2.1))
-plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
-## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
-par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 12.1 gives top margin
-hist(as.numeric(data.brt$FIRE.SEV),
-     xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
-     col = "light grey")
-## Replot j = 1 b/c hist covered it
-par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
-## Proceed with subsequent models til second to last
-for(j in 2:(length(models)-1)){
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), factor = 0.25), xlab ="", xaxt='n',yaxt='n', ylab = "")
-}
-## Final model
-  j <- length(models)
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), 0.25), xlab ="Fire severity", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
-dev.off()
-
-
-# REBURN
-for(j in 1:length(models)){
-  gbm.mod<-models[[j]]
-  r1 <- gbm::plot.gbm(gbm.mod, i.var = "REBURN", type = "response", return.grid = TRUE)
-  predictors[[j]]<-as.numeric(r1[,1])
-  responses[[j]]<-r1[,2]
-}
-# currentDate <- Sys.Date()
-tiff(paste0(plot.dir, "/REBURN"))
-
-# Get limits for plotting
-ymin=min(unlist(responses))
-ymax=max(unlist(responses))
-# xmin=min(unlist(predictors))
-# xmax=max(unlist(predictors))
-
-# Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
-# Jitter pts in x and y else looks sparse.
-# Add distribution (hist) of REBURN values
-j <- 1
-par(mar=c(5.5,5.1,4.1,2.1))
-plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
-## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
-par(new = TRUE, mar=c(5.5,5.1,12.1,2.1)) # 12.1 gives top margin
-hist(as.numeric(data.brt$REBURN),
-     xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
-     col = "light grey")
-## Replot j = 1 b/c hist covered it
-par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
-## Proceed with subsequent models til second to last
-for(j in 2:(length(models)-1)){
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="", xaxt='n',yaxt='n', ylab = "")
-}
-## Final model
-j <- length(models)
-par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="Reburn", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
-dev.off()
+# ## Same deal except for factors -- figure out why central val = 1 added back in!!
+# # FIRE.SEV
+# for(j in 1:length(models)){
+#   gbm.mod<-models[[j]]
+#   r1 <- gbm::plot.gbm(gbm.mod, i.var = "FIRE.SEV", type = "response", return.grid = TRUE)
+#   predictors[[j]]<-r1[,1]
+#   responses[[j]]<-r1[,2]
+# }
+# # currentDate <- Sys.Date()
+# tiff(paste0(plot.dir, "/FIRE.SEV.tif"))
+# 
+# # Get limits for plotting
+# ymin=min(unlist(responses))
+# ymax=max(unlist(responses))
+# # xmin=min(unlist(predictors))
+# # xmax=max(unlist(predictors))
+# 
+# # Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
+# # Jitter pts in x and y else looks sparse.
+# # Add distribution (hist) of FIRE.SEV values
+# j <- 1
+# par(mar=c(5.5,5.1,4.1,2.1))
+# plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
+# ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
+# par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 12.1 gives top margin
+# hist(as.numeric(data.brt$FIRE.SEV),
+#      xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
+#      col = "light grey")
+# ## Replot j = 1 b/c hist covered it
+# par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+# plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
+# ## Proceed with subsequent models til second to last
+# for(j in 2:(length(models)-1)){
+#   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+#   plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), factor = 0.25), xlab ="", xaxt='n',yaxt='n', ylab = "")
+# }
+# ## Final model
+#   j <- length(models)
+#   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+#   plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), 0.25), xlab ="Fire severity", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
+# dev.off()
+# 
+# 
+# # REBURN
+# for(j in 1:length(models)){
+#   gbm.mod<-models[[j]]
+#   r1 <- gbm::plot.gbm(gbm.mod, i.var = "REBURN", type = "response", return.grid = TRUE)
+#   predictors[[j]]<-as.numeric(r1[,1])
+#   responses[[j]]<-r1[,2]
+# }
+# # currentDate <- Sys.Date()
+# tiff(paste0(plot.dir, "/REBURN"))
+# 
+# # Get limits for plotting
+# ymin=min(unlist(responses))
+# ymax=max(unlist(responses))
+# # xmin=min(unlist(predictors))
+# # xmax=max(unlist(predictors))
+# 
+# # Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
+# # Jitter pts in x and y else looks sparse.
+# # Add distribution (hist) of REBURN values
+# j <- 1
+# par(mar=c(5.5,5.1,4.1,2.1))
+# plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
+# ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
+# par(new = TRUE, mar=c(5.5,5.1,12.1,2.1)) # 12.1 gives top margin
+# hist(as.numeric(data.brt$REBURN),
+#      xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
+#      col = "light grey")
+# ## Replot j = 1 b/c hist covered it
+# par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+# plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
+# ## Proceed with subsequent models til second to last
+# for(j in 2:(length(models)-1)){
+#   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+#   plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="", xaxt='n',yaxt='n', ylab = "")
+# }
+# ## Final model
+# j <- length(models)
+# par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
+# plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="Reburn", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
+# dev.off()
 
 
 #########################
@@ -528,12 +564,12 @@ dev.off()
 
 par(mfrow=c(1,1))
 # Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
-var <- "BALive_brt"
+# var <- "BALive_brt"
 # var <- "BALiveTot"
-# var <- "def.tc" 
+# var <- "def.tc"
 # var <- "tmax.tc"
-# var <- "ppt.tc" 
-# var <- "def59_z_max15"
+# var <- "ppt.tc"
+var <- "def59_z_max15"
 # var <- "DUFF_DEPTH" 
 # var <- "FIRE.SEV"
 # var <- "REBURN"
@@ -558,12 +594,12 @@ year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by
 print(var)
 newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
-         # BALive_brt = mean(BALive_brt), # turn on/off
+         BALive_brt = mean(BALive_brt), # turn on/off
          BALiveTot = mean(BALiveTot),
          def.tc = mean(def.tc),
          tmax.tc = mean(tmax.tc),
          ppt.tc = mean(ppt.tc),
-         def59_z_max15 = mean(def59_z_max15),
+         # def59_z_max15 = mean(def59_z_max15),
          DUFF_DEPTH = mean(DUFF_DEPTH),
          FIRE.SEV = mode(FIRE.SEV),
          REBURN = mode(REBURN)
@@ -574,20 +610,20 @@ YN <- levels(newdata$REBURN) # To call REBURN levels without redefining var, cre
 
 
 # Create new data to predict with (x 10 mods) for each of 5 quantiles; predict with 5 x new data
-for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
-# for (q in 1:3){ # Pick quantiles (10, 50 90)
+# for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100) # 0 and 100 may be too extreme?
+for (q in 1:3){ # Pick quantiles (10, 50 90)
 # for (q in 1:4){ # For 4 levels of FIRE.SEV; convenient: factor num = sev; chng tiff name below, too.
 # for (q in 1:2){ # For 2 levels of REBURN; chng tiff name below, too.
   # Loop through each of the j models
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
     r1 <- predict(gbm.mod,
-                  newdata = transform(newdata, BALive_brt = quantile(BALive_brt)[q]),
+                  # newdata = transform(newdata, BALive_brt = quantile(BALive_brt)[q]),
                   # newdata = transform(newdata, BALiveTot = quantile(BALiveTot)[q]),
                   # newdata = transform(newdata, def.tc = quantile(def.tc)[q]),
                   # newdata = transform(newdata, tmax.tc = quantile(data.brt[,var])[q]),
-                  # newdata = transform(newdata, def.tc = quantile(ppt.tc)[q]),
-                  # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15)[q]),
+                  # newdata = transform(newdata, ppt.tc = quantile(ppt.tc)[q]),
+                  newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15)[q]),
                   # newdata = transform(newdata, DUFF_DEPTH = quantile(DUFF_DEPTH)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
                   # newdata = transform(newdata, REBURN = as.factor(YN[q])),
@@ -607,8 +643,8 @@ for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
   # ymax=max(unlist(responses))
   xmin=min(unlist(predictors))
   xmax=max(unlist(predictors))
-  ymin = 0.15
-  ymax = 0.40
+  ymin = 0.0
+  ymax = 0.5
   
   ## Create first plot of first model (j = 1), then overlay next models.
   ## This will be dummy for getting plot set-up (so hist doesn't get too big)
@@ -652,7 +688,7 @@ for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
        main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
   
   
-  ## Add 5th & 95th percentile values so we can know which bounds to trust
+  ## Add 5th & 95th percentile values so we can know which bounds to trust (here, it's just YEAR.DIFF)
   (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
   abline(v = quant[1], lty = 2, lwd = 2, col = "red")
   abline(v = quant[2], lty = 2, lwd = 2, col = "red")
@@ -663,58 +699,8 @@ for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100)
 
 
 
-##########################################
-### PREP TO AVERAGE ALL LINES TOGETHER ###   
-##########################################
+##### BOOTSTRAP THOSE PREDICTIONS TO GENERATE CIS #####
 
-predictors<-list() 
-responses<-list()
-temp.lo <- list()
-all.lo <- NULL
-
-## Loop through the models and populate the lists of predictors and responses. 
-# these are marginal effects of selected variables.
-# Calculate the x and y limits for plotting.
-# Adjust the response scale as in dismo partial plots function (subtract mean)
-
-# Can't just call vars in order of how they appear in model, b/c each model has diff order. 
-#So, specify which var to use as predictor in gbm::plot.gbm below 
-for(i in 1:(length(explan.vars)-2)){
-  for(j in 1:length(models)){
-    # store evaluation points (explan.var values) and the marginal effects. return.grid gives values, no graphics.
-    r1 <- gbm::plot.gbm(models[[j]], i.var = explan.vars[i], return.grid = TRUE) 
-    predictors[[j]]<-r1[,1] # store the predictor values
-    responses[[j]]<-r1[,2] - mean(r1[,2]) # store the predictor values, standardized by subtracting mean
-    # run smoothing (local weighted scatter smooth = lowess aka loess)
-    temp.lo[[j]] <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-    # store smoothing predictor values, predictED values, and which variable. "unname" drops extra col from x.
-    df.lo <- data.frame(var = paste0(explan.vars[i]), x = unname(temp.lo[[j]]$x), y = temp.lo[[j]]$fitted)
-    # iteratively add these individ var loess dfs to one that includes all variables.
-    all.lo <- rbind(all.lo, df.lo)
-  }
-}
-
-# Save these loess values for this type of drought so I can plot average across all droughts.
-currentDate <- Sys.Date()
-write.csv(all.lo, paste0(out.dir, sp,"_brt_lo.pred_z1_noELEV_noREBURN_noFIRESEV_", currentDate,".csv"))
-
-# Once all drougth types are run, proceed with BRT_05_PlotVarInf_AllDroughts.R 
-
-
-
-
-
-
-
-
-
-## Clean up
-# remove(list = ls(pattern = "stats"), name, col.to, col.from, currentDate) 
-# remove(var, var.mat1, var.mat2)
-# remove(rel.inf, rel.inf.mat1, rel.inf.mat2)
-# remove(list = ls(pattern = ".temp"))
-# remove(sample, LR, num.loops, sample.size, start, currentDate,
-#        model.name, CV.correlation, BRT.perc.dev.expl, csvFileName, stats)
 
 
 
@@ -731,5 +717,20 @@ write.csv(all.lo, paste0(out.dir, sp,"_brt_lo.pred_z1_noELEV_noREBURN_noFIRESEV_
 #      envir=as.environment(models))
 # load() # Insert that .Rdata here to reload models
 
+
+
+
+#######################
+### CLEAN YOSELF UP ###   
+#######################
+
+
+## Clean up
+# remove(list = ls(pattern = "stats"), name, col.to, col.from, currentDate) 
+# remove(var, var.mat1, var.mat2)
+# remove(rel.inf, rel.inf.mat1, rel.inf.mat2)
+# remove(list = ls(pattern = ".temp"))
+# remove(sample, LR, num.loops, sample.size, start, currentDate,
+#        model.name, CV.correlation, BRT.perc.dev.expl, csvFileName, stats)
 
 
