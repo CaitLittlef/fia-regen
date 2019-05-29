@@ -412,93 +412,7 @@ for (i in 1:(length(explan.vars))){
        xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
   
   
-  
-  
-  
-  
-  ## Tidy data into single dataframe so can add multiple curves onto same plot)
-  predictor.cols <- do.call(cbind, predictors) # each col reps a model -- VALS ALL IDENTICAL
-  response.cols <- do.call(cbind, responses) # each col reps a model
-  pred.df <- as.data.frame(cbind(pred.cols[,1], resp.cols))
-  colnames(pred.df) <- c("x", paste0("y", 1:length(models)))
-  # Here, could plot each model separately after using gather
-  pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
-  pred.df.mean <- mutate(pred.df, y.mean = rowMeans(dplyr::select(pred.df, starts_with("y")))) %>%
-    dplyr::select(x, y.mean)
-  
-  ggplot(pred.df.long, aes(x, y, color = model)) + geom_line()
-  ggplot(pred.df.long, aes(x, y, color = model)) + geom_smooth(span = 0.5, se = FALSE)
-  ggplot(pred.df, aes(x, y.mean)) + geom_smooth(span = 0.5, se = FALSE)
-  
-  ## SEEMS TO BE WORKING
-  
-  temp <- pred.df
-  temp.long <- pred.df.long
-  
-  temp.long <- temp.long %>%
-    group_by(x) %>%
-    summarise(median.y = quantile(y, probs = 0.50),
-              lower.y = quantile(y, probs = 0.025),
-              upper.y= quantile(y, probs = 0.975))
-  
-  # Gives loess for line but ribbon is choppy
-  ggplot() +
-    geom_smooth(data = temp.long, aes(x = x, y = median.y), span = 0.5, se = FALSE) + 
-    geom_ribbon(data = temp.long, aes(x = x, ymin = lower.y, ymax = upper.y),
-                alpha = 0.25, fill = "grey")
-  
-  # Gives choppyt line and choppy ribbon
-  ggplot() +
-    geom_line(data = temp.long, aes(x = x, y = median.y)) + 
-    geom_ribbon(data = temp.long, aes(x = x, ymin = lower.y, ymax = upper.y),
-                alpha = 0.25, fill = "grey")
-    
-  ## Create my own plot object to bound 95% interval
-  g1 <- ggplot(temp.long) + 
-    stat_smooth(aes(x = x, y = lower.y), method = "loess", se = FALSE) +
-    stat_smooth(aes(x = x, y = upper.y), method = "loess", se = FALSE)
-  g1
-  
-  # Build plot object for rendering 
-  gg1 <- ggplot_build(g1)
-  
-  # Extract data for the loess lines from the 'data' slot
-  df2 <- data.frame(x = gg1$data[[1]]$x,
-                    ymin = gg1$data[[1]]$y,
-                    ymax = gg1$data[[2]]$y) 
-  
-  # use the loess data to add the 'ribbon' to plot 
-  g1 +
-    geom_ribbon(data = df2, aes(x = x, ymin = ymin, ymax = ymax),
-                fill = "grey", alpha = 0.4)
-  
-  
-    ## Unlist responses for each model run into separate rows.
-    boots <- do.call(rbind, responses)
-    # Extract 95% interval limits for each run.
-    lims <- apply(boots, 2, FUN = function(x) quantile(x, c(0.025, 0.975)))
-    # 
-  
-    
-  pipo.plot.all <- ggplot() + 
-    geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
-               shape = 16, size=1.5, alpha = 0.5,
-               position = position_jitter(width = 1, height = 0)) +
-    geom_line(data = pred.df, aes(x=new.yr, y = pred), lty = 1, size = 1) +
-    geom_ribbon(data = pred.df, aes(x=new.yr, ymin = down, ymax = up),
-                alpha = 0.25, fill = "grey") +
-    scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
-    scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
-    labs(x = "Years since fire",
-         y = "Probability of juvenile presence") +
-    coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
-    theme_bw(base_size = 18) 
-  pipo.plot.all
-  
-  
-  
-  
-  ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
+   ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
   par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 25 gives top margin
   hist(data.brt[,explan.vars[i]],
        xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
@@ -540,6 +454,82 @@ for (i in 1:(length(explan.vars))){
   
 
   dev.off()
+  
+  ## Alternative with ggplot
+  
+  ## Tidy data into single dataframe so can add multiple curves onto same plot)
+  predictor.cols <- do.call(cbind, predictors) # each col reps a model -- VALS ALL IDENTICAL
+  response.cols <- do.call(cbind, responses) # each col reps a model
+  pred.df <- as.data.frame(cbind(pred.cols[,1], resp.cols))
+  colnames(pred.df) <- c("x", paste0("y", 1:length(models)))
+  # Gather into long-form with diff rows for each predictor and each model
+  pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
+  # Compute median and upper/lower bounds
+  pred.df.long <- pred.df.long %>%
+    group_by(x) %>%
+    summarise(median.y = quantile(y, probs = 0.50),
+              lower.y = quantile(y, probs = 0.025),
+              upper.y= quantile(y, probs = 0.975))
+  # Create plotting object for upper/lower bounds (else adding ribbon is choppy)
+  
+  # Gives loess for line but ribbon is choppy
+  ggplot() +
+    geom_smooth(data = temp.long, aes(x = x, y = median.y), span = 0.5, se = FALSE) + 
+    geom_ribbon(data = temp.long, aes(x = x, ymin = lower.y, ymax = upper.y),
+                alpha = 0.25, fill = "grey")
+  
+  # Gives choppyt line and choppy ribbon
+  ggplot() +
+    geom_line(data = temp.long, aes(x = x, y = median.y)) + 
+    geom_ribbon(data = temp.long, aes(x = x, ymin = lower.y, ymax = upper.y),
+                alpha = 0.25, fill = "grey")
+  
+  ## Create my own plot object to bound 95% interval
+  g1 <- ggplot(temp.long) + 
+    stat_smooth(aes(x = x, y = lower.y), method = "loess", se = FALSE) +
+    stat_smooth(aes(x = x, y = upper.y), method = "loess", se = FALSE)
+  g1
+  
+  # Build plot object for rendering 
+  gg1 <- ggplot_build(g1)
+  
+  # Extract data for the loess lines from the 'data' slot
+  df2 <- data.frame(x = gg1$data[[1]]$x,
+                    ymin = gg1$data[[1]]$y,
+                    ymax = gg1$data[[2]]$y) 
+  
+  # use the loess data to add the 'ribbon' to plot 
+  g1 +
+    geom_ribbon(data = df2, aes(x = x, ymin = ymin, ymax = ymax),
+                fill = "grey", alpha = 0.4)
+  
+  
+  ## Unlist responses for each model run into separate rows.
+  boots <- do.call(rbind, responses)
+  # Extract 95% interval limits for each run.
+  lims <- apply(boots, 2, FUN = function(x) quantile(x, c(0.025, 0.975)))
+  # 
+  
+  
+  pipo.plot.all <- ggplot() + 
+    geom_point(data = data.pipo, aes(x=YEAR.DIFF, y=regen_pipo),
+               shape = 16, size=1.5, alpha = 0.5,
+               position = position_jitter(width = 1, height = 0)) +
+    geom_line(data = pred.df, aes(x=new.yr, y = pred), lty = 1, size = 1) +
+    geom_ribbon(data = pred.df, aes(x=new.yr, ymin = down, ymax = up),
+                alpha = 0.25, fill = "grey") +
+    scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
+    scale_y_continuous(expand=c(0,0), limits=c(-0.15,1.25)) +
+    labs(x = "Years since fire",
+         y = "Probability of juvenile presence") +
+    coord_cartesian(xlim=c(0,30), ylim=c(-0.05,1.05)) +
+    theme_bw(base_size = 18) 
+  pipo.plot.all
+  
+  
+  
+  
+  
 }  
 
 
