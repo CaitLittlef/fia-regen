@@ -5,8 +5,8 @@
 currentDate <- Sys.Date()
 
 ## Load data; remove extraneous column if necessary
-data.pipo <- read.csv("data.pipo_2019-05-14.csv") ; data.pipo$X <- NULL
-data.psme <- read.csv("data.psme_2019-05-14.csv") ; data.psme$X <- NULL
+data.pipo <- read.csv("data.pipo_2019-06-01.csv") ; data.pipo$X <- NULL
+data.psme <- read.csv("data.psme_2019-06-01.csv") ; data.psme$X <- NULL
 
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
@@ -29,14 +29,6 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN) 
 
 
-# Create CMD relative chng (from observed z-score slopes)
-data.pipo$CMD_CHNG <- data.pipo$def59.z.slope
-data.psme$CMD_CHNG <- data.psme$def59.z.slope
-
-# Create proportion BA
-data.pipo$BAProp_pipo <- data.pipo$BALive_pipo/data.pipo$BALiveTot
-data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
-
 
 
 #################
@@ -47,16 +39,14 @@ data.psme$BAProp_psme <- data.psme$BALive_psme/data.psme$BALiveTot
 data.brt <- data.pipo %>%
   # filter(YEAR.DIFF > 14) %>%
   rename(regen_brt = regen_pipo,
-         BALive_brt = BALive_pipo) ; sp <- c("pipo")
+         BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
 
 # data.brt <- data.psme %>%
 #   rename(regen_brt = regen_psme,
-#          BALive_brt = BALive_psme) ; sp <- c("psme")
+#          BALive_brt_m = BALive_psme_m) ; sp <- c("psme")
 
 
 ## Set learning rate
-# if (sample.size < 1500){ LR<-0.002}
-# if (sample.size > 4500){ LR<-0.01}
 # LR<-0.01
 # LR<-0.02
 # LR<-0.005
@@ -69,33 +59,67 @@ TC <- 3
 # TC <- 5
 # TC <- 10
 
-# How many bootstraps?
+# How many iterations?
 # num.loops <- 1
 # num.loops <- 1:2
 # num.loops <- 1:5
 num.loops <- 1:10
-# num.loops <- 1:20
+# num.loops <- 1:100
 
 
 ## List vars (put factors last so plot creation doesn't stop midway thru)
 # Iteratively remove each var to explore improvement in AUC
-
 explan.vars <- c("YEAR.DIFF",
-          "BALive_brt",
-          "BALiveTot",
+          "BALive_brt_m",
           "def.tc",
           "tmax.tc",
           "ppt.tc",
           "CMD_CHNG",
           "def59_z_max15",
-          "DUFF_DEPTH",
-          "LITTER_DEPTH",
+          "DUFF_DEPTH_cm",
+          "LITTER_DEPTH_cm",
           "FIRE.SEV",
           "REBURN")
 
-## After iteratively dropping (below) to see which boosts AUC, re-define explan.vars
-explan.vars <- explan.vars[-c(2,5,7,9,10,11,12)] # have iteratively removed vars.
-# ^ This is the final dataset, as removing others doesn't improve AUC 
+explan.vars.names <- c("Years since fire",
+                       expression(paste("Live conspecific BA (m"^"2","ha"^"-1",")")),
+                       "Climatic water deficit (mm)",
+                       expression(paste("Max temperature (",degree*C,")")),
+                       "Precipitation (mm)",
+                       "Relative change in deficit",
+                       "Max deficit anomaly (years 1-5)",
+                       "Duff depth (cm)",
+                       "Litter depth (cm)",
+                       "Fire severity class",
+                       "Reburn")
+
+explan.vars.names <- c("Years since fire",
+                       "Live conspecific BA (sq m per ha)",
+                       "Climatic water deficit (mm)",
+                       "Max temperature (degrees C)",
+                       "Precipitation (mm)",
+                       "Relative change in deficit",
+                       "Max deficit anomaly (years 1-5)",
+                       "Duff depth (cm)",
+                       "Litter depth (cm)",
+                       "Fire severity class",
+                       "Reburn")
+                       
+
+## After iteratively dropping w/ 10 runs (below) to see which boosts AUC, re-define explan.vars
+
+## PIPO
+explan.vars <- explan.vars[-c(3, 5, 6, 9, 10, 11)] # have iteratively removed vars.
+# ^ This is the final dataset for PIPO, as removing others doesn't improve AUC 
+explan.vars.names <- explan.vars.names[-c(3, 5, 6, 9, 10, 11)]
+explan.vars
+explan.vars.names
+
+## PSME
+# explan.vars <- explan.vars[-c(3, 5, 6, 9, 10, 11)] # have iteratively removed vars.
+# ^ This is the final dataset for PIPO, as removing others doesn't improve AUC 
+explan.vars
+
 
 ## Create empty list to store models in; create vectors to store stats, etc.
 models <- list()
@@ -128,7 +152,7 @@ for (v in 1){ # if not iteratively dropping vars
 # for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
 # for (v in 2:12){ # if poops out, complete from pt of pooping
   for (i in num.loops){
-  # for (i in 8:10){ # if poops out, complete run from pt of pooping
+  # for (i in 87:100){ # if poops out, complete run from pt of pooping
     
   # If iteratively dropping var, activate x to ID which has been left out.
   # Also change gbm.x in formula below!
@@ -136,9 +160,6 @@ for (v in 1){ # if not iteratively dropping vars
   # version <- paste0("x",explan.vars[v])
   version <- "fin"
     
-  # Pull random sample; if defined sample.size above
-  # sample <- data.brt[which(data.brt$UNIQUEID %in% sample(data.brt$UNIQUEID, sample.size)), ]
-  # Or use all
   data <- data.brt
   
   # Loop through model creation i times
@@ -149,7 +170,7 @@ for (v in 1){ # if not iteratively dropping vars
                   family = "bernoulli", 
                   tree.complexity = TC, # number of nodes in a tree
                   learning.rate = LR, 
-                  bag.fraction = 0.5, # pretty universally used
+                  bag.fraction = 0.75, # pretty universally used
                   n.trees=500, # starting number of trees
                   step.size=5, # iteratively add this number of trees
                   max.trees=1250, # max out at this number of trees
@@ -196,10 +217,7 @@ print(Sys.time() - start)
 ## COMPILE ALL MODEL PERFORMANCE STATS & VARIABLE INFLUENCE VALUES ##
 #####################################################################
 
-# calculate my own auc; get vector cv.auc.by.hand
-# source("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/04b_spp_models_brt_CV.R")
-
-# How many vars? If all, retain first.
+# How many vars? If all, retain all in number. If dropping iteratively, remove one.
 num.vars <- ifelse((version == "allvars" | version == "fin"), length(explan.vars), length(explan.vars)-1)
 
 # Size of matrix will adjust depending on number of explanatory variables
@@ -228,8 +246,8 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x6_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x7_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x8_", currentDate,".csv")
-csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
 ## If iteratively dropping, get mean & sd of all stats and relative influences
@@ -251,36 +269,50 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x6_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x7_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x8_sum_", currentDate,".csv")
-# csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
-# write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
+csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
+write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 
-# See which variable drop maximizes AUC, doesn't kill % dev explained
+
+## See which variable drop maximizes AUC, doesn't kill % dev explained.
+# What was auc and %dev of model that contained all vars?
+all.auc <- 0.783147713
+all.perc.dev. <- 0.090818961
+# If increase from drop is >0, pursue drop. 
+# If decrease from drop is <0.01, pursue drop for more parsinomious model.
+# If decrease from drop is >0.01, do not pursue drop and retain dropped var.
 stats.sum <- as.data.frame(stats.sum)
 stats.sum[which.max(stats.sum$auc_fn1),]
+stats.sum[which.max(stats.sum$auc_fn1),]$version
 stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1
 stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
 
-# All vars: auc: 0.796601181; %dev: 0.099744762
-# First drop: w/o LITTER_DEPTH auc: 0.796598875; %dev: 0.110703033
-# AUC is smaller than all vars model, but very tiny decrease
-# 0.796601181 - 0.796598875 = 0.000002306
-# Second drop: w/o REBURN auc: 0.796771813
-# Third drop: w/o CMD_CHNG auc: 0.796615016
-# Fourth drop: w/o FIRE.SEV auc: 0.796182669;
-# AUC is smaller than all vars model, but very tiny decrease
-# 0.796601181 - 0.796182669 = 0.000418512
-# Fifth drop: w/o DUFF_DEPTH auc: 0.796665744
-# Sixth drop: w/o BALive_brt auc: 0.7971869
-# Seventh drop: w/o tmax.tc auc: 0.7936993;
-# AUC is smaller than all vars model, and decrease is getting bigger...
-# 0.796601181 - 0.7936993 = 0.002901881
-# Eighth drop: w/o ppt.tc auc: 0.7860738; %dev: 0.1051987
-# AUC is getting substantially smaller, so STOP and do NOT remove ppt.
-# 0.796601181 - 0.7860738 = 0.01052738 -- that's beyond 0.01 threshold.
+## Below is what I did for PIPO variable selection; now complete.
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - all.auc
+# # ^ drop reburn b/c improves auc by > 0: 0.784513927.
+# # No reburn:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.784513927
+# # ^ drop ppt.tc which decreases auc but by < 0.01: 0.783954759
+# # No ppt.tc:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.783954759
+# # ^ drop litter which decreases auc but by < 0.01: 0.7830532
+# # No litter:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7830532
+# # ^ drop CMD_CHNG which decreases auc but by < 0.01: 0.7801363
+# # No CMD_CHNG:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7801363
+# # ^ says to drop def which decreases auc by < 0.01: 0.7770176
+# # No def: 
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7770176
+# # ^ Says to drop DUFF which decreases auc by < 0.01: 0.77050475
+# # BUT, that's > 0.01 LESS THAN the original all-var AUC:
+# all.auc - 0.77050475 # 0.01264296
+# # So stop, don't keep whittling away: retain DUFF.
+
+all.auc - stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1
 
 # Final model explan.vars 
-# [1] "YEAR.DIFF"     "BALiveTot"     "def.tc"        "ppt.tc"        "def59_z_max15"
-
+# [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15" "DUFF_DEPTH_cm"
+# ^ AUC is 0.7751101; which is only 0.008 units less than all-var AUC. So better.
 
 
 ### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
@@ -329,15 +361,53 @@ for (k in rows){
 # dplyr's bind_rows automagically splices contents of lists per col names. 
 stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of lists per col names.
 
-# Boxplot of relative influence; plot by median
-temp <- stats.new[,-(1:6)] # retain only cols with variables
-med <- apply(temp, MARGIN = 2, FUN = median, na.rm = TRUE)
-order <- order(med, decreasing = TRUE)
-par(cex.axis=0.75)
-boxplot(temp[,order], las=2)
+## Boxplot of relative influence; plot by median
+# temp <- stats.new[,-(1:6)] # retain only cols with variables
+# med <- apply(temp, MARGIN = 2, FUN = median, na.rm = TRUE)
+# order <- order(med, decreasing = TRUE)
+# par(cex.axis=0.75)
+# boxplot(temp[,order]) # las = 2 would make labels vertical
 # tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"))
-boxplot(temp[,order], las=2)
+# boxplot(temp[,order])
+# dev.off()
+
+# Gather data to make ggplot happy
+temp <- stats.new[,-(1:6)] # retain only cols with variables
+temp <- gather(temp[,order], key = "var", value = "rel.inf")
+var.names <- c("Years since fire",
+               "Max deficit anomaly (years 1-5)",
+               expression(paste("Conspecific live BA (m"^"2","ha"^"-1",")")),
+               "Duff depth (cm)",
+               expression(paste("Max temperature (",degree*C,")")))
+# var.names <- c("YRS",
+#                "CMD Z",
+#                "BA",
+#                "DUFF",
+#                "TEMP")
+               
+# addline_format <- function(x,...){ # replaces spaces in x with new line.
+#   gsub('\\s','\n',x)
+# }
+
+ 
+# tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"),
+#             res = 300, width = 5, height = 4, units = "in")
+rel.inf.plot <- ggplot(data = temp,
+                       aes(x = reorder(var, -rel.inf, # put - before rel.inf if reverse
+                                       FUN = median),
+                           y = rel.inf))
+rel.inf.plot + geom_boxplot() +
+  labs(x = NULL, y = "Relative influence (%)") + 
+  # scale_x_discrete(labels = addline_format(var.names)) +
+  scale_x_discrete(labels = var.names) +
+  scale_y_continuous() + 
+  coord_flip() +
+  # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  theme_bw(base_size = 12)
+  # theme_caitlin()
 dev.off()
+
+
 
 # Write to new csv
 currentDate <- Sys.Date()
@@ -498,34 +568,114 @@ for (i in 1:(length(explan.vars))){
   
   # Create partial curve (orig data) and add in new ribbon data
   plot <- ggplot() +
-    geom_smooth(data = pred.df.long, aes(x = x, y = mean.y), span = 0.25, se = FALSE, col = "blue") + 
+    geom_smooth(data = pred.df.long, aes(x = x, y = mean.y), span = 0.25, se = FALSE, col = "black") + 
     geom_ribbon(data = df.up.low, aes(x = x, ymin = ymin, ymax = ymax),
-                alpha = 0.25, fill = "light blue") +
+                alpha = 0.5, fill = "light grey") +
     geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
     geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
-    scale_x_continuous(expand=c(0,0),
-                       limits=c(min(data.brt[,explan.vars[i]]),
+    scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
-    # scale_y_continuous(expand=c(0,0), limits=c(0.15,0.25)) +
-    labs(x = paste0(explan.vars[i]),
+    scale_y_continuous(expand=c(0,0), limits=c(0.15,0.31)) +
+    expand_limits(x = 0) + 
+    labs(x = paste0(explan.vars.names[i]),
          y = "Probability of juvenile presence") +
     # coord_cartesian(xlim=c(min(explan.vars[i]),max(explan.vars[i])), ylim=c(0.15,0.45)) +
-    theme_bw(base_size = 18) 
-  
+    theme_bw(base_size = 18) +
+    theme(panel.grid.minor = element_blank())
+  plot
   # Save
   tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt.tiff"))
   print(plot) # When using ggplot in for loop, need to print.
   dev.off()
 
+  
+  ##############################################################################
+  ## 2nd alternative to overlay histgram
+  
+  
+  # Create partial curve (orig data) and add in new ribbon data
+  plot <- ggplot() +
+    geom_smooth(data = pred.df.long, aes(x = x, y = mean.y), span = 0.25, se = FALSE, col = "black") + 
+    geom_ribbon(data = df.up.low, aes(x = x, ymin = ymin, ymax = ymax),
+                alpha = 0.5, fill = "light grey") +
+    geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
+    geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
+    
+    # geom_rug(data = data.brt, aes(x = explan.vars[i]), sides = "b") + 
+    
+    scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
+                                max(data.brt[,explan.vars[i]]))) +
+    scale_y_continuous(expand=c(0,0), limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off
+    expand_limits(x = 0) + 
+    # labs(x = paste0(explan.vars.names[i]),
+    labs(x = NULL,
+         y = "Probability of juvenile presence") +
+    coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
+                           max(data.brt[,explan.vars[i]]))) +
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor = element_blank(),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          plot.margin=unit(c(1,1,-0.5,1), "cm")) # shrink margins for adjacency
+  
+  hist <- ggplot(data = data.brt, aes(x = data.brt[,explan.vars[i]])) +
+    # geom_histogram(binwidth = 0.5) +
+    geom_histogram(bins = 30) +
+    geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
+    geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
+    # scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
+    #                             max(data.brt[,explan.vars[i]]))) +
+    coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
+                           max(data.brt[,explan.vars[i]]))) +
+    labs(x = paste0(explan.vars.names[i]),
+         # y = "Frequency") +
+         # y = NULL) +
+         y = "   ") + # else not aligned
+    theme_bw(base_size = 12) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major.y = element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          plot.margin=unit(c(-0.25,1,1,1), "cm")) # shrink margins for adjacency
+  
+  ## Specifying width
+  # Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
+  
+  plots <- list(plot, hist)
+  grobs <- list()
+  widths <- list()
+  
+  
+  # Collect the widths for each grob of each plot
+  for (l in 1:length(plots)){
+    grobs[[l]] <- ggplotGrob(plots[[l]])
+    widths[[l]] <- grobs[[l]]$widths[2:5]
+  }
+  
+  # Use do.call to get the max width
+  maxwidth <- do.call(grid::unit.pmax, widths)
+  
+  # Assign the max width to each grob
+  for (l in 1:length(grobs)){
+    grobs[[l]]$widths[2:5] <- as.list(maxwidth)
+    
+  }
+  
+  # Plot
+  tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt2.tiff"))
+  # do.call("grid.arrange", c(grobs, ncol = 1))
+  grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
+  dev.off()
+} 
 
-}  
 
 
 
 
 
-
-#############################
+  #############################
 #############################
 #### FIX THIS HOT GARB!! ####
 #############################
@@ -633,10 +783,10 @@ par(mfrow=c(1,1))
 # Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
 # var <- "BALive_brt"
 # var <- "BALiveTot"
-# var <- "def.tc"
+var <- "def.tc"
 # var <- "tmax.tc"
 # var <- "ppt.tc"
-var <- "def59_z_max15"
+# var <- "def59_z_max15"
 # var <- "DUFF_DEPTH" 
 # var <- "FIRE.SEV"
 # var <- "REBURN"
@@ -656,6 +806,7 @@ plot.dir <- paste0(out.dir, sp,"_yr.diff_pdp_by_",var,"_", currentDate)
 
 ## For predictions, create 100 new YEAR.DIFF values.
 year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by = 0.25)
+# year.new <- seq(from = 0, to = max(data.brt$YEAR.DIFF), by = 0.25)
 
 ## Here, create new dataset with new vals for all but...
 print(var)
@@ -663,10 +814,10 @@ newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
          BALive_brt = mean(BALive_brt), # turn on/off
          BALiveTot = mean(BALiveTot),
-         def.tc = mean(def.tc),
+         # def.tc = mean(def.tc),
          tmax.tc = mean(tmax.tc),
          ppt.tc = mean(ppt.tc),
-         # def59_z_max15 = mean(def59_z_max15),
+         def59_z_max15 = mean(def59_z_max15),
          DUFF_DEPTH = mean(DUFF_DEPTH),
          FIRE.SEV = mode(FIRE.SEV),
          REBURN = mode(REBURN)
@@ -676,9 +827,18 @@ newdata$YEAR.DIFF <- year.new
 YN <- levels(newdata$REBURN) # To call REBURN levels without redefining var, create YN look-up
 
 
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+##############################################################
+##### EVEN WITH 1:3, ONLY 0, 25, and 50th ARE GRABBED #####
+
 # Create new data to predict with (x 10 mods) for each of 5 quantiles; predict with 5 x new data
 # for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100) # 0 and 100 may be too extreme?
+# probs <- c(0.0, 0.25, 0.5, 0.75, 1)
 for (q in 1:3){ # Pick quantiles (10, 50 90)
+probs <- c(0.1, 0.5, 0.9)
 # for (q in 1:4){ # For 4 levels of FIRE.SEV; convenient: factor num = sev; chng tiff name below, too.
 # for (q in 1:2){ # For 2 levels of REBURN; chng tiff name below, too.
   # Loop through each of the j models
@@ -687,10 +847,10 @@ for (q in 1:3){ # Pick quantiles (10, 50 90)
     r1 <- predict(gbm.mod,
                   # newdata = transform(newdata, BALive_brt = quantile(BALive_brt)[q]),
                   # newdata = transform(newdata, BALiveTot = quantile(BALiveTot)[q]),
-                  # newdata = transform(newdata, def.tc = quantile(def.tc)[q]),
+                  newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
                   # newdata = transform(newdata, tmax.tc = quantile(data.brt[,var])[q]),
                   # newdata = transform(newdata, ppt.tc = quantile(ppt.tc)[q]),
-                  newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15)[q]),
+                  # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15)[q]),
                   # newdata = transform(newdata, DUFF_DEPTH = quantile(DUFF_DEPTH)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
                   # newdata = transform(newdata, REBURN = as.factor(YN[q])),
@@ -702,7 +862,7 @@ for (q in 1:3){ # Pick quantiles (10, 50 90)
   }
   
   # currentDate <- Sys.Date()
-  tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_q",q,"_", quantile(data.brt[,var])[q], ".tif"))
+  tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_q",q,"_", quantile(data.brt[,var], probs = probs)[q], ".tif"))
   # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", q, ".tif"))
   # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", YN[q], ".tif"))
   
