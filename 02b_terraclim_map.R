@@ -13,7 +13,7 @@ plot(def.IntWest)
 # ref re: plotting rasters in ggplot
 # https://stackoverflow.com/questions/47116217/overlay-raster-layer-on-map-in-ggplot2-in-r
 
-# Define functio to extract raster values into a tibble
+# Define function to extract raster values into a tibble
   gplot_data <- function(x, maxpixels = 50000)  {
     x <- raster::sampleRegular(x, maxpixels, asRaster = TRUE)
     coords <- raster::xyFromCell(x, seq_len(raster::ncell(x)))
