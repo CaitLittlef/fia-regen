@@ -1,7 +1,9 @@
 # data <- read.csv("DATA_PlotFireClim_PostFireSamp_n1971.csv") # w/o fire
 # data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-02-27.csv")
 # data <- read.csv("DATA_PlotwwoFireClim_n20859_2019-03-21.csv")
-data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-04-24.csv")
+# data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-04-24.csv")
+data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-05-14.csv")
+
 data$X <- NULL # In case there's weird X col added
 
 ## Spp in data 
