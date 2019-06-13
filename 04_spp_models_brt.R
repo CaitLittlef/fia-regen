@@ -89,7 +89,7 @@ explan.vars <- c("YEAR.DIFF",
 
 # Names (with expressions)
 explan.vars.names <- c("Years since fire",
-                       expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                       expression(paste("Live BA (m"^2,"ha"^-1,")")),
                        "Deficit (mm)",
                        expression(paste("Max temp (",degree*C,")")),
                        "Precip (mm)",
@@ -418,9 +418,8 @@ currentDate <- Sys.Date()
 write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",currentDate,".csv"))
 
 
-
 #############################################
-## PARTIAL DEPENDENCE PLOTS EACH VAR KINDA ##
+##PDPS FOR EACH VARIABLE#####################
 #############################################
 
 ## pdps account for average effect of other vars
@@ -478,15 +477,15 @@ for (i in 1:(length(explan.vars))){
               upper.y= quantile(y, probs = 0.975))
   
   ## Create plotting object for 95% bounds with smooth, else ribbin is choppy)
-  # Match span here (for smoothing) with geom_smooth() span in plot
+  ## Match span here (for smoothing) with geom_smooth() span in plot
   g1 <- ggplot(pred.df.long) + 
     stat_smooth(aes(x = x, y = lower.y), method = "loess", span = 0.25, se = FALSE) +
     stat_smooth(aes(x = x, y = upper.y), method = "loess", span = 0.25, se = FALSE)
   
-  # Build plot object for rendering 
+  ## Build plot object for rendering 
   gg1 <- ggplot_build(g1)
   
-  # Extract data for the loess lines from the 'data' slot
+  ## Extract data for the loess lines from the 'data' slot
   df.up.low <- data.frame(x = gg1$data[[1]]$x,
                     ymin = gg1$data[[1]]$y,
                     ymax = gg1$data[[2]]$y)
@@ -494,64 +493,38 @@ for (i in 1:(length(explan.vars))){
   ## Add 5th & 95th percentile values so we can no which range of predictor var to trust
   (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
   
-  # Save
-  # tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt.tiff"))
-  
-  # Create partial curve (orig data) and add in new ribbon data
+  ## Create partial curve (orig data) and add in new ribbon data
   plot <- ggplot() +
-    geom_smooth(data = pred.df.long, aes(x = x, y = mean.y), span = 0.25, se = FALSE, col = "black") + 
-    geom_ribbon(data = df.up.low, aes(x = x, ymin = ymin, ymax = ymax),
+    geom_smooth(data = pred.df.long,
+                aes(x = x, y = mean.y),
+                span = 0.25,
+                se = FALSE,
+                col = "black") + 
+    geom_ribbon(data = df.up.low,
+                aes(x = x, ymin = ymin, ymax = ymax),
                 alpha = 0.5, fill = "light grey") +
     geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
     geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
     scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
-    scale_y_continuous(expand=c(0,0), limits=c(0.15,0.31)) +
-    expand_limits(x = 0) + 
-    labs(x = paste0(explan.vars.names[i]),
-         y = "Probability of juvenile presence") +
-    # coord_cartesian(xlim=c(min(explan.vars[i]),max(explan.vars[i])), ylim=c(0.15,0.45)) +
-    theme_bw(base_size = 18) +
-    theme(panel.grid.minor = element_blank())
-  plot
-  # Save
-  tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt.tiff"))
-  print(plot) # When using ggplot in for loop, need to print.
-  dev.off()
-
-  
-  ##############################################################################
-  ## 2nd alternative to overlay histgram
-  
-  
-  # Create partial curve (orig data) and add in new ribbon data
-  plot <- ggplot() +
-    geom_smooth(data = pred.df.long, aes(x = x, y = mean.y), span = 0.25, se = FALSE, col = "black") + 
-    geom_ribbon(data = df.up.low, aes(x = x, ymin = ymin, ymax = ymax),
-                alpha = 0.5, fill = "light grey") +
-    geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
-    geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
-    
-    # geom_rug(data = data.brt, aes(x = explan.vars[i]), sides = "b") + 
-    
-    scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
-                                max(data.brt[,explan.vars[i]]))) +
-    scale_y_continuous(expand=c(0,0), limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off
+    scale_y_continuous(expand=c(0,0),
+                       limits=c(0.15,0.32)) + #else ribbon for yr diff cut-off
     expand_limits(x = 0) + 
     # labs(x = paste0(explan.vars.names[i]),
     labs(x = NULL,
          y = "Probability of juvenile presence") +
     coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
                            max(data.brt[,explan.vars[i]]))) +
-    theme_bw(base_size = 12) +
+    theme_bw(base_size = 18) +
     theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(),
           axis.title.x=element_blank(),
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank(),
           plot.margin=unit(c(1,1,-0.5,1), "cm")) # shrink margins for adjacency
   
+  ## Create hist to put underneath partial curve. Use orig data.
   hist <- ggplot(data = data.brt, aes(x = data.brt[,explan.vars[i]])) +
-    # geom_histogram(binwidth = 0.5) +
     geom_histogram(bins = 30) +
     geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
     geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
@@ -559,49 +532,42 @@ for (i in 1:(length(explan.vars))){
     #                             max(data.brt[,explan.vars[i]]))) +
     coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
                            max(data.brt[,explan.vars[i]]))) +
-    labs(x = paste0(explan.vars.names[i]),
-         # y = "Frequency") +
-         # y = NULL) +
-         y = "   ") + # else not aligned
-    theme_bw(base_size = 12) +
+    labs(x = paste0(explan.vars.names[i])) +
+    theme_bw(base_size = 18) +
     theme(panel.grid.minor = element_blank(),
-          panel.grid.major.y = element_blank(),
+          panel.grid.major = element_blank(),
           axis.title.y=element_blank(),
           axis.text.y=element_blank(),
           axis.ticks.y=element_blank(),
           plot.margin=unit(c(-0.25,1,1,1), "cm")) # shrink margins for adjacency
   
-  ## Specifying width
+  ## To stack plots with aligned width, extract max width from each object.
   # Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
   
   plots <- list(plot, hist)
   grobs <- list()
   widths <- list()
   
-  
-  # Collect the widths for each grob of each plot
+  ## Collect the widths for each grob of each plot
   for (l in 1:length(plots)){
     grobs[[l]] <- ggplotGrob(plots[[l]])
     widths[[l]] <- grobs[[l]]$widths[2:5]
   }
   
-  # Use do.call to get the max width
+  ## Use do.call to get the max width
   maxwidth <- do.call(grid::unit.pmax, widths)
   
-  # Assign the max width to each grob
+  ## Assign the max width to each grob
   for (l in 1:length(grobs)){
     grobs[[l]]$widths[2:5] <- as.list(maxwidth)
-    
   }
   
-  # Plot
-  tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt2.tiff"))
+  ## Plot
+  tiff(paste0(plot.dir, "/", explan.vars[[i]], ".tiff"))
   # do.call("grid.arrange", c(grobs, ncol = 1))
   grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
   dev.off()
 } 
-
-
 
 
 
@@ -707,7 +673,7 @@ for (i in 1:(length(explan.vars))){
 
 
 ############################################
-## PDP FOR YEARS.DIFF -- OTHER VAR LEVELS ##
+##PDP FOR YEARS.DIFF -- OTHER VAR LEVELS ##
 ############################################
 
 par(mfrow=c(1,1))
