@@ -28,11 +28,17 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN) 
 
+# Keep only candidate variables
 data.pipo <- data.pipo %>%
-  dplyr::select(regen_pipo, BALiveTot_m, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
-                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN, BAProp_pipo)
+  dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
+                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN)
 head(data.pipo)                
                 
+data.psme <- data.psme %>%
+  dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
+                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN)
+head(data.psme)    
+
 
 #################
 ### BRT SETUP ###   
@@ -53,8 +59,6 @@ data.brt <- data.pipo %>%
 # LR<-0.02
 # LR<-0.005
 LR<-0.001
-# LR<-0.0005
-# LR<-0.0001
 
 ## Set tree complexity
 TC <- 3
@@ -65,11 +69,11 @@ TC <- 3
 # num.loops <- 1
 # num.loops <- 1:2
 # num.loops <- 1:5
-num.loops <- 1:10
-# num.loops <- 1:100
+# num.loops <- 1:10
+num.loops <- 1:100
 
 
-## List vars (put factors last so plot creation doesn't stop midway thru)
+## List vars (factors last so any iterative plot creation doesn't stop midway thru)
 # Iteratively remove each var to explore improvement in AUC
 explan.vars <- c("YEAR.DIFF",
           "BALive_brt_m",
@@ -83,29 +87,31 @@ explan.vars <- c("YEAR.DIFF",
           "FIRE.SEV",
           "REBURN")
 
+# Names (with expressions)
 explan.vars.names <- c("Years since fire",
                        expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-                       "Climatic water deficit (mm)",
+                       "Deficit (mm)",
                        expression(paste("Max temp (",degree*C,")")),
-                       "Precipitation (mm)",
+                       "Precip (mm)",
                        "Relative change in deficit",
                        "Max deficit anomaly",
                        "Duff depth (cm)",
                        "Litter depth (cm)",
-                       "Fire severity class",
+                       "Fire severity",
                        "Reburn")
 
-explan.vars.names <- c("Years since fire",
-                       "Live conspecific BA (sq m per ha)",
-                       "Climatic water deficit (mm)",
-                       "Max temperature (degrees C)",
-                       "Precipitation (mm)",
-                       "Relative change in deficit",
-                       "Max deficit anomaly (years 1-5)",
-                       "Duff depth (cm)",
-                       "Litter depth (cm)",
-                       "Fire severity class",
-                       "Reburn")
+# # Names (no expressions)
+# explan.vars.names <- c("Years since fire",
+#                        "Live BA (sq m per ha)",
+#                        "Deficit (mm)",
+#                        "Max temp (degrees C)",
+#                        "Precip (mm)",
+#                        "Relative change in deficit",
+#                        "Max deficit anomaly",
+#                        "Duff depth (cm)",
+#                        "Litter depth (cm)",
+#                        "Fire severity",
+#                        "Reburn")
                        
 
 ## After iteratively dropping w/ 10 runs (below) to see which boosts AUC, re-define explan.vars
@@ -146,8 +152,6 @@ print(sp)
 # 2) version <- paste0("x",explan.vars[v])
 # 3) gbm.x = explan.vars[-v],
 
-
-
 start <- Sys.time() 
 for (v in 1){ # if not iteratively dropping vars
 # for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
@@ -155,8 +159,7 @@ for (v in 1){ # if not iteratively dropping vars
   for (i in num.loops){
   # for (i in 87:100){ # if poops out, complete run from pt of pooping
     
-  # If iteratively dropping var, activate x to ID which has been left out.
-  # Also change gbm.x in formula below!
+  # If iteratively dropping var, include x in name to ID which has been left out.
   # version <- "allvars"
   # version <- paste0("x",explan.vars[v])
   version <- "fin"
@@ -180,7 +183,7 @@ for (v in 1){ # if not iteratively dropping vars
   # Model name
   model.name.temp <- paste0(sp,".",version,".",i)
   # Percent deviance explained
-  brt.perc.dev.expl.temp <- 1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null)
+  brt.perc.dev.expl.temp <-1-(models[[i]]$self.statistics$mean.resid/models[[i]]$self.statistics$mean.null)
   # CV correlation
   cv.correlation.temp  <- models[[i]]$cv.statistics$correlation.mean
   # CV discrim (ie training auc; see source code for gbm.step)
@@ -232,14 +235,14 @@ colnames <- c("model.name", "cv.correlation", "cv.discrim", "auc", "brt.perc.dev
               paste0("rel.inf.", 1:num.vars))
 colnames(stats) <- colnames              
 
-# What's var in auc?
-# For all variables included, min-max = 0.0095 -- maybe drop vars that increase auc by meager <0.01.
+## What's AUC range? For all variables included, min-max auc = 0.0095.
+# Therefore, drop vars that increase AUC by meager < 0.1 to have parsimonious model.
 mean(auc) ; sd(auc) ; range(auc) ; max(auc) - min(auc)
 
-# Save as csv
+# Save as csv -- options below are for runs with vars dropped iteratively
 currentDate <- Sys.Date()
-# csvFileName <- paste0(sp,"_brt_stats_all_", currentDate,".csv")
-# csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_all_", currentDate,".csv") # all vars in
+# csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv") # 1 var removed
 # csvFileName <- paste0(sp,"_brt_stats_x2_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x4_", currentDate,".csv")
