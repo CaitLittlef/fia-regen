@@ -5,8 +5,8 @@
 currentDate <- Sys.Date()
 
 ## Load data; remove extraneous column if necessary
-data.pipo <- read.csv("data.pipo_2019-06-01.csv") ; data.pipo$X <- NULL
-data.psme <- read.csv("data.psme_2019-06-01.csv") ; data.psme$X <- NULL
+data.pipo <- read.csv("data.pipo_2019-06-12.csv") ; data.pipo$X <- NULL
+data.psme <- read.csv("data.psme_2019-06-12.csv") ; data.psme$X <- NULL
 
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
@@ -28,8 +28,11 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN) 
 
-
-
+data.pipo <- data.pipo %>%
+  dplyr::select(regen_pipo, BALiveTot_m, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
+                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN, BAProp_pipo)
+head(data.pipo)                
+                
 
 #################
 ### BRT SETUP ###   
@@ -37,7 +40,6 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 
 ## PIPO OR PSME??
 data.brt <- data.pipo %>%
-  # filter(YEAR.DIFF > 14) %>%
   rename(regen_brt = regen_pipo,
          BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
 
@@ -82,12 +84,12 @@ explan.vars <- c("YEAR.DIFF",
           "REBURN")
 
 explan.vars.names <- c("Years since fire",
-                       expression(paste("Live conspecific BA (m"^"2","ha"^"-1",")")),
+                       expression(paste("Live BA (m"^"2","ha"^"-1",")")),
                        "Climatic water deficit (mm)",
-                       expression(paste("Max temperature (",degree*C,")")),
+                       expression(paste("Max temp (",degree*C,")")),
                        "Precipitation (mm)",
                        "Relative change in deficit",
-                       "Max deficit anomaly (years 1-5)",
+                       "Max deficit anomaly",
                        "Duff depth (cm)",
                        "Litter depth (cm)",
                        "Fire severity class",
@@ -144,8 +146,7 @@ print(sp)
 # 2) version <- paste0("x",explan.vars[v])
 # 3) gbm.x = explan.vars[-v],
 
-# nb looping auc code takes lots longer than running brt_CV.R after.
-# If I do after, see code_ref for reading in indivd csvs and bind_rows to compare 
+
 
 start <- Sys.time() 
 for (v in 1){ # if not iteratively dropping vars
@@ -310,6 +311,7 @@ stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
 
 all.auc - stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1
 
+
 # Final model explan.vars 
 # [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15" "DUFF_DEPTH_cm"
 # ^ AUC is 0.7751101; which is only 0.008 units less than all-var AUC. So better.
@@ -375,8 +377,8 @@ stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of
 temp <- stats.new[,-(1:6)] # retain only cols with variables
 temp <- gather(temp[,order], key = "var", value = "rel.inf")
 var.names <- c("Years since fire",
-               "Max deficit anomaly (years 1-5)",
-               expression(paste("Conspecific live BA (m"^"2","ha"^"-1",")")),
+               "Max deficit anomaly",
+               expression(paste("Live BA (m"^"2","ha"^"-1",")")),
                "Duff depth (cm)",
                expression(paste("Max temperature (",degree*C,")")))
 # var.names <- c("YRS",
@@ -390,8 +392,8 @@ var.names <- c("Years since fire",
 # }
 
  
-# tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"),
-#             res = 300, width = 5, height = 4, units = "in")
+tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"),
+            res = 300, width = 5, height = 4, units = "in")
 rel.inf.plot <- ggplot(data = temp,
                        aes(x = reorder(var, -rel.inf, # put - before rel.inf if reverse
                                        FUN = median),
@@ -528,7 +530,7 @@ for (i in 1:(length(explan.vars))){
   
   
   ##############################################################################
-  ## Alternative with ggplot
+  ## Alternative with ggplot (no histogram)
   
   ## Tidy data into single dataframe so can add multiple curves onto same plot)
   predictor.cols <- do.call(cbind, predictors) # each col reps a model -- VALS ALL IDENTICAL
@@ -780,14 +782,17 @@ for (i in 1:(length(explan.vars))){
 ############################################
 
 par(mfrow=c(1,1))
-# Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
-# var <- "BALive_brt"
-# var <- "BALiveTot"
-var <- "def.tc"
+## Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
+# Only need to do this for final variables retained
+explan.vars
+# var <- "BALive_brt_m"
+# var <- "BALiveTot_m"
+# var <- "def.tc"
 # var <- "tmax.tc"
 # var <- "ppt.tc"
 # var <- "def59_z_max15"
-# var <- "DUFF_DEPTH" 
+var <- "DUFF_DEPTH_cm"
+# var <- "LITTER_DEPTH_cm" 
 # var <- "FIRE.SEV"
 # var <- "REBURN"
 
@@ -799,6 +804,12 @@ i <- 1 # explan.vars[i] still exists in loop below & 1 = YEAR.DIFF
 predictors<-list(rep(NA,length(models))) 
 responses<-list(rep(NA,length(models)))
 
+# For ggplot
+all.quants.predictors <- list(rep(NA,length(models)*3))
+all.quants.responses <- list(rep(NA,length(models)*3))
+quantile <- list(rep(NA,length(models)*3))
+
+
 ## Create folder for plots
 currentDate <- Sys.Date()
 dir.create(paste0(out.dir, sp,"_yr.diff_pdp_by_",var,"_", currentDate))
@@ -806,38 +817,32 @@ plot.dir <- paste0(out.dir, sp,"_yr.diff_pdp_by_",var,"_", currentDate)
 
 ## For predictions, create 100 new YEAR.DIFF values.
 year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by = 0.25)
-# year.new <- seq(from = 0, to = max(data.brt$YEAR.DIFF), by = 0.25)
 
-## Here, create new dataset with new vals for all but...
+## Set values of all other vars (exept that of interest) to mean; add on year.new.
 print(var)
 newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
-         BALive_brt = mean(BALive_brt), # turn on/off
-         BALiveTot = mean(BALiveTot),
-         # def.tc = mean(def.tc),
+         BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
+         BALiveTot_m = mean(BALiveTot_m),
+         def.tc = mean(def.tc),
          tmax.tc = mean(tmax.tc),
          ppt.tc = mean(ppt.tc),
+         CMD_CHNG = mean(CMD_CHNG),
          def59_z_max15 = mean(def59_z_max15),
-         DUFF_DEPTH = mean(DUFF_DEPTH),
-         FIRE.SEV = mode(FIRE.SEV),
-         REBURN = mode(REBURN)
+         # DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
+         LITTER_DEPTH_cm = mean(LITTER_DEPTH_cm),
+         FIRE.SEV = Mode(FIRE.SEV), # homegrown function
+         REBURN = Mode(REBURN)
          )
 newdata <- newdata[1:length(year.new),] # keep just enough (of all the same vals) for new years.
 newdata$YEAR.DIFF <- year.new
-YN <- levels(newdata$REBURN) # To call REBURN levels without redefining var, create YN look-up
+levels(newdata$REBURN)
+NY <- levels(newdata$REBURN) # To call REBURN levels without redefining var, create YN look-up
 
 
-##############################################################
-##############################################################
-##############################################################
-##############################################################
-##############################################################
-##### EVEN WITH 1:3, ONLY 0, 25, and 50th ARE GRABBED #####
-
-# Create new data to predict with (x 10 mods) for each of 5 quantiles; predict with 5 x new data
-# for (q in 1:5){ # Pick quantiles (0, 25, 50, 75, 100) # 0 and 100 may be too extreme?
-# probs <- c(0.0, 0.25, 0.5, 0.75, 1)
-for (q in 1:3){ # Pick quantiles (10, 50 90)
+# Create new data to predict with (*n mods) for each quantile (q); predict with q*newdata
+# Tried (0, 25, 50, 75, 100) but 0 and 100 are too extreme. Stick with 10%, 50%, 90%
+for (q in 1:3){ # Pick quantiles BUT MUST SPECIFY IN PROBS (10, 50 90)
 probs <- c(0.1, 0.5, 0.9)
 # for (q in 1:4){ # For 4 levels of FIRE.SEV; convenient: factor num = sev; chng tiff name below, too.
 # for (q in 1:2){ # For 2 levels of REBURN; chng tiff name below, too.
@@ -845,22 +850,26 @@ probs <- c(0.1, 0.5, 0.9)
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
     r1 <- predict(gbm.mod,
-                  # newdata = transform(newdata, BALive_brt = quantile(BALive_brt)[q]),
-                  # newdata = transform(newdata, BALiveTot = quantile(BALiveTot)[q]),
-                  newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
-                  # newdata = transform(newdata, tmax.tc = quantile(data.brt[,var])[q]),
-                  # newdata = transform(newdata, ppt.tc = quantile(ppt.tc)[q]),
-                  # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15)[q]),
-                  # newdata = transform(newdata, DUFF_DEPTH = quantile(DUFF_DEPTH)[q]),
+                  # newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
+                  # newdata = transform(newdata, BALiveTot_m = quantile(BALiveTot_m, probs = probs)[q]),
+                  # newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
+                  # newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
+                  # newdata = transform(newdata, ppt.tc = quantile(ppt.tc, probs = probs)[q]),
+                  # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15, probs = probs)[q]),
+                  newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
+                  # newdata = transform(newdata, LITTER_DEPTH_cm = quantile(LITTER_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
-                  # newdata = transform(newdata, REBURN = as.factor(YN[q])),
+                  # newdata = transform(newdata, REBURN = as.factor(NY[q])),
                   n.trees = gbm.mod$n.trees,
                   type = "response",
                   se.fit = TRUE)
     predictors[[j]] <- newdata$YEAR.DIFF 
     responses[[j]] <- r1
   }
-  
+all.quants.predictors[[q]] <- predictors
+all.quants.responses[[q]] <- responses
+quantile[[q]] <- rep(q, length(models)) # Capture quantile num for ALL models
+
   # currentDate <- Sys.Date()
   tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_q",q,"_", quantile(data.brt[,var], probs = probs)[q], ".tif"))
   # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", q, ".tif"))
@@ -922,6 +931,131 @@ probs <- c(0.1, 0.5, 0.9)
   
   dev.off()
 }  
+
+
+
+###########################################################################
+###########################################################################
+## ALT WITH GGPLOT
+###########################################################################
+###########################################################################
+
+# These are lists (of n models) within lists (of q quants)
+length(all.quants.responses) # 3
+all.quants.responses[[1]] # has 10 lists full of response values
+all.quants.responses[[2]] # has 10 lists full of response values
+all.quants.responses[[3]] # has 10 lists full of response values
+all.quants.responses[[4]] # does not exist b/c only q=3 quants
+
+# Combine into one list, with each element containing responses
+pred.temp1 <- do.call(cbind, all.quants.predictors)
+resp.temp1 <- do.call(cbind, all.quants.responses)
+quant.temp <- do.call(cbind, quantile)
+quant.temp <-c(quant.temp[,1:3]) # Gives quants repeated n models times
+
+length(resp.temp1) # 30
+length(quant.temp) # 30
+resp.temp1[[1]] # gives response values for q1, model 1
+resp.temp1[[11]] # gives response values for q3, model 1
+resp.temp1[[21]] # gives response values for q3, model 1
+
+# Combine further into matrix
+pred.temp2 <- do.call(cbind, pred.temp1) # each col reps a model (of 10) for each quant (3) - VALS IDENTICAL B/C PREDICTOR VALUES ALL THE SAME
+resp.temp2 <- do.call(cbind, resp.temp1) # each col reps a model (of 10) for each quant (3) - VALS DIFF ACROSS MODELS AND QUANTS
+nrow(pred.temp2) # 117 for each predicted response
+ncol(pred.temp2) # 30 for each model (3 quants * 10 models each)
+
+# Pull into dataframe (repeat all predictor values which are identical)
+pred.df <- as.data.frame(cbind(pred.temp2[,1], resp.temp2))
+# Name with quants (1-3) and each model (1-10 or 1-100)
+colnames(pred.df) <- c("x", paste0("y", quant.temp, "mod",1:length(models)))
+                                  
+# Gather into long-form with diff rows for each predictor and each model
+pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
+
+# Add col to specify quant (not best way but whatevs)
+pred.df.long$q <- paste0("q", mid(pred.df.long$model,2,1))
+
+# Compute median and upper/lower bounds
+pred.df.long <- pred.df.long %>%
+  group_by(x, q) %>%
+  summarise(mean.y = mean(y),
+            # median.y = quantile(y, probs = 0.50),
+            lower.y = quantile(y, probs = 0.025),
+            upper.y= quantile(y, probs = 0.975))
+
+# Create plotting object for 95% bounds (else adding ribbon is choppy)
+g1 <- ggplot(pred.df.long, aes(group=q)) + 
+  stat_smooth(aes(x = x, y = lower.y), method = "loess", span = 0.25, se = FALSE) +
+  stat_smooth(aes(x = x, y = upper.y), method = "loess", span = 0.25, se = FALSE)
+
+# plot(g1)
+
+# Build plot object for rendering 
+gg1 <- ggplot_build(g1)
+
+# Extract data for the loess lines from the 'data' slot
+df.up.low <- data.frame(x = gg1$data[[1]]$x,
+                        ymin = gg1$data[[1]]$y,
+                        ymax = gg1$data[[2]]$y,
+                        q = gg1$data[[1]]$group)
+
+## Add 5th & 95th percentile values so we can no which range of predictor var to trust
+(quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
+
+
+
+# Create partial curve (orig data) and add in new ribbon data
+plot <- ggplot() +
+  geom_smooth(data = pred.df.long,
+              aes(x = x, y = mean.y, color = q),
+              span = 0.25,
+              se = FALSE) +
+              # position=position_jitter(w=0.1, h=0.00)) +
+  scale_color_manual(values = palette[3:5],
+                     name = "Duff depth (cm)",
+                     # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                     # name = expression(paste("Max temp (",degree*C,")")),
+                     # name = "Max deficit anomaly",
+                     labels = c(expression(paste("10"^"th"," percentile")),
+                                expression(paste("50"^"th"," percentile")),
+                                expression(paste("90"^"th"," percentile")))) +
+  geom_ribbon(data = df.up.low,
+              aes(x = x, ymin = ymin, ymax = ymax,
+                  group = q, fill = factor(df.up.low$q)),
+              alpha = 0.15,
+              # position=position_jitter(w=0.0, h=0.01),
+              show.legend = FALSE) +
+  scale_fill_manual(values = palette[3:5]) +
+  geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") + #cbPalette[7]) +
+  geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") + #cbPalette[7]) +
+  # scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
+  #                             max(data.brt[,explan.vars[i]]))) +
+  scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
+  scale_y_continuous(expand=c(0,0), limits=c(0.14,0.38)) +
+  expand_limits(x = 0) + 
+  labs(x = paste0(explan.vars.names[i]),
+       y = "Probability of juvenile presence") +
+  theme_bw(base_size = 18) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.background = element_blank(),
+        legend.justification=c(1,0), # defines which side of legend .position coords refer to
+        legend.position=c(1,0),
+        legend.text=element_text(size=12),
+        legend.title=element_text(size=14))
+        
+plot
+# Save
+tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_all_qs.tif"))
+# tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt.tiff"))
+print(plot) # When using ggplot in for loop, need to print.
+dev.off()
+
+
+
+
+
 
 
 
