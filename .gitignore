@@ -8,3 +8,17 @@ z04_spp_models_partykit.R
 z02b_terraclim_trends.R
 z01_data_prep_burnOnly.R
 z04_spp_fail_explore.R
+z01_data_prep_burnOnly.R
+z04_spp_models.R
+z04_spp_models_glm_01.R
+z04_spp_models_init_gbm.R
+z04_spp_models_partykit.R
+z04b_spp_models_brt_CV.R
+z04b_spp_models_brt_varinfl.R
+z04b_spp_models_partykit_CV.R
+z09_anim_map_junk.R
+zglmtree_sample_code.R
+zpdp Q for CrossValidated.R
+zrowmax Q for CrossValidated.R
+ztemp.R
+ztest.R
