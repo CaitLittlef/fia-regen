@@ -9,6 +9,8 @@
 wd <- setwd("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data") # If working with/within drive
 out.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/output/"
 code.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/"
+## set directory for terraclimate
+tc.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/"
 
 
 #####################################
@@ -71,22 +73,37 @@ currentDate <- Sys.Date()
 
 ####################################
 ## Get background of W states
-# NAmer <- st_read(dsn = "NorthAmer_StatesProvinces.shp") %>% 
-#   st_buffer(dist = 0) # fix invalid geometries (warning re: lat/long vs. dd)
-# NAmer <- NAmer[!NAmer$NAME == "Guam",]
-# NAmer.outline <- st_union(NAmer)
-# plot(NAmer.outline)
-# Wsts.names = c('California', 'Oregon', 'Washington','Idaho', 'Nevada',
-#         'Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
-# IntWsts.names = c('Idaho', 'Nevada','Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
-# Wsts <- NAmer[NAmer$NAME %in% Wsts.names, ] # not NAmer@data$NAME
-# IntWsts <- NAmer[NAmer$NAME %in% IntWsts.names, ]
-# nonIntWest  <- NAmer[! NAmer$NAME %in% IntWsts.names, ]
-#
+NAmer <- st_read(dsn = "NorthAmer_StatesProvinces.shp") %>%
+  st_buffer(dist = 0) # fix invalid geometries (warning re: lat/long vs. dd)
+NAmer <- NAmer[!NAmer$NAME == "Guam",]
+NAmer.outline <- st_union(NAmer)
+plot(NAmer.outline)
+Wsts.names = c('California', 'Oregon', 'Washington','Idaho', 'Nevada',
+        'Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
+IntWsts.names = c('Idaho', 'Nevada','Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
+Wsts <- NAmer[NAmer$NAME %in% Wsts.names, ] # not NAmer@data$NAME
+IntWsts <- NAmer[NAmer$NAME %in% IntWsts.names, ]
+nonIntWest  <- NAmer[! NAmer$NAME %in% IntWsts.names, ]
+crs <- crs(Wsts)
 
+## Load pipo & psme range (I think from DAtabasin -- confirm source!!)
 pipo.rng <- st_read(dsn = "pinupond.shp")
 psme.rng <- st_read(dsn = "pseumenz.shp")
 plot(st_geometry(psme.rng))
+crs(pipo.rng)
+
+# Set crs to same as 
+pipo.rng <- st_transform(x = pipo.rng, crs = crs)
+crs(pipo.rng)
+
+## Load TerraClime datasets
+aet <- raster(paste0(tc.dir,"aet.1981.2010.tif"))
+def <- raster(paste0(tc.dir,"def.1981.2010.tif"))
+ppt <- raster(paste0(tc.dir,"ppt.1981.2010.tif"))
+tmax <- raster(paste0(tc.dir,"tmax.1981.2010.tif"))
+
+
+
 
 #####################################
 # Functions
@@ -192,6 +209,20 @@ pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#00A08A", "#F9
 
 #046C9A # blue
 #F98400 # orange
+
+
+
+# Color blind palette
+# The palette with grey:
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# grey, orange, light blue, pine green, yellow, dark blue, red, pink
+
+
+library(RColorBrewer)
+display.brewer.all(7)
+display.brewer.pal(7, "Set1")
+palette <- brewer.pal(7, "Set1")
 
 
 ###########################################
