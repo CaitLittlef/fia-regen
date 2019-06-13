@@ -152,12 +152,14 @@ print(sp)
 # 2) version <- paste0("x",explan.vars[v])
 # 3) gbm.x = explan.vars[-v],
 
+## Note there's space for continuing run if one mod fails (change i in num.loops)
+
 start <- Sys.time() 
 for (v in 1){ # if not iteratively dropping vars
 # for (v in 2:length(explan.vars)){ # iteratively drops all vars (except YEAR.DIFF)
 # for (v in 2:12){ # if poops out, complete from pt of pooping
   for (i in num.loops){
-  # for (i in 87:100){ # if poops out, complete run from pt of pooping
+  # for (i in 26:100){ # if poops out, complete run from pt of pooping
     
   # If iteratively dropping var, include x in name to ID which has been left out.
   # version <- "allvars"
@@ -279,8 +281,8 @@ write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 
 ## See which variable drop maximizes AUC, doesn't kill % dev explained.
 # What was auc and %dev of model that contained all vars?
-all.auc <- 0.783147713
-all.perc.dev. <- 0.090818961
+all.auc <- 0.783147713 # original with all variables
+all.perc.dev. <- 0.090818961 # original with all variables
 # If increase from drop is >0, pursue drop. 
 # If decrease from drop is <0.01, pursue drop for more parsinomious model.
 # If decrease from drop is >0.01, do not pursue drop and retain dropped var.
@@ -312,9 +314,6 @@ stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
 # all.auc - 0.77050475 # 0.01264296
 # # So stop, don't keep whittling away: retain DUFF.
 
-all.auc - stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1
-
-
 # Final model explan.vars 
 # [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15" "DUFF_DEPTH_cm"
 # ^ AUC is 0.7751101; which is only 0.008 units less than all-var AUC. So better.
@@ -327,7 +326,8 @@ all.auc - stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1
 ## CREATE ORDERED STATS LIST BY VAR ##
 ######################################
 
-# Create a list for storing re-named relative influence values. List b/c they'll be dataframes, technically.
+## Create a list for storing re-named relative influence values.
+#List b/c they'll be dataframes, technically.
 stats.list <- list()
 
 # How many rows should get looped through?
@@ -367,63 +367,53 @@ for (k in rows){
 stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of lists per col names.
 
 ## Boxplot of relative influence; plot by median
-# temp <- stats.new[,-(1:6)] # retain only cols with variables
-# med <- apply(temp, MARGIN = 2, FUN = median, na.rm = TRUE)
-# order <- order(med, decreasing = TRUE)
-# par(cex.axis=0.75)
-# boxplot(temp[,order]) # las = 2 would make labels vertical
-# tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"))
-# boxplot(temp[,order])
-# dev.off()
-
 # Gather data to make ggplot happy
 temp <- stats.new[,-(1:6)] # retain only cols with variables
-temp <- gather(temp[,order], key = "var", value = "rel.inf")
+temp <- gather(temp, key = "var", value = "rel.inf")
+# PIPO vars in order of influence: yrs, anomaly, BA, duff, tmax
 var.names <- c("Years since fire",
                "Max deficit anomaly",
                expression(paste("Live BA (m"^"2","ha"^"-1",")")),
                "Duff depth (cm)",
-               expression(paste("Max temperature (",degree*C,")")))
-# var.names <- c("YRS",
-#                "CMD Z",
-#                "BA",
-#                "DUFF",
-#                "TEMP")
-               
+               expression(paste("Max temp (",degree*C,")")))
+
+
+# If I wanted axis labels to break wherever there's a space               
 # addline_format <- function(x,...){ # replaces spaces in x with new line.
 #   gsub('\\s','\n',x)
 # }
 
- 
 tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"),
             res = 300, width = 5, height = 4, units = "in")
-rel.inf.plot <- ggplot(data = temp,
+ri.plot <- ggplot(data = temp,
                        aes(x = reorder(var, -rel.inf, # put - before rel.inf if reverse
                                        FUN = median),
                            y = rel.inf))
-rel.inf.plot + geom_boxplot() +
+ri.plot + geom_boxplot() +
   labs(x = NULL, y = "Relative influence (%)") + 
   # scale_x_discrete(labels = addline_format(var.names)) +
   scale_x_discrete(labels = var.names) +
   scale_y_continuous() + 
   coord_flip() +
   # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  theme_bw(base_size = 12)
+  theme_bw(base_size = 18) +
+  theme(axis.text = element_text(size = 14),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
   # theme_caitlin()
 dev.off()
 
 
-
-# Write to new csv
+## Write ordered stats to new csv
 currentDate <- Sys.Date()
 write.csv(stats.new, paste0(out.dir,sp,"_brt_stats_", version, "_relinf_ordered_",  currentDate,".csv"))
 
-# Get mean & sd of all stats and relative influences
+## Get summary (mean & sd) of all stats and relative influences
 stats.sum <- stats.new %>%
   dplyr::select(-model.name) %>%
   summarize_all(list(mean, sd)) # nb this will name _fn1 and _fn2, not _mean and _sd
 
-# Write to new csv
+## Write summary of stats to new csv
 currentDate <- Sys.Date()
 write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",currentDate,".csv"))
 
@@ -433,14 +423,8 @@ write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",cur
 ## PARTIAL DEPENDENCE PLOTS EACH VAR KINDA ##
 #############################################
 
-## pdps account for average effect of other vars. BUT, plotmo isn't full shebang.
-# plotmo(models[[i]], type = "response", pmethod = "partdep")
-# ^ plotmo is "poor mans" pdp b/c holds other vals at median (or avg with pmethod = partdep).
-# Even with pmethod = partdep, I think TRUE pdp would compute at all vals of other vars...
-# ... and then average those predicted variables for maybe every val of var of interest?
-
+## pdps account for average effect of other vars
 # ref: https://stats.stackexchange.com/questions/122721/r-partial-dependency-plots-from-gbm-package-values-and-y-axis/122802
-
 
 par(mfrow=c(1,1))
 
@@ -452,10 +436,7 @@ currentDate <- Sys.Date()
 dir.create(paste0(out.dir, sp,"_brt_plots_", currentDate))
 plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate)
 
-
-## Loop through vars and overlay loess fit for each mod on one plot per var.
-# N.b., if FIRE.SEV and REBURN (factors), -2 and use code at end of loop. 
-# for (i in 1:(length(explan.vars)-2)){
+## Loop through vars. Orig code overlaid loess fit and hist iteratively. Here, ggplot. and overlay # N.b., if factor plots are needed, will have to add additional code. Exclude in loop (-2 below) for (i in 1:(length(explan.vars)-2)){
 for (i in 1:(length(explan.vars))){   
   
   # Loop through the models and populate  lists of predictors & (marginal) responses.
@@ -479,72 +460,16 @@ for (i in 1:(length(explan.vars))){
   xmin=min(unlist(predictors))
   xmax=max(unlist(predictors))
 
-  ## Create first plot of first model (j = 1), then overlay next models.
-  ## This will be dummy for getting plot set-up (so hist doesn't get too big)
-  j <- 1
-  par(mar=c(5.5,5.1,4.1,2.1))
-  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5, 
-       xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
-  
-  
-   ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
-  par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 25 gives top margin
-  hist(data.brt[,explan.vars[i]],
-       xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
-       col = "light grey")
-  
-  
-  ## Re-do first plot of first model (j = 1), b/c hist covered it up, then overlay next models
-  j <- 1
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5, 
-       xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
-  
-  
-  ## Overlay models (starting with number 2 til the second to last
-  for(j in 2:(length(models)-1)){
-    ## variable i, model j
-    par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-    temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-    plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
-         xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
-  }
-  
-  
-  ## create final overlay with last model; add labels here.
-  ## variable i, j=last
-  j <- length(models)
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
-       ylab="Prob. of juv. presence", xlab=explan.vars[i], ylim=c(ymin,ymax),xlim=c(xmin,xmax),
-       main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
-  
-  
-  ## Add 5th & 95th percentile values so we can no which range of predictor var to trust
-  (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
-  abline(v = quant[1], lty = 2, lwd = 2, col = "red")
-  abline(v = quant[2], lty = 2, lwd = 2, col = "red")
-  
-
-  dev.off()
-  
-  
-  ##############################################################################
-  ## Alternative with ggplot (no histogram)
-  
   ## Tidy data into single dataframe so can add multiple curves onto same plot)
   predictor.cols <- do.call(cbind, predictors) # each col reps a model -- VALS ALL IDENTICAL
   response.cols <- do.call(cbind, responses) # each col reps a model
   pred.df <- as.data.frame(cbind(predictor.cols[,1], response.cols))
   colnames(pred.df) <- c("x", paste0("y", 1:length(models)))
   
-  # Gather into long-form with diff rows for each predictor and each model
+  ## Gather into long-form with diff rows for each predictor and each model
   pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
   
-  # Compute median and upper/lower bounds
+  ## Compute mean and upper/lower bounds
   pred.df.long <- pred.df.long %>%
     group_by(x) %>%
     summarise(mean.y = mean(y),
@@ -552,7 +477,8 @@ for (i in 1:(length(explan.vars))){
               lower.y = quantile(y, probs = 0.025),
               upper.y= quantile(y, probs = 0.975))
   
-  # Create plotting object for 95% bounds (else adding ribbon is choppy)
+  ## Create plotting object for 95% bounds with smooth, else ribbin is choppy)
+  # Match span here (for smoothing) with geom_smooth() span in plot
   g1 <- ggplot(pred.df.long) + 
     stat_smooth(aes(x = x, y = lower.y), method = "loess", span = 0.25, se = FALSE) +
     stat_smooth(aes(x = x, y = upper.y), method = "loess", span = 0.25, se = FALSE)
