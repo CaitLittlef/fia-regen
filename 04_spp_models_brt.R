@@ -570,123 +570,20 @@ for (i in 1:(length(explan.vars))){
 } 
 
 
-
-
-  #############################
-#############################
-#### FIX THIS HOT GARB!! ####
-#############################
-#############################
-
-# ## Same deal except for factors -- figure out why central val = 1 added back in!!
-# # FIRE.SEV
-# for(j in 1:length(models)){
-#   gbm.mod<-models[[j]]
-#   r1 <- gbm::plot.gbm(gbm.mod, i.var = "FIRE.SEV", type = "response", return.grid = TRUE)
-#   predictors[[j]]<-r1[,1]
-#   responses[[j]]<-r1[,2]
-# }
-# # currentDate <- Sys.Date()
-# tiff(paste0(plot.dir, "/FIRE.SEV.tif"))
-# 
-# # Get limits for plotting
-# ymin=min(unlist(responses))
-# ymax=max(unlist(responses))
-# # xmin=min(unlist(predictors))
-# # xmax=max(unlist(predictors))
-# 
-# # Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
-# # Jitter pts in x and y else looks sparse.
-# # Add distribution (hist) of FIRE.SEV values
-# j <- 1
-# par(mar=c(5.5,5.1,4.1,2.1))
-# plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
-# ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
-# par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 12.1 gives top margin
-# hist(as.numeric(data.brt$FIRE.SEV),
-#      xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
-#      col = "light grey")
-# ## Replot j = 1 b/c hist covered it
-# par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-# plot(responses[[j]] ~ as.numeric(predictors[[j]]), xlab ="", ylab = "", xaxt='n',yaxt='n')
-# ## Proceed with subsequent models til second to last
-# for(j in 2:(length(models)-1)){
-#   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-#   plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), factor = 0.25), xlab ="", xaxt='n',yaxt='n', ylab = "")
-# }
-# ## Final model
-#   j <- length(models)
-#   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-#   plot(jitter(responses[[j]], 0.25) ~ jitter(as.numeric(predictors[[j]]), 0.25), xlab ="Fire severity", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
-# dev.off()
-# 
-# 
-# # REBURN
-# for(j in 1:length(models)){
-#   gbm.mod<-models[[j]]
-#   r1 <- gbm::plot.gbm(gbm.mod, i.var = "REBURN", type = "response", return.grid = TRUE)
-#   predictors[[j]]<-as.numeric(r1[,1])
-#   responses[[j]]<-r1[,2]
-# }
-# # currentDate <- Sys.Date()
-# tiff(paste0(plot.dir, "/REBURN"))
-# 
-# # Get limits for plotting
-# ymin=min(unlist(responses))
-# ymax=max(unlist(responses))
-# # xmin=min(unlist(predictors))
-# # xmax=max(unlist(predictors))
-# 
-# # Set predictors to num (FIRE.SEV factor levels, which correspond with sev classes).
-# # Jitter pts in x and y else looks sparse.
-# # Add distribution (hist) of REBURN values
-# j <- 1
-# par(mar=c(5.5,5.1,4.1,2.1))
-# plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
-# ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
-# par(new = TRUE, mar=c(5.5,5.1,12.1,2.1)) # 12.1 gives top margin
-# hist(as.numeric(data.brt$REBURN),
-#      xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
-#      col = "light grey")
-# ## Replot j = 1 b/c hist covered it
-# par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-# plot(responses[[j]] ~ predictors[[j]], xlab ="", ylab = "", xaxt='n',yaxt='n')
-# ## Proceed with subsequent models til second to last
-# for(j in 2:(length(models)-1)){
-#   par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-#   plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="", xaxt='n',yaxt='n', ylab = "")
-# }
-# ## Final model
-# j <- length(models)
-# par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-# plot(jitter(responses[[j]], 0.25) ~ predictors[[j]], xlab ="Reburn", ylab = "Prob. of juv. presence", ylim=c(ymin,ymax), xlim=c(xmin,xmax), main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
-# dev.off()
-
-
-#########################
-#########################
-#### END OF HOT GARB ####
-#########################
-#########################
-
-
-
-
-############################################
-##PDP FOR YEARS.DIFF -- OTHER VAR LEVELS ##
-############################################
+#############################################
+##PDPS BY QUANTILE###########################
+#############################################
 
 par(mfrow=c(1,1))
 ## Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
 # Only need to do this for final variables retained
 explan.vars
-# var <- "BALive_brt_m"
-# var <- "BALiveTot_m"
+var <- "BALive_brt_m"
 # var <- "def.tc"
 # var <- "tmax.tc"
 # var <- "ppt.tc"
 # var <- "def59_z_max15"
-var <- "DUFF_DEPTH_cm"
+# var <- "DUFF_DEPTH_cm"
 # var <- "LITTER_DEPTH_cm" 
 # var <- "FIRE.SEV"
 # var <- "REBURN"
@@ -718,7 +615,6 @@ print(var)
 newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
          BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
-         BALiveTot_m = mean(BALiveTot_m),
          def.tc = mean(def.tc),
          tmax.tc = mean(tmax.tc),
          ppt.tc = mean(ppt.tc),
@@ -734,8 +630,7 @@ newdata$YEAR.DIFF <- year.new
 levels(newdata$REBURN)
 NY <- levels(newdata$REBURN) # To call REBURN levels without redefining var, create YN look-up
 
-
-# Create new data to predict with (*n mods) for each quantile (q); predict with q*newdata
+## Create new data to predict with (*n mods) for each quantile (q); predict with q*newdata
 # Tried (0, 25, 50, 75, 100) but 0 and 100 are too extreme. Stick with 10%, 50%, 90%
 for (q in 1:3){ # Pick quantiles BUT MUST SPECIFY IN PROBS (10, 50 90)
 probs <- c(0.1, 0.5, 0.9)
@@ -746,7 +641,6 @@ probs <- c(0.1, 0.5, 0.9)
     gbm.mod<-models[[j]]
     r1 <- predict(gbm.mod,
                   # newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
-                  # newdata = transform(newdata, BALiveTot_m = quantile(BALiveTot_m, probs = probs)[q]),
                   # newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
                   # newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
                   # newdata = transform(newdata, ppt.tc = quantile(ppt.tc, probs = probs)[q]),
@@ -765,85 +659,23 @@ all.quants.predictors[[q]] <- predictors
 all.quants.responses[[q]] <- responses
 quantile[[q]] <- rep(q, length(models)) # Capture quantile num for ALL models
 
-  # currentDate <- Sys.Date()
-  tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_q",q,"_", quantile(data.brt[,var], probs = probs)[q], ".tif"))
-  # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", q, ".tif"))
-  # tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_", YN[q], ".tif"))
-  
   # ymin=min(unlist(responses))
   # ymax=max(unlist(responses))
   xmin=min(unlist(predictors))
   xmax=max(unlist(predictors))
   ymin = 0.0
   ymax = 0.5
-  
-  ## Create first plot of first model (j = 1), then overlay next models.
-  ## This will be dummy for getting plot set-up (so hist doesn't get too big)
-  j <- 1
-  par(mar=c(5.5,5.1,4.1,2.1))
-  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5, 
-       xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
-  
-  
-  ## Add histogram to show predictor distribution. Make big top margin so bars are tiny.
-  par(new = TRUE, mar=c(5.5,5.1,25.1,2.1)) # 25 gives top margin
-  hist(data.brt[,explan.vars[i]],
-       xlab = NULL, ylab = NULL, axes = FALSE, main = NULL,
-       col = "light grey")
-  
-  ## Re-do first plot of first model (j = 1), b/c hist covered it up, then overlay next models
-  j <- 1
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  temp.lo <- loess(responses[[m]] ~ predictors[[m]], span = 0.5)
-  plot(predictors[[m]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5, 
-       xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
-  
-  
-  ## Overlay models (starting with number 2 til the second to last
-  for(j in 2:(length(models)-1)){
-    ## variable i, model j
-    par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-    temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-    plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
-         xlab="",ylab="",xaxt='n',yaxt='n',ylim=c(ymin,ymax),xlim=c(xmin,xmax))
-  }
-  
-  ## create final overlay with last model; add labels here.
-  ## variable i, j=last
-  j <- length(models)
-  par(new=TRUE, mar=c(5.5,5.1,4.1,2.1))
-  temp.lo <- loess(responses[[j]] ~ predictors[[j]], span = 0.5)
-  plot(predictors[[j]], fitted(temp.lo), col = "black", lty=1, type='l', lwd=1.5,
-       ylab="Prob. of juv. presence", xlab=explan.vars[i], ylim=c(ymin,ymax),xlim=c(xmin,xmax),
-       main="", font.lab=1, font.axis=1, cex.lab=1.8, cex.axis=1.5)
-  
-  
-  ## Add 5th & 95th percentile values so we can know which bounds to trust (here, it's just YEAR.DIFF)
-  (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
-  abline(v = quant[1], lty = 2, lwd = 2, col = "red")
-  abline(v = quant[2], lty = 2, lwd = 2, col = "red")
-  
-  dev.off()
+ 
 }  
 
+## Prep for ggplot
 
-
-###########################################################################
-###########################################################################
-## ALT WITH GGPLOT
-###########################################################################
-###########################################################################
-
-# These are lists (of n models) within lists (of q quants)
+# all.quants.preds/resp are lists of responses from n models within q lists
 length(all.quants.responses) # 3
-all.quants.responses[[1]] # has 10 lists full of response values
-all.quants.responses[[2]] # has 10 lists full of response values
-all.quants.responses[[3]] # has 10 lists full of response values
-all.quants.responses[[4]] # does not exist b/c only q=3 quants
+all.quants.responses[[1]] # has 10 lists full of response values for quant 1
 
 # Combine into one list, with each element containing responses
-pred.temp1 <- do.call(cbind, all.quants.predictors)
+pred.temp1 <- do.call(cbind, all.quants.predictors) # 
 resp.temp1 <- do.call(cbind, all.quants.responses)
 quant.temp <- do.call(cbind, quantile)
 quant.temp <-c(quant.temp[,1:3]) # Gives quants repeated n models times
