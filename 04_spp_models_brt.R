@@ -32,12 +32,10 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 data.pipo <- data.pipo %>%
   dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
                 def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN)
-head(data.pipo)                
-                
+
 data.psme <- data.psme %>%
   dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
                 def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN)
-head(data.psme)    
 
 
 #################
@@ -100,33 +98,22 @@ explan.vars.names <- c("Years since fire",
                        "Fire severity",
                        "Reburn")
 
-# # Names (no expressions)
-# explan.vars.names <- c("Years since fire",
-#                        "Live BA (sq m per ha)",
-#                        "Deficit (mm)",
-#                        "Max temp (degrees C)",
-#                        "Precip (mm)",
-#                        "Relative change in deficit",
-#                        "Max deficit anomaly",
-#                        "Duff depth (cm)",
-#                        "Litter depth (cm)",
-#                        "Fire severity",
-#                        "Reburn")
-                       
 
 ## After iteratively dropping w/ 10 runs (below) to see which boosts AUC, re-define explan.vars
 
 ## PIPO
-explan.vars <- explan.vars[-c(3, 5, 6, 9, 10, 11)] # have iteratively removed vars.
-# ^ This is the final dataset for PIPO, as removing others doesn't improve AUC 
-explan.vars.names <- explan.vars.names[-c(3, 5, 6, 9, 10, 11)]
+explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10, 11)] # have iteratively removed vars.
+# ^ This is the final dataset for PIPO, as removing others doesn't improve AUC
+explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10, 11)]
 explan.vars
 explan.vars.names
 
 ## PSME
-# explan.vars <- explan.vars[-c(3, 5, 6, 9, 10, 11)] # have iteratively removed vars.
-# ^ This is the final dataset for PIPO, as removing others doesn't improve AUC 
-explan.vars
+# explan.vars <- explan.vars[-c(3,5,6,7,9,10,11)] # have iteratively removed vars.
+# # ^ This is the final dataset for PSME, as removing others doesn't improve AUC
+# explan.vars.names <- explan.vars.names[-c(3,5,6,7,9,10,11)]
+# explan.vars
+# explan.vars.names
 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
@@ -177,9 +164,10 @@ for (v in 1){ # if not iteratively dropping vars
                   tree.complexity = TC, # number of nodes in a tree
                   learning.rate = LR, 
                   bag.fraction = 0.75, # pretty universally used
-                  n.trees=500, # starting number of trees
+                  n.trees=500, # starting number of trees -- good for pipo
+                  # n.trees=1000 ,# starting number of trees -- good for psme
                   step.size=5, # iteratively add this number of trees
-                  max.trees=1250, # max out at this number of trees
+                  max.trees=2000, # max out at this number of trees -- good for pipo
                   verbose=TRUE) 
   ## Grab info/stats
   # Model name
@@ -252,7 +240,6 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x6_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x7_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x8_", currentDate,".csv")
-# csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
@@ -267,6 +254,7 @@ stats.sum <- stats.sum %>%
 
 # Save as csv
 currentDate <- Sys.Date()
+# csvFileName <- paste0(sp,"_brt_stats_all_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x1_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x2_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_sum_", currentDate,".csv")
@@ -281,8 +269,15 @@ write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 
 ## See which variable drop maximizes AUC, doesn't kill % dev explained.
 # What was auc and %dev of model that contained all vars?
-all.auc <- 0.783147713 # original with all variables
-all.perc.dev. <- 0.090818961 # original with all variables
+
+# pipo
+# all.auc <- 0.783147713 # original with all variables
+# all.perc.dev. <- 0.090818961 # original with all variables
+
+# psme
+# all.auc <- 0.848814314 # original with all variables
+# all.perc.dev. <- 0.216967537 # original with all variables
+
 # If increase from drop is >0, pursue drop. 
 # If decrease from drop is <0.01, pursue drop for more parsinomious model.
 # If decrease from drop is >0.01, do not pursue drop and retain dropped var.
@@ -309,22 +304,55 @@ stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
 # # ^ says to drop def which decreases auc by < 0.01: 0.7770176
 # # No def: 
 # stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7770176
-# # ^ Says to drop DUFF which decreases auc by < 0.01: 0.77050475
-# # BUT, that's > 0.01 LESS THAN the original all-var AUC:
-# all.auc - 0.77050475 # 0.01264296
-# # So stop, don't keep whittling away: retain DUFF.
+# # ^ Says to drop DUFF which decreases auc by < 0.01: 0.7693645
+# No DUFF:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7693645
+# ^ Next best drop would be def zmax, but drop is > 0.01: 0.753792
+# So, final model includes def zmax
 
-# Final model explan.vars 
-# [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15" "DUFF_DEPTH_cm"
-# ^ AUC is 0.7751101; which is only 0.008 units less than all-var AUC. So better.
+# Final model explan.vars for pipo
+# explan.vars
+# [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15" 
+# ^ AUC is 0.7693645
+# 0.7693645 - all.auc # -0.01378321 # not substantial decline from all, either.
+
+
+## Below is what I did for PSME variable selection; now complete.
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - all.auc
+# # ^ drop reburn b/c improves auc by > 0: 0.8490268
+# # No reburn:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.8490268
+# # ^ Says to drop DEF which decreases auc by < 0.01: 0.8483103
+# # No def:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.8483103
+# # ^ drop FIRE.SEV b/c improves auc by > 0: 0.8484848
+# # No fire sev:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.8484848
+# # ^ drop zmax which decreases auc by < 0.01: 0.8474562
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.8474562
+# # ^ drop CMD_CHMG which decreases auc by < 0.01: 0.8447604
+# # No CMD_CHNG:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.8447604
+# # ^ drop litter which decreases auc but by < 0.01: 0.841895249
+# # No litter:
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.841895249
+# # ^ drop ppt which decreases auc by by < 0.01: 0.8362686
+# # No ppt
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.8362686
+# # ^ Dropping DUFF gives next highest AUC, but that's a too-big decrease (-0.01557)
+# # Retain DUFF in final model. How does w/ DUFF compare to all-var AUC?
+# all.auc - 0.8207007 # 0.02811361
+
+# Final vars for PSME
+# explan.vars
+# [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "DUFF_DEPTH_cm"
+
 
 
 ### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
-
-
-######################################
-## CREATE ORDERED STATS LIST BY VAR ##
-######################################
+######################################################
+##CREATE ORDERED STATS LIST BY VAR WITH FINAL VARS####
+######################################################
 
 ## Create a list for storing re-named relative influence values.
 #List b/c they'll be dataframes, technically.
@@ -370,12 +398,18 @@ stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of
 # Gather data to make ggplot happy
 temp <- stats.new[,-(1:6)] # retain only cols with variables
 temp <- gather(temp, key = "var", value = "rel.inf")
+
 # PIPO vars in order of influence: yrs, anomaly, BA, duff, tmax
 var.names <- c("Years since fire",
                "Max deficit anomaly",
                expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-               "Duff depth (cm)",
                expression(paste("Max temp (",degree*C,")")))
+
+# PSME vars in order of influence: yrs, anomaly, BA, duff, tmax
+# var.names <- c(expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+#                "Years since fire",
+#                "Duff depth (cm)",
+#                expression(paste("Max temp (",degree*C,")")))
 
 
 # If I wanted axis labels to break wherever there's a space               
@@ -430,10 +464,12 @@ par(mfrow=c(1,1))
 predictors<-list(rep(NA,length(models))) ## space for data: however many models are run
 responses<-list(rep(NA,length(models)))
 
-# Create folder for plots
+## Create folder for plots
 currentDate <- Sys.Date()
 dir.create(paste0(out.dir, sp,"_brt_plots_", currentDate))
-plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate)
+plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate,"/")
+
+## !! CHANGING PLOTTING LIMITS FOR PIPO & PSME !! ##
 
 ## Loop through vars. Orig code overlaid loess fit and hist iteratively. Here, ggplot. and overlay # N.b., if factor plots are needed, will have to add additional code. Exclude in loop (-2 below) for (i in 1:(length(explan.vars)-2)){
 for (i in 1:(length(explan.vars))){   
@@ -451,7 +487,7 @@ for (i in 1:(length(explan.vars))){
   }
   
   # currentDate <- Sys.Date()
-  tiff(paste0(plot.dir, "/", explan.vars[[i]], ".tif"))
+  tiff(paste0(plot.dir, explan.vars[[i]], ".tif"))
   
   # Get limits for plotting
   ymin=min(unlist(responses))
@@ -502,13 +538,15 @@ for (i in 1:(length(explan.vars))){
                 col = "black") + 
     geom_ribbon(data = df.up.low,
                 aes(x = x, ymin = ymin, ymax = ymax),
-                alpha = 0.5, fill = "light grey") +
+                alpha = 0.25, fill = "light grey") +
     geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
     geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
     scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
     scale_y_continuous(expand=c(0,0),
-                       limits=c(0.15,0.32)) + #else ribbon for yr diff cut-off
+                       limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
+    # scale_y_continuous(expand=c(0,0),
+    #                    limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
     expand_limits(x = 0) + 
     # labs(x = paste0(explan.vars.names[i]),
     labs(x = NULL,
@@ -563,7 +601,7 @@ for (i in 1:(length(explan.vars))){
   }
   
   ## Plot
-  tiff(paste0(plot.dir, "/", explan.vars[[i]], ".tiff"))
+  tiff(paste0(plot.dir, explan.vars[[i]], ".tiff"))
   # do.call("grid.arrange", c(grobs, ncol = 1))
   grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
   dev.off()
@@ -729,17 +767,16 @@ df.up.low <- data.frame(x = gg1$data[[1]]$x,
 (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
 
 
-## Create plot -- CHANGE LAGEND LABEL NAME!!
+## Create plot -- CHANGE LAGEND LABEL NAME!! AND CHANGE LIMITS PER SPECIES
 # Create partial curve (orig data) and add in new ribbon data
 plot <- ggplot() +
   geom_smooth(data = pred.df.long,
               aes(x = x, y = mean.y, color = q),
               span = 0.25,
               se = FALSE) +
-              # position=position_jitter(w=0.1, h=0.00)) +
   scale_color_manual(values = palette[3:5],
                      # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-                     # name = "Max deficit anomaly",
+                     # name = "Deficit anomaly",
                      # name = "Duff depth (cm)",
                      name = expression(paste("Max temp (",degree*C,")")),
                      labels = c(expression(paste("10"^"th"," percentile")),
@@ -749,15 +786,16 @@ plot <- ggplot() +
               aes(x = x, ymin = ymin, ymax = ymax,
                   group = q, fill = factor(df.up.low$q)),
               alpha = 0.15,
-              # position=position_jitter(w=0.0, h=0.01),
               show.legend = FALSE) +
   scale_fill_manual(values = palette[3:5]) +
-  geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") + #cbPalette[7]) +
-  geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") + #cbPalette[7]) +
+  geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
+  geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") + 
   # scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
   #                             max(data.brt[,explan.vars[i]]))) +
-  scale_x_continuous(expand=c(0,0), limits=c(0,30)) +
-  scale_y_continuous(expand=c(0,0), limits=c(0.14,0.40)) +
+  scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
+  # scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
+  scale_y_continuous(expand=c(0,0), limits=c(0.14,0.42)) + # pipo
+  # scale_y_continuous(expand=c(0,0), limits=c(0.09,0.57)) + # psme
   expand_limits(x = 0) + 
   labs(x = paste0(explan.vars.names[i]),
        y = "Probability of juvenile presence") +
@@ -768,20 +806,16 @@ plot <- ggplot() +
         legend.justification=c(1,0), # defines which side of legend .position coords refer to
         legend.position=c(1,0),
         legend.text=element_text(size=12),
-        legend.title=element_text(size=14))
+        legend.title=element_text(size=14),
+        legend.title.align=1)
+
         
 
 # Save
-tiff(paste0(plot.dir, "/yr.diff_pdp_by_",var,"_all_qs.tif"))
-# tiff(paste0(plot.dir, "/", explan.vars[[i]], "_alt.tiff"))
+tiff(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.tif"))
+# tiff(paste0(plot.dir, explan.vars[[i]], "_alt.tiff"))
 print(plot) # When using ggplot in for loop, need to print.
 dev.off()
-
-
-
-
-
-
 
 
 
