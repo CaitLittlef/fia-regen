@@ -96,6 +96,11 @@ crs(pipo.rng)
 pipo.rng <- st_transform(x = pipo.rng, crs = crs)
 crs(pipo.rng)
 
+# Set crs to same as 
+psme.rng <- st_transform(x = psme.rng, crs = crs)
+crs(pipo.rng)
+
+
 ## Load TerraClime datasets
 aet <- raster(paste0(tc.dir,"aet.1981.2010.tif"))
 def <- raster(paste0(tc.dir,"def.1981.2010.tif"))
@@ -238,6 +243,32 @@ theme_caitlin <- function(base_size=12, base_family="sans") {
             plot.background = element_blank())
   )
 }
+
+
+
+
+#######################################################################
+## To plot raster in ggplot, extract values into tibble
+# ref: https://stackoverflow.com/questions/47116217/overlay-raster-layer-on-map-in-ggplot2-in-r
+# Define function to extract raster values into a tibble
+gplot_data <- function(x, maxpixels = 50000)  {
+  x <- raster::sampleRegular(x, maxpixels, asRaster = TRUE)
+  coords <- raster::xyFromCell(x, seq_len(raster::ncell(x)))
+  ## Extract values
+  dat <- utils::stack(as.data.frame(raster::getValues(x))) 
+  names(dat) <- c('value', 'variable')
+  
+  dat <- dplyr::as.tbl(data.frame(coords, dat))
+  
+  if (!is.null(levels(x))) {
+    dat <- dplyr::left_join(dat, levels(x)[[1]], 
+                            by = c("value" = "ID"))
+  }
+  dat
+}
+
+
+
 
 
 #######################################################################
