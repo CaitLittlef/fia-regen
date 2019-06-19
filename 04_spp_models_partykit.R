@@ -5,8 +5,8 @@
 currentDate <- Sys.Date()
 
 ## Load data; remove extraneous column if necessary
-data.pipo <- read.csv("data.pipo_2019-04-24.csv") ; data.pipo$X <- NULL
-data.psme <- read.csv("data.psme_2019-04-24.csv") ; data.psme$X <- NULL
+data.pipo <- read.csv("data.pipo_2019-05-14.csv") ; data.pipo$X <- NULL
+data.psme <- read.csv("data.psme_2019-05-14.csv") ; data.psme$X <- NULL
 
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
@@ -55,12 +55,9 @@ glm.tree.pipo <- glmtree(regen_pipo ~ YEAR.DIFF |
                 + tmax.tc
                 + ppt.tc
                 + CMD_CHNG 
-                # + def59_z_1
-                # + def59_z_12
-                # + def59_z_13
-                # + def59_z_14
-                # + def59_z_15
-                # + ELEV
+                + def59_z_max15
+                + DUFF_DEPTH
+                + LITTER_DEPTH
                 + REBURN 
                 + FIRE.SEV
                 ,
@@ -71,16 +68,6 @@ glm.tree.pipo <- glmtree(regen_pipo ~ YEAR.DIFF |
                 family = binomial(link = "logit"),
                 minsplit = 50, 
                 ordinal = "L2") 
-plot(glm.tree.pipo)
-
-# z15 shows up when included, 
-# but that makes little sense as many sites weren't sampled > 1 yr post-fire
-data.pipo %>% count(def59_z_15 < -0.032, YEAR.DIFF <5)
-hist(data.pipo$YEAR.DIFF[data.pipo$def59_z_15 < -0.032], 30)
-# tiff(paste0(out.dir, "pipo_yr_diff_low_def_",currentDate,".tiff"),
-#      width = 640, height = 480, units = "px")
-# hist(data.pipo$YEAR.DIFF[data.pipo$def59_z_15 < -0.032], 30)
-# dev.off()
 
 ## Output
 plot(glm.tree.pipo) ; glm.tree.pipo # plot w/ terminal_panel = NULL shows stats
@@ -111,27 +98,23 @@ mod.pipo = glm(regen_pipo ~ YEAR.DIFF
                + tmax.tc
                + ppt.tc
                + CMD_CHNG 
-               # + def59_z_1
-               # + def59_z_12
-               # + def59_z_13
-               # + def59_z_14
-               # + def59_z_15
-               # + ELEV
+               + def59_z_max15
+               + DUFF_DEPTH
+               + LITTER_DEPTH
                + REBURN 
                + FIRE.SEV
                ,
                data = data.pipo, family = binomial)
 summary(mod.pipo)
-# Non-tree only signif
-mod.pipo.select <- update(mod.pipo, regen_pipo ~ YEAR.DIFF + BALive_pipo + FIRE.SEV)
+# Non-tree with incl. marginally signif
+mod.pipo.select <- update(mod.pipo, regen_pipo ~ YEAR.DIFF + BALive_pipo + LITTER_DEPTH + FIRE.SEV)
 summary(mod.pipo.select)
 # Non-tree step
 mod.pipo.step <- stepAIC(mod.pipo)
 summary(mod.pipo.step) # Suggests dropping FIRE.SEV
 
 # With likelihood ratio test (ok b/c they're nested), which is better? 
-lrtest(mod.pipo.step, mod.pipo.select) # Diff (p > 0.05) so keep select.
-
+lrtest(mod.pipo.step, mod.pipo.select) # Diff (p > 0.05) so keep step (retain simpler)
 
 ###########
 ## AIC
@@ -149,7 +132,7 @@ AIC(glm.tree.pipo, mod.pipo.step, mod.pipo.select)
 ## 10-fold AUC (from _CV.R script)
 # tree: 0.7126641
 # non-tree: 0.6763996
-
+# ^ so, stick with tree
 
 # ###########
 # ## MSE
