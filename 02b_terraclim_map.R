@@ -5,6 +5,9 @@ tc.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/"
 ## Load TerraClime datasets
 def <- raster(paste0(tc.dir,"def.1981.2010.tif"))
 
+## Alt, look at one yr (e.g., 2017 super droughty in N. Rockies)
+# def <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2017.5.9.tif")
+
 # crop & mask to study area
 def.IntWest <- crop(def, IntWsts) # Crops to bounding coordinates
 def.IntWest <- mask(def.IntWest, IntWsts) # Sets NA to all outside IntWest 
@@ -18,7 +21,10 @@ def.data <- gplot_data(def.IntWest)
 
 p <- ggplot() +
   geom_tile(data = def.data, aes(x = x, y = y, fill = value)) +
-  scale_fill_gradient("Deficit (mm)",
+  # scale_fill_gradient("Deficit (mm)",
+  #                     low = '#046C9A', high = '#F98400',
+  #                     na.value = NA) +
+  scale_fill_gradient("2017 def z",
                       low = '#046C9A', high = '#F98400',
                       na.value = NA) +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
@@ -36,5 +42,7 @@ p <- ggplot() +
 p
 # tiff(paste0(out.dir,"def_map_",currentDate,".tiff"),
 #    width = 450, height = 600, units = "px")
-# p
-# dev.off()
+tiff(paste0(out.dir,"2017_def_z_map_",currentDate,".tiff"),
+     width = 450, height = 600, units = "px")
+p
+dev.off()
