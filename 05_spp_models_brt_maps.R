@@ -53,7 +53,6 @@ plot(space)
 
 # Turn deficit raster into table (FUNCTION DEFINED AT SET-UP)
 space.data <- gplot_data(space)
-
 ## Plot into map
 p <- ggplot() +
   geom_tile(data = space.data, aes(x = x, y = y, fill = value)) +
@@ -125,6 +124,12 @@ fullgrid(grd)    <- TRUE  # Create SpatialGrid object
 plot(grd)
 proj4string(grd) = crs
 crs(grd)
+class(grd)
+
+grd2 <- rasterToPolygons(r, fun=NULL, n=4, na.rm=TRUE, digits=12, dissolve=FALSE)
+class(grd2)
+grd3 <- st_make_grid(grd2)
+class(grd3)
 
 # Turn z-score data into a shapefile
 z <- data.pipo %>%
@@ -156,7 +161,22 @@ dat.krg <- krige( f.1, z, grd, dat.fit)
 
 # Convert kriged surface to a raster object for clipping
 r.z <- raster(dat.krg)
-r.z <- mask(r, rng.r)
+res(r.z)
+res(YEAR.DIFF)
+extent(r.z)
+extent(YEAR.DIFF)
+r.z <- r.z %>% crop(rng.r) %>% mask(rng.r)
 
+# Re-create brick with this interpolated z-score data
+def59_z_max15 <- r.z
+plot(def59_z_max15)
+plot(YEAR.DIFF)
+
+brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max15, DUFF_DEPTH_cm)
+names(brick)
+
+# Predict! This currently just uses first model; run for all 100 and take avg.
+space <- raster::predict(brick, models[[1]], n.trees=models[[1]]$n.trees, type = "response")
+plot(space)
 
 
