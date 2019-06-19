@@ -72,7 +72,6 @@ for(i in loop.ready){
   names(output)[[i]] <- paste0(names(rst)[i],"_z")
 }
 
-## Convert list --> df, maintaining names
 # do.call takes function (first) then LIST of arguments (second)
 # Here, list is output (a list) of lapply that converted...
 # elements (numeric) in output into dfs and returned a list of those dfs
@@ -82,7 +81,6 @@ colnames(def.data) <- names(output)
 
 def.data$PLOTID <- data.all$PLOTID
 def.data$FIRE.YR <- data.all$FIRE.YR
-
 
 
 ###################################### GET Z-SCORE TREND
