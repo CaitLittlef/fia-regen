@@ -1,7 +1,12 @@
+## To use this, must have either run 04_spp_models_brt.R.
+# OR load data and models at start of that script then proceed here.
 
 #############################################
 ##PDPS FOR EACH VARIABLE#####################
 #############################################
+## CHANGES FOR EACH SPECIES:
+# Lines 97-100: change plotting limits
+
 
 ## pdps account for average effect of other vars
 # ref: https://stats.stackexchange.com/questions/122721/r-partial-dependency-plots-from-gbm-package-values-and-y-axis/122802
@@ -16,7 +21,6 @@ currentDate <- Sys.Date()
 dir.create(paste0(out.dir, sp,"_brt_plots_", currentDate))
 plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate,"/")
 
-## !! CHANGING PLOTTING LIMITS FOR PIPO & PSME !! ##
 
 ## Loop through vars. Orig code overlaid loess fit and hist iteratively. Here, ggplot. and overlay # N.b., if factor plots are needed, will have to add additional code. Exclude in loop (-2 below) for (i in 1:(length(explan.vars)-2)){
 for (i in 1:(length(explan.vars))){   
@@ -78,6 +82,8 @@ for (i in 1:(length(explan.vars))){
   
   ## Create partial curve (orig data) and add in new ribbon data
   plot <- ggplot() +
+    geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
+    geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") +
     geom_smooth(data = pred.df.long,
                 aes(x = x, y = mean.y),
                 span = 0.25,
@@ -86,14 +92,12 @@ for (i in 1:(length(explan.vars))){
     geom_ribbon(data = df.up.low,
                 aes(x = x, ymin = ymin, ymax = ymax),
                 alpha = 0.25, fill = "light grey") +
-    geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
-    geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
     scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
-    scale_y_continuous(expand=c(0,0),
-                       limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
     # scale_y_continuous(expand=c(0,0),
-    #                    limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
+    #                    limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
+    scale_y_continuous(expand=c(0,0),
+                       limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
     expand_limits(x = 0) + 
     # labs(x = paste0(explan.vars.names[i]),
     labs(x = NULL,
@@ -106,25 +110,25 @@ for (i in 1:(length(explan.vars))){
           axis.title.x=element_blank(),
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank(),
-          plot.margin=unit(c(1,1,-0.5,1), "cm")) # shrink margins for adjacency
+          plot.margin=unit(c(5.5, 5.5, -10, 5.5), "pt")) # shrink margins for adjacency
   
   ## Create hist to put underneath partial curve. Use orig data.
   hist <- ggplot(data = data.brt, aes(x = data.brt[,explan.vars[i]])) +
+    geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
+    geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") +
     geom_histogram(bins = 30) +
-    geom_vline(xintercept = quant[1], lty = 2, lwd = 1, col = "red") +
-    geom_vline(xintercept = quant[2], lty = 2, lwd = 1, col = "red") +
     # scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
     #                             max(data.brt[,explan.vars[i]]))) +
     coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
                            max(data.brt[,explan.vars[i]]))) +
-    labs(x = paste0(explan.vars.names[i])) +
+    labs(x = explan.vars.names[i]) +
     theme_bw(base_size = 18) +
     theme(panel.grid.minor = element_blank(),
           panel.grid.major = element_blank(),
           axis.title.y=element_blank(),
           axis.text.y=element_blank(),
           axis.ticks.y=element_blank(),
-          plot.margin=unit(c(-0.25,1,1,1), "cm")) # shrink margins for adjacency
+          plot.margin=unit(c(-10, 5.5, 5.5, 5.5), "pt")) # shrink margins for adjacency
   
   ## To stack plots with aligned width, extract max width from each object.
   # Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
@@ -158,6 +162,14 @@ for (i in 1:(length(explan.vars))){
 #############################################
 ##PDPS BY QUANTILE###########################
 #############################################
+## CHANGES FOR EACH SPECIES:
+# Lines 352-355: change plotting limits
+## CHANGES FOR EACH VARIABLE:
+# Lines 175-183: change variable used
+# Lines 205-217: turn that variable off
+# Lines 235-243: turn that variable on
+# Lines 337-349: turn that variable label on
+
 
 par(mfrow=c(1,1))
 ## Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
@@ -165,10 +177,10 @@ par(mfrow=c(1,1))
 explan.vars
 # var <- "BALive_brt_m"
 # var <- "def.tc"
-var <- "tmax.tc"
+# var <- "tmax.tc"
 # var <- "ppt.tc"
 # var <- "def59_z_max15"
-# var <- "DUFF_DEPTH_cm"
+var <- "DUFF_DEPTH_cm"
 # var <- "LITTER_DEPTH_cm" 
 # var <- "FIRE.SEV"
 # var <- "REBURN"
@@ -196,11 +208,11 @@ newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
     BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
     def.tc = mean(def.tc),
-    # tmax.tc = mean(tmax.tc),
+    tmax.tc = mean(tmax.tc),
     ppt.tc = mean(ppt.tc),
     CMD_CHNG = mean(CMD_CHNG),
     def59_z_max15 = mean(def59_z_max15),
-    DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
+    # DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
     LITTER_DEPTH_cm = mean(LITTER_DEPTH_cm),
     FIRE.SEV = Mode(FIRE.SEV), # homegrown function
     REBURN = Mode(REBURN)
@@ -223,10 +235,10 @@ for (q in 1:3){ # Pick quantiles BUT MUST SPECIFY IN PROBS (10, 50 90)
     r1 <- predict(gbm.mod,
                   # newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
                   # newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
-                  newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
+                  # newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
                   # newdata = transform(newdata, ppt.tc = quantile(ppt.tc, probs = probs)[q]),
                   # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15, probs = probs)[q]),
-                  # newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
+                  newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, LITTER_DEPTH_cm = quantile(LITTER_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
                   # newdata = transform(newdata, REBURN = as.factor(NY[q])),
@@ -324,8 +336,8 @@ plot <- ggplot() +
   scale_color_manual(values = palette[3:5],
                      # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
                      # name = "Deficit anomaly",
-                     # name = "Duff depth (cm)",
-                     name = expression(paste("Max temp (",degree*C,")")),
+                     name = "Duff depth (cm)",
+                     # name = expression(paste("Max temp (",degree*C,")")),
                      labels = c(expression(paste("10"^"th"," percentile")),
                                 expression(paste("50"^"th"," percentile")),
                                 expression(paste("90"^"th"," percentile")))) +
@@ -337,12 +349,10 @@ plot <- ggplot() +
   scale_fill_manual(values = palette[3:5]) +
   geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
   geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") + 
-  # scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
-  #                             max(data.brt[,explan.vars[i]]))) +
-  scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
-  # scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
-  scale_y_continuous(expand=c(0,0), limits=c(0.14,0.42)) + # pipo
-  # scale_y_continuous(expand=c(0,0), limits=c(0.09,0.57)) + # psme
+  # scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
+  scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
+  # scale_y_continuous(expand=c(0,0), limits=c(0.14,0.42)) + # pipo
+  scale_y_continuous(expand=c(0,0), limits=c(0.09,0.57)) + # psme
   expand_limits(x = 0) + 
   labs(x = paste0(explan.vars.names[i]),
        y = "Probability of juvenile presence") +
