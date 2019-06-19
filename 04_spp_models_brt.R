@@ -28,36 +28,41 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN) 
 
-# Keep only candidate variables
-data.pipo <- data.pipo %>%
-  dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
-                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN)
-
-data.psme <- data.psme %>%
-  dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
-                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN)
-
 
 ## If I've already run & saved models and want to re-load, do so here:
-# tobeloaded <- paste0(out.dir,"pipo_mods_2019-06-14.Rdata")
-# temp.env = new.env()
-# invisible(lapply(tobeloaded, load, envir = temp.env))
-# models = as.list(temp.env)
-# rm(temp.env, tobeloaded)
+# tobeloaded <- paste0(out.dir,"pipo_mods_2019-06-14.Rdata") ; sp <- c("pipo")
+tobeloaded <- paste0(out.dir,"psme_mods_2019-06-14.Rdata") ; sp <- c("psme")
+temp.env = new.env()
+invisible(lapply(tobeloaded, load, envir = temp.env))
+models = as.list(temp.env)
+rm(temp.env, tobeloaded)
+
+## If want to re-load stats.new from existing model run (for boxplot)
+# stats.new <- read.csv(paste0(out.dir,"pipo_brt_stats_fin_relinf_ordered_2019-06-14.csv"))
+stats.new <- read.csv(paste0(out.dir,"psme_brt_stats_fin_relinf_ordered_2019-06-14.csv"))
+# stats.new[1] <- NULL # extra column gets added
+
+
+## PIPO OR PSME?? RETAIN ONLY VARIABLES USED.
+# data.brt <- data.pipo %>%
+#   dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
+#                 def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
+#   rename(regen_brt = regen_pipo,
+#          BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
+
+data.brt <- data.psme %>%
+  dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
+                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
+  rename(regen_brt = regen_psme,
+         BALive_brt_m = BALive_psme_m) ; sp <- c("psme")
+
+
 
 
 #################
 ### BRT SETUP ###   
 #################
 
-## PIPO OR PSME??
-data.brt <- data.pipo %>%
-  rename(regen_brt = regen_pipo,
-         BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
-
-# data.brt <- data.psme %>%
-#   rename(regen_brt = regen_psme,
-#          BALive_brt_m = BALive_psme_m) ; sp <- c("psme")
 
 
 ## Set learning rate
@@ -110,18 +115,21 @@ explan.vars.names <- c("Years since fire",
 ## After iteratively dropping w/ 10 runs (below) to see which boosts AUC, re-define explan.vars
 
 ## PIPO
-explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10, 11)] # have iteratively removed vars.
+pipo.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10, 11)] # have iteratively removed vars.
 # ^ This is the final dataset for PIPO, as removing others doesn't improve AUC
-explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10, 11)]
-explan.vars
-explan.vars.names
+pipo.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10, 11)]
+pipo.explan.vars
+pipo.explan.vars.names
 
 ## PSME
-# explan.vars <- explan.vars[-c(3,5,6,7,9,10,11)] # have iteratively removed vars.
-# # ^ This is the final dataset for PSME, as removing others doesn't improve AUC
-# explan.vars.names <- explan.vars.names[-c(3,5,6,7,9,10,11)]
-# explan.vars
-# explan.vars.names
+psme.explan.vars <- explan.vars[-c(3,5,6,7,9,10,11)] # have iteratively removed vars.
+# ^ This is the final dataset for PSME, as removing others doesn't improve AUC
+psme.explan.vars.names <- explan.vars.names[-c(3,5,6,7,9,10,11)]
+psme.explan.vars
+psme.explan.vars.names
+
+if (sp == "pipo") explan.vars <- pipo.explan.vars else explan.vars <- psme.explan.vars
+if (sp == "pipo") explan.vars.names <- pipo.explan.vars.names else explan.vars.names <- psme.explan.vars.names
 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
@@ -142,12 +150,11 @@ print(sp)
 ### BRT LOOP ###   
 ################
 
-### !!! IF NOT ITERATIVELY DROPPING, CHNG:
-# 1) for (v in 2:length(explan.vars)) 
-# 2) version <- paste0("x",explan.vars[v])
-# 3) gbm.x = explan.vars[-v],
-
-## Note there's space for continuing run if one mod fails (change i in num.loops)
+### !!! IF ITERATIVELY DROPPING, ACTIVATE THE FOLLOWING LINES:
+# Lines 159-160: for (v in 2:length(explan.vars)) 
+# Lines 166-168: version <- paste0("x",explan.vars[v])
+# Lines 174-175: gbm.x = explan.vars[-v],
+# Lines 248-257 & 271-280: change csv names
 
 start <- Sys.time() 
 for (v in 1){ # if not iteratively dropping vars
@@ -357,7 +364,7 @@ stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
 
 
 
-### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS AS ABOVE !!! ###
+### !!! BELOW ONLY WORKS WHEN NOT ITERATIVELY DROPPING VARS !!! ###
 ######################################################
 ##CREATE ORDERED STATS LIST BY VAR WITH FINAL VARS####
 ######################################################
@@ -402,29 +409,28 @@ for (k in rows){
 # dplyr's bind_rows automagically splices contents of lists per col names. 
 stats.new <- bind_rows(stats.list) # bind_rows automatically splices contents of lists per col names.
 
+
 ## Boxplot of relative influence; plot by median
 # Gather data to make ggplot happy
 temp <- stats.new[,-(1:6)] # retain only cols with variables
 temp <- gather(temp, key = "var", value = "rel.inf")
 
-# PIPO vars in order of influence: yrs, anomaly, BA, duff, tmax
-var.names <- c("Years since fire",
-               "Max deficit anomaly",
-               expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-               expression(paste("Max temp (",degree*C,")")))
+# Var names in order of influence:
+# pipo: yrs, anomaly, BA, tmax
+pipo.var.names <- c("Years since fire",
+                    "Deficit anomaly",
+                    expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                    expression(paste("Max temp (",degree*C,")")))
+# psme: BA, yrs, duff, tmax
+psme.var.names <- c(expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                    "Years since fire",
+                    "Duff depth (cm)",
+                    expression(paste("Max temp (",degree*C,")")))
+var.names <- ifelse(sp == "pipo", pipo.var.names, psme.var.names)
+if (sp == "pipo") var.names <- pipo.var.names else var.names <- psme.var.names
+rm(pipo.var.names, psme.var.names)
 
-# PSME vars in order of influence: yrs, anomaly, BA, duff, tmax
-# var.names <- c(expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-#                "Years since fire",
-#                "Duff depth (cm)",
-#                expression(paste("Max temp (",degree*C,")")))
-
-
-# If I wanted axis labels to break wherever there's a space               
-# addline_format <- function(x,...){ # replaces spaces in x with new line.
-#   gsub('\\s','\n',x)
-# }
-
+# Create & save box-plot
 tiff(paste0(out.dir, sp, "_brt_stats_", version, "_relinf_", currentDate,".tif"),
             res = 300, width = 5, height = 4, units = "in")
 ri.plot <- ggplot(data = temp,
@@ -433,7 +439,6 @@ ri.plot <- ggplot(data = temp,
                            y = rel.inf))
 ri.plot + geom_boxplot() +
   labs(x = NULL, y = "Relative influence (%)") + 
-  # scale_x_discrete(labels = addline_format(var.names)) +
   scale_x_discrete(labels = var.names) +
   scale_y_continuous() + 
   coord_flip() +
@@ -461,11 +466,8 @@ write.csv(stats.sum, paste0(out.dir,sp,"_brt_stats_",version, "_relinf_sum_",cur
 
 
 
-
-
-
 #######################
-### SAVE MODELS JIC ###   
+###SAVE MODELS JIC#####   
 #######################
 
 # Save models JIC. save() needs names and will look to global envi unless I say look to list.
