@@ -92,6 +92,8 @@ def.data$FIRE.YR <- data.all$FIRE.YR
 
 ## Get only MAY-SEPT; rename columns as year.
 def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
+# Remove 2017 because last sampling occurred in 2016.
+def59.cols <- def59.cols[-37]
 goo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
 colnames(goo) <- mid(colnames(goo), 5, 4)
 goo$PLOTID <- def.data$PLOTID
