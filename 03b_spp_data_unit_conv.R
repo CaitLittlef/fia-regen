@@ -1,5 +1,8 @@
-data.pipo <- read.csv("data.pipo_2019-05-14.csv") ; data.pipo$X <- NULL
-data.psme <- read.csv("data.psme_2019-05-14.csv") ; data.psme$X <- NULL
+## Old versions have CMD_CHNG with 2017 included. New versions do not.
+# data.pipo.old <- read.csv("data.pipo_2019-05-14.csv") ; data.pipo$X <- NULL
+# data.psme.old <- read.csv("data.psme_2019-05-14.csv") ; data.psme$X <- NULL
+data.pipo <- read.csv("data.pipo_2019-06-29.csv") ; data.pipo$X <- NULL
+data.psme <- read.csv("data.psme_2019-06-29.csv") ; data.psme$X <- NULL
 
 ## Convert BA to metric
 data.pipo$BALiveTot_m <- data.pipo$BALiveTot/4.359
@@ -34,8 +37,12 @@ data.psme$LITTER_DEPTH_cm <- data.psme$LITTER_DEPTH * 2.538
 
 # Other vars
 # Create CMD relative chng (from observed z-score slopes)
+# data.pipo.old$CMD_CHNG <- data.pipo.old$def59.z.slope
+# data.psme.old$CMD_CHNG <- data.psme.old$def59.z.slope
 data.pipo$CMD_CHNG <- data.pipo$def59.z.slope
 data.psme$CMD_CHNG <- data.psme$def59.z.slope
+
+plot(data.pipo.old$CMD_CHNG ~ data.pipo$CMD_CHNG)
 
 # Create proportion BA
 data.pipo$BAProp_pipo <- data.pipo$BALive_pipo/data.pipo$BALiveTot
