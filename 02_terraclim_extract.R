@@ -83,7 +83,9 @@ def.data$PLOTID <- data.all$PLOTID
 def.data$FIRE.YR <- data.all$FIRE.YR
 
 
-###################################### GET Z-SCORE TREND
+#########################
+####GET Z-SCORE TREND####
+#########################
 ## Grab slope of z-scores for each plot as reflection of climate change.
 # If deficit is increasing, z-scores will be increasingly positive.
 # Steeper slope means changing faster.
@@ -92,14 +94,13 @@ def.data$FIRE.YR <- data.all$FIRE.YR
 
 ## Get only MAY-SEPT; rename columns as year.
 def59.cols <- grep(pattern="^def......5.9_z$$", x=colnames(def.data), value=TRUE)
-# Remove 2017 because last sampling occurred in 2016.
-def59.cols <- def59.cols[-37]
+# Remove 2017 b/c last FIA sampling was in 2016. Stick with MTBS record start 1984.
+def59.cols <- def59.cols[-c(1:3,37)]
 goo <- def.data[def59.cols] %>% as.data.frame() # weird class change; force df    
 colnames(goo) <- mid(colnames(goo), 5, 4)
 goo$PLOTID <- def.data$PLOTID
 
 ## Gather data in prep for trendline. Col names are now a variable (def.year).
-# Keep only 1984 (mtbs) thru 2017 (no 2018 for terraclim).
 zoo <- gather(data = goo, key = 'def.year', value = 'def.z', -PLOTID)
 zoo$def.year <- as.numeric(zoo$def.year)
 zoo <- zoo %>% filter(def.year > 1983)
@@ -124,7 +125,7 @@ moo <- zoo[zoo$PLOTID == "1_16_13",]
 def.z.lm[def.z.lm$PLOTID == "1_16_13",]
 # def.z.lm[def.z.lm$PLOTID == "41_30_103",]
 plot(moo$def.year, moo$def.z)
-abline(-34.59488731, 0.01736898); abline(h=0)
+abline(-43.07622057, 0.02162099); abline(h=0)
 # abline(5.179523331, -0.002553094); abline(h=0)
 # Alt for plotting:
 moo <- filter(zoo, grepl("^10_", PLOTID))
@@ -271,6 +272,7 @@ foo$def59_z_max15 <- apply(foop, 1, function(x) fmax(x)) #do it by row by settin
 ## Create avg z-score for yrs 0-5 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
 def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(def.data), value=TRUE)
+
 boo <- def.data[def68.cols] %>% as.data.frame() # weird class change; force df    
 boo$FIRE.YR <- data.all$FIRE.YR
 boo$YEAR.DIFF <- data.all$YEAR.DIFF
