@@ -8,7 +8,7 @@ sp
 
 # which explan vars?
 pipo.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15"
-psme.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "DUFF_DEPTH_cm"
+psme.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "LITTER_DEPTH_cm"
 
 ## What are vars for which I need rasters? Vary year, let tmax.tc change in space, hold others at mean
 
@@ -20,7 +20,7 @@ extent(tmax.tc)
 
 YEAR.DIFF <- r
 # how many years?
-yr <- 1
+# yr <- 1
 yr <- 10
 YEAR.DIFF[! is.na(YEAR.DIFF)] <- yr
 extent(YEAR.DIFF)
@@ -29,22 +29,33 @@ BALive_brt_m <- r
 BALive_brt_m[! is.na(BALive_brt_m)] <- mean(data.brt$BALive_brt_m)
 extent(BALive_brt_m)
 
+LITTER_DEPTH_cm <- r
+LITTER_DEPTH_cm[! is.na(LITTER_DEPTH_cm)] <- mean(data.brt$LITTER_DEPTH_cm)
+extent(LITTER_DEPTH_cm)
 
 def59_z_max15 <- r
 def59_z_max15[! is.na(def59_z_max15)] <- mean(data.brt$def59_z_max15) ; defz <- "avg_max"
-# Alternative -- using super drought year values (at least in n rockies)
-# def59_z_max15 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2017.5.9.tif") %>%
-#   crop(rng.r) %>%
-#   mask(rng.r) %>%
-#   extend(rng.r) ; defz <- "2017"# extend b/c for whatever reason shrunk
+
+## Alternative -- using super drought year
+
+# 2012: generally very droughty across US, especially southern US.
+def59_z_max15 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2012.5.9.tif") %>%
+  crop(rng.r) %>%
+  mask(rng.r) %>%
+  extend(rng.r) ; defz <- "2012"# extend b/c for whatever reason shrunk
+
+# 2017: v. droughty in N. Rockies.
+def59_z_max15 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2017.5.9.tif") %>%
+  crop(rng.r) %>%
+  mask(rng.r) %>%
+  extend(rng.r) ; defz <- "2017"# extend b/c for whatever reason shrunk
+
+
 # plot(def59_z_max15)
 # extent(def59_z_max15)
 if (sp == "pipo") defz <- defz else defz <- "na"
 defz
 
-DUFF_DEPTH_cm <- r
-DUFF_DEPTH_cm[! is.na(DUFF_DEPTH_cm)] <- mean(data.brt$DUFF_DEPTH_cm)
-extent(DUFF_DEPTH_cm)
 
 ## Yet the underlying names are still remnants of orig raster file
 labels(tmax.tc) # gives "tmax.1981.2010"
@@ -53,28 +64,65 @@ labels(tmax.tc) # gives "tmax.tc"
 names(YEAR.DIFF) <- "YEAR.DIFF"
 names(BALive_brt_m) <- "BALive_brt_m"
 names(def59_z_max15) <- "def59_z_max15"
-names(DUFF_DEPTH_cm) <- "DUFF_DEPTH_cm"
+names(LITTER_DEPTH_cm) <- "LITTER_DEPTH_cm"
 
-# Create brick for prediction (ok to have all b/c each sp will only pull what it needs)
-brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max15, DUFF_DEPTH_cm)
+
+## Create brick for prediction (ok to have all b/c each sp will only pull what it needs)
+brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max15)
 names(brick)
 
-# Predict! This currently just uses first model; run for all 100 and take avg.
-space <- raster::predict(brick, models[[1]], n.trees=models[[1]]$n.trees, type = "response")
-plot(space)
+## Predict! Below JUST uses first model; instead, run for all 100 and take avg.
+# space <- raster::predict(brick, models[[1]], n.trees=models[[1]]$n.trees, type = "response")
+# ^ could average all rasters, but I'm guessing that will take forevs.
+# How many pixels are we talking?
+length(!is.na(space@data@values)) # gives 436433, which I thing is everything...
+
+# Loop thru to fill list with predictions for each pixel from ALL models
+start <- Sys.time() 
+
+preds <- list()
+# for (i in 1:5) {
+for (i in 1:100) {
+  preds[[i]] <- brick %>% 
+  raster::predict(models[[i]],
+                  n.trees = models[[i]]$n.trees,
+                  type = "response") %>%
+  gplot_data()
+}
+print(Sys.time() - start)
+
+## Combine all predictors into table. *** REFERENCING i ABOVE!! ***
+# dplyr's bind_rows() avoids duped names unlike do.call(rbind...)
+preds.df <- bind_rows(preds) %>% dplyr::select(-variable) # 3 vars
+# preds.raw.df <- bind_cols(preds) # 400 vars
+nrow(preds.df)/i # 49815
+x <- preds.df$x[1:49815]
+y <- preds.df$y[1:49815]
+values.df <- preds.df %>% dplyr::select(-x, -y) 
+i
+values.df <- as.data.frame(matrix(values.df$value, ncol = i, byrow = FALSE))
+
+# Average all values together
+values.df <- values.df %>%
+  mutate(value = rowMeans(.)) %>%
+  dplyr::select(value)
+
+values.xy <- as.data.frame(cbind(x, y, values.df))
+min(values.xy$value, na.rm = T) # 0.1594297
+max(values.xy$value, na.rm = T) # 0.2283177
 
 
 # Turn deficit raster into table (FUNCTION DEFINED AT SET-UP)
-space.data <- gplot_data(space)
-min(space.data$value, na.rm = T) # 0.1539761 pipo, 0.2455601 psme
-max(space.data$value, na.rm = T) # 0.2347101 pipo, 0.4743217 psme
+# space.data <- gplot_data(space)
+# min(space.data$value, na.rm = T) # 0.1539761 pipo, 0.2455601 psme
+# max(space.data$value, na.rm = T) # 0.2347101 pipo, 0.4743217 psme
 
 # Set gradient limits based on sp
 sp
-if (sp == "pipo") limits <- c(0.15,0.24) else limits <- c(0.24,0.48)
+if (sp == "pipo") limits <- c(0.135,0.250) else limits <- c(0.24,0.48)
 limits
 
-## Plot into map
+## Plot into map; create shapefile for just Gulf of California
 p <- ggplot() +
   geom_tile(data = space.data, aes(x = x, y = y, fill = value)) +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
@@ -101,6 +149,9 @@ tiff(paste0(out.dir, sp,"_yr",yr,"z_",defz,"_pred_map_",currentDate,".tiff"),
    width = 450, height = 600, units = "px")
 p
 dev.off()
+
+
+
 
 data.psme %>%
   group_by(STATECD.x) %>%
