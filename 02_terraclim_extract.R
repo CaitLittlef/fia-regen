@@ -254,21 +254,39 @@ foo <- foo %>%
 # Find max post-fire z-score within 5 yrs. 
 foop <- foo[(c("YEAR.DIFF", "def59_z_1", "def59_z_2", "def59_z_3", "def59_z_4", "def59_z_5"))]
 
+fmaxq <- function(x, q) {
+  yr <- (x[1])
+  if (is.na(yr)) {
+    return(NA)
+    } else if (yr < q) {
+    return(max(x[2:(1+yr)]))
+    } else {
+    return(max(x[2:(1+q)]))
+  }
+}
+
+# original function for only 5 yrs
 fmax <- function(x) {
   yr <- (x[1])
   if (is.na(yr)) {
     return(NA)
-    } else if (yr < 5) {
+  } else if (yr < 5) {
     return(max(x[2:(1+yr)]))
-    } else {
+  } else {
     return(max(x[2:6]))
   }
 }
 
-foo$def59_z_max15 <- apply(foop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
+foo$def59_z_max1 <- apply(foop, 1, function(x) fmaxq(x, 1)) #do it by row by setting arg2 = 1; specify q here.
+foo$def59_z_max12 <- apply(foop, 1, function(x) fmaxq(x, 2)) #do it by row by setting arg2 = 1; specify q here.
+foo$def59_z_max13 <- apply(foop, 1, function(x) fmaxq(x, 3)) #do it by row by setting arg2 = 1; specify q here.
+foo$def59_z_max14 <- apply(foop, 1, function(x) fmaxq(x, 4)) #do it by row by setting arg2 = 1; specify q here.
+foo$def59_z_max15 <- apply(foop, 1, function(x) fmaxq(x, 5)) #do it by row by setting arg2 = 1; specify q here.
+identical(foo$def59_z_max1, foo$def59_z_1) # TRUE
+foo %>% filter(! is.na(YEAR.DIFF)) %>% dplyr::select(40:54) %>% View()
+View(foo[,40:54])
 
-
-
+####################################################3
 ## Create avg z-score for yrs 0-5 post-fire, JUNE-AUG
 # Pull out def columns; ^=beginning; .=any character; $=end
 def68.cols <- grep(pattern="^def......6.8_z$$", x=colnames(def.data), value=TRUE)
@@ -336,7 +354,16 @@ boo <- boo %>%
 
 # Find max post-fire z-score within 5 yrs. (see function defined above with foo)
 boop <- boo[(c("YEAR.DIFF", "def68_z_1", "def68_z_2", "def68_z_3", "def68_z_4", "def68_z_5"))]
-boo$def68_z_max15 <- apply(boop, 1, function(x) fmax(x)) #do it by row by setting arg2 = 1
+
+boo$def68_z_max1 <- apply(boop, 1, function(x) fmaxq(x, 1)) #do it by row by setting arg2 = 1; specify q here.
+boo$def68_z_max12 <- apply(boop, 1, function(x) fmaxq(x, 2)) #do it by row by setting arg2 = 1; specify q here.
+boo$def68_z_max13 <- apply(boop, 1, function(x) fmaxq(x, 3)) #do it by row by setting arg2 = 1; specify q here.
+boo$def68_z_max14 <- apply(boop, 1, function(x) fmaxq(x, 4)) #do it by row by setting arg2 = 1; specify q here.
+boo$def68_z_max15 <- apply(boop, 1, function(x) fmaxq(x, 5)) #do it by row by setting arg2 = 1; specify q here.
+identical(boo$def68_z_max1, boo$def68_z_1) # TRUE
+boo %>% filter(! is.na(YEAR.DIFF)) %>% dplyr::select(40:54) %>% View()
+View(boo[,40:54])
+
 
 
 # Put computed vals back into major dataset
