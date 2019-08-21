@@ -377,6 +377,10 @@ def.data$def59_z_12 <- foo$def59_z_12
 def.data$def59_z_13 <- foo$def59_z_13
 def.data$def59_z_14 <- foo$def59_z_14
 def.data$def59_z_15 <- foo$def59_z_15
+def.data$def59_z_max15 <- foo$def59_z_max1
+def.data$def59_z_max15 <- foo$def59_z_max12
+def.data$def59_z_max15 <- foo$def59_z_max13
+def.data$def59_z_max15 <- foo$def59_z_max14
 def.data$def59_z_max15 <- foo$def59_z_max15
 
 def.data$def68_z_0 <- boo$def68_z_0
@@ -389,6 +393,10 @@ def.data$def68_z_12 <- boo$def68_z_12
 def.data$def68_z_13 <- boo$def68_z_13
 def.data$def68_z_14 <- boo$def68_z_14
 def.data$def68_z_15 <- boo$def68_z_15
+def.data$def68_z_max15 <- boo$def68_z_max1
+def.data$def68_z_max15 <- boo$def68_z_max12
+def.data$def68_z_max15 <- boo$def68_z_max13
+def.data$def68_z_max15 <- boo$def68_z_max14
 def.data$def68_z_max15 <- boo$def68_z_max15
 
 
