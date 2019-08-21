@@ -170,14 +170,14 @@ class(data.wwoburn)
 ## How many were sampled after burned (one or more times, one or more burns)?
 data.wwoburn %>%
   filter(INVYR > FIRE.YR) %>%
-  count(PLOTID) # 1961 plots sampled after a burn/burns
+  count(PLOTID) # 1940 plots sampled after a burn/burns
 data.wwoburn %>%
   filter(INVYR > FIRE.YR) %>%
   count(PLOTID) %>%
-  filter(n>1) # 398 sampled more than once after a burn/burns
+  filter(n>1) # 396 sampled more than once after a burn/burns
 
-# Pull out burn severity columns; keep only those with 4 digits (year); .=any character; $=end
-mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.wwoburn.samp), value=TRUE)
+## Pull out burn severity columns; keep only those with 4 digits (year); .=any character; $=end
+mtbs.cols <- grep(pattern="^mtbs_....$", x=colnames(data.wwoburn), value=TRUE)
 
 ## List plots that burned and were sampled after burn
 # Keeping latest visit, latest fire (or sites that didn't burn, hence is.na())
