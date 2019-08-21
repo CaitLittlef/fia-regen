@@ -40,9 +40,9 @@ data <- data %>%
   rename(regen_pied_tpa = TPASeed106Ac,
          regen_pipo_tpa = TPASeed122Ac,
          regen_psme_tpa = TPASeed202Ac)
-mean(data$regen_pied) # 0.01826484
-mean(data$regen_pipo) # 0.06950786
-mean(data$regen_psme) # 0.1212582
+mean(data$regen_pied) 
+mean(data$regen_pipo) 
+mean(data$regen_psme) 
 
 
 ## Keep records where adult present -- even if dead. 
