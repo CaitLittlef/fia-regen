@@ -15,6 +15,10 @@ psme.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "LITTER_DEPTH
 # Predict only to range; use a terraclimate raster as template
 tmax.tc <- raster(paste0(tc.dir,"tmax.1981.2010.tif"))
 tmax.tc <- tmax.tc %>% crop(rng.r) %>% mask(rng.r) # Crop to sp range
+plot(tmax.tc)
+tmax.tc.data <- gplot_data(tmax.tc)
+min(tmax.tc.data$value, na.rm = TRUE)
+max(tmax.tc.data$value, na.rm = TRUE)
 r <- tmax.tc 
 extent(tmax.tc)
 
@@ -68,14 +72,14 @@ names(LITTER_DEPTH_cm) <- "LITTER_DEPTH_cm"
 
 
 ## Create brick for prediction (ok to have all b/c each sp will only pull what it needs)
-brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max15)
+brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max15, LITTER_DEPTH_cm)
 names(brick)
 
 ## Predict! Below JUST uses first model; instead, run for all 100 and take avg.
 # space <- raster::predict(brick, models[[1]], n.trees=models[[1]]$n.trees, type = "response")
 # ^ could average all rasters, but I'm guessing that will take forevs.
 # How many pixels are we talking?
-length(!is.na(space@data@values)) # gives 436433, which I thing is everything...
+# length(!is.na(space@data@values)) # gives 436433, which I thing is everything...
 
 # Loop thru to fill list with predictions for each pixel from ALL models
 start <- Sys.time() 
@@ -95,9 +99,11 @@ print(Sys.time() - start)
 # dplyr's bind_rows() avoids duped names unlike do.call(rbind...)
 preds.df <- bind_rows(preds) %>% dplyr::select(-variable) # 3 vars
 # preds.raw.df <- bind_cols(preds) # 400 vars
-nrow(preds.df)/i # 49815
-x <- preds.df$x[1:49815]
-y <- preds.df$y[1:49815]
+nrow(preds.df)/i # 49815 for pipo, 49920 for psme
+x <- preds.df$x[1:49815] # for pipo
+y <- preds.df$y[1:49815] # for pipo
+# x <- preds.df$x[1:49920] # for psme
+# y <- preds.df$y[1:49920] # for psme
 values.df <- preds.df %>% dplyr::select(-x, -y) 
 i
 values.df <- as.data.frame(matrix(values.df$value, ncol = i, byrow = FALSE))
@@ -108,9 +114,8 @@ values.df <- values.df %>%
   dplyr::select(value)
 
 values.xy <- as.data.frame(cbind(x, y, values.df))
-min(values.xy$value, na.rm = T) # 0.1594297
-max(values.xy$value, na.rm = T) # 0.2283177
-
+min(values.xy$value, na.rm = T) # 0.1594297 2012 & 2017 <- pipo; 0.2410127 psme
+max(values.xy$value, na.rm = T) # 0.2283218 2012, 0.2283177 2017; 0.5131914 psme
 
 # Turn deficit raster into table (FUNCTION DEFINED AT SET-UP)
 # space.data <- gplot_data(space)
@@ -119,38 +124,43 @@ max(values.xy$value, na.rm = T) # 0.2283177
 
 # Set gradient limits based on sp
 sp
-if (sp == "pipo") limits <- c(0.135,0.250) else limits <- c(0.24,0.48)
+if (sp == "pipo") limits <- c(0.15,0.23) else limits <- c(0.24,0.52)
 limits
+# limits <- c(0.19, 0.23) # for pipo when just using avg defz, not 2012 or 2017.
 
 ## Plot into map; create shapefile for just Gulf of California
 p <- ggplot() +
-  geom_tile(data = space.data, aes(x = x, y = y, fill = value)) +
+  geom_tile(data = values.xy, aes(x = x, y = y, fill = value)) +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) + # NA else covers tile with color.
-  scale_fill_gradient("Probability of juvenile presence",
+  # ggtitle(paste0(sp," at yr ",yr,", deficit z scores: ",defz)) +
+  scale_fill_gradient(name = "Prob. juv.\npresence",
                       low = palette[6], high = palette[3],
                       na.value = "#EAECEE", # sets background IntW states pale grey
                       limits = limits) +
-                      # limits = c(0.15,0.24)) + # pipo, SETS SAME GRADIENT YR 1, YR 10
-                      # limits = c(0.24,0.48)) + # psme, SETS SAME GRADIENT YR 1, YR 10
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
-  ggtitle(paste0(sp," at yr ",yr,", deficit z scores: ",defz)) +
   theme_bw(base_size = 18) +
-  theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+  theme(panel.grid.major = element_line(color = "#808B96", size = 1), # blend lat/long into background
+        panel.border = element_rect(fill = NA, color = "black", size = 0.5),
         axis.title = element_blank(),
-        legend.title = element_blank(),
-        legend.background = element_rect(color = "#808B96"),
-        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        axis.line = element_line(size = 0.5),
+        legend.background = element_rect(fill = "white", color = "black", size = 0,5),
+        legend.justification=c(0,0), # defines which side oflegend .position coords refer to
         legend.position=c(0,0),
-        legend.text=element_text(size=12),
-        plot.title = element_text(size=12))
+        legend.title = element_text(size=12),
+        legend.text=element_text(size=10),
+        plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
+  # annotate("text", x = -120.5, y = 49.5, label = "a) ponderosa pine", hjust = 0)
+  annotate("text", x = -120.5, y = 49.5, label = "b) Douglas-fir", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "b) 2012", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "d) 2017", hjust = 0)
 p
 tiff(paste0(out.dir, sp,"_yr",yr,"z_",defz,"_pred_map_",currentDate,".tiff"),
-   width = 450, height = 600, units = "px")
+   width = 475, height = 600, units = "px")
 p
 dev.off()
 
-
+defz
 
 
 data.psme %>%
