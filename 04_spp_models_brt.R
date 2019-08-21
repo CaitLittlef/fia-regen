@@ -8,9 +8,42 @@ currentDate <- Sys.Date()
 data.pipo <- read.csv("data.pipo_2019-07-01.csv") ; data.pipo$X <- NULL
 data.psme <- read.csv("data.psme_2019-07-01.csv") ; data.psme$X <- NULL
 
+## What's it like without fire?
+# All sites with and without fire:
+mean(data.pipo$regen_pipo) # 0.2557105
+mean(data.psme$regen_psme) # 0.4452158
+mean(data.pipo$BALive_pipo_m) # 9.203423
+mean(data.psme$BALive_psme_m) # 9.550503
+# sites without fire:
+pipo.woburn <- data.pipo[is.na(data.pipo$FIRE.SEV) ,]
+psme.woburn <- data.psme[is.na(data.psme$FIRE.SEV) ,]
+mean(pipo.woburn$regen_pipo) # 0.2659649
+mean(psme.woburn$regen_psme) # 0.4694846
+mean(pipo.woburn$BALive_pipo_m) # 9.684631
+mean(psme.woburn$BALive_psme_m) # 10.39258
+
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
 data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
+mean(data.pipo$regen_pipo) # 0.1996161
+mean(data.psme$regen_psme) # 0.2828283
+mean(data.pipo$BALive_pipo_m) # 6.571094
+data.pipo %>%
+  filter(YEAR.DIFF > 19) %>%
+  summarize_at(vars(BALive_pipo_m), mean)
+mean(data.psme$BALive_psme_m) # 3.915973
+
+count(data.pipo) # 521
+count(data.psme) # 693
+count(data.pipo) + count(data.psme) # 1214
+count(inner_join(data.pipo, data.psme, by = "UNIQUEID")) # 224 both pipo and psme
+count(full_join(data.pipo, data.psme, by = "UNIQUEID")) # 990
+990 + 224 # 1214
+# fire count
+count(full_join(data.pipo, data.psme, by = "UNIQUEID"), "Fire_ID.x")
+temp <- full_join(data.pipo, data.psme, by = "UNIQUEID")
+length(unique(temp$Fire_ID.x)) # 264 different fires
+rm(temp)
 
 ## Set variable classes
 # data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
@@ -39,21 +72,21 @@ rm(temp.env, tobeloaded)
 
 ## If want to re-load stats.new from existing model run (for boxplot)
 # stats.new <- read.csv(paste0(out.dir,"pipo_brt_stats_fin_relinf_ordered_2019-07-01.csv"))
-stats.new <- read.csv(paste0(out.dir,"psme_brt_stats_fin_relinf_ordered_2019-07-03.csv"))
-stats.new[1] <- NULL # extra column gets added
+# stats.new <- read.csv(paste0(out.dir,"psme_brt_stats_fin_relinf_ordered_2019-07-03.csv"))
+# stats.new[1] <- NULL # extra column gets added
 
 
 # PIPO or PSME?? Retain only the variables being used in models.
 ## PIPO
-data.brt <- data.pipo %>%
-  dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
-                def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
-  rename(regen_brt = regen_pipo,
-         BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
+# data.brt <- data.pipo %>%
+#   dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
+#                 def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
+#   rename(regen_brt = regen_pipo,
+#          BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
 
 
 
-# PSME
+## PSME
 data.brt <- data.psme %>%
   dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, CMD_CHNG,
                 def59_z_max15, DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
@@ -115,6 +148,7 @@ if (sp == "pipo" | sp == "pipoGTE12") explan.vars.names <- pipo.explan.vars.name
 explan.vars
 explan.vars.names
 sp
+
 ###############################################################
 ##NOW CAN JUMP TO PDPS SCRIPT IF DON'T NEED TO RE-RUN MODELS##
 ###############################################################
