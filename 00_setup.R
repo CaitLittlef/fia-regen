@@ -12,6 +12,9 @@ code.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/fia-regen/"
 ## set directory for terraclimate
 tc.dir <- "C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/"
 
+cait <- "//goshawk.sefs.uw.edu/Space_Lawler/Shared/BackedUp/Caitlin"
+
+
 
 #####################################
 # Install packages if not already installed
@@ -20,7 +23,7 @@ required.packages <- c("plyr", "ggplot2", "gridExtra", "raster", "sf", "rgdal", 
                        "partykit", "vcd", "maps", "mgcv", "tmap",
                        "MASS", "pROC", "ResourceSelection", "caret", "broom", "boot",
                        "dismo", "gbm", "usdm", "pscl", "randomForest", "pdp", "classInt", "plotmo",
-                       "ggspatial", "lmtest")
+                       "ggspatial", "lmtest",  "dynatopmodel", "spatialEco")
 new.packages <- required.packages[!(required.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)>0) install.packages(new.packages)
 rm(required.packages, new.packages)
@@ -58,6 +61,8 @@ library(classInt)
 library(plotmo)
 library(ggspatial)
 library(lmtest)
+library(dynatopmodel)
+library(spatialEco)
 
 # rm(GCtorture)
 
@@ -85,6 +90,7 @@ Wsts <- NAmer[NAmer$NAME %in% Wsts.names, ] # not NAmer@data$NAME
 IntWsts <- NAmer[NAmer$NAME %in% IntWsts.names, ]
 nonIntWest  <- NAmer[! NAmer$NAME %in% IntWsts.names, ]
 crs <- crs(Wsts)
+bbox <- st_as_sfc(st_bbox(nonIntWest))
 
 ## Load pipo & psme range (I think from DAtabasin -- confirm source!!)
 pipo.rng <- st_read(dsn = "pinupond.shp")
@@ -102,10 +108,10 @@ crs(pipo.rng)
 
 
 ## Load TerraClime datasets
-aet <- raster(paste0(tc.dir,"aet.1981.2010.tif"))
-def <- raster(paste0(tc.dir,"def.1981.2010.tif"))
-ppt <- raster(paste0(tc.dir,"ppt.1981.2010.tif"))
-tmax <- raster(paste0(tc.dir,"tmax.1981.2010.tif"))
+# aet <- raster(paste0(tc.dir,"aet.1981.2010.tif"))
+# def <- raster(paste0(tc.dir,"def.1981.2010.tif"))
+# ppt <- raster(paste0(tc.dir,"ppt.1981.2010.tif"))
+# tmax <- raster(paste0(tc.dir,"tmax.1981.2010.tif"))
 
 
 
@@ -205,11 +211,11 @@ Mode <- function(x) {
 
 ############################################################################################
 # Wes palette
-install.packages("wesanderson")
-library(wesanderson)
-pal.d1 <- wes_palette("Darjeeling1")
-pal.d2 <- wes_palette("Darjeeling2")
-pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#00A08A", "#F98400", "#FF0000", "#00A08A", "#5BBCD6","#F2AD00", "#F98400")
+# install.packages("wesanderson")
+# library(wesanderson)
+# pal.d1 <- wes_palette("Darjeeling1")
+# pal.d2 <- wes_palette("Darjeeling2")
+# pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#00A08A", "#F98400", "#FF0000", "#00A08A", "#5BBCD6","#F2AD00", "#F98400")
 # pal colors are X, X, blue, X, teal, red, X, light blue, yellow, orange
 
 #046C9A # blue
@@ -219,7 +225,7 @@ pal <- c("#000000", "#F98400",  "#046C9A", "#FF0000", "#00A08A", "#00A08A", "#F9
 
 # Color blind palette
 # The palette with grey:
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+# cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
 # grey, orange, light blue, pine green, yellow, dark blue, red, pink
 
@@ -307,3 +313,4 @@ align.plots2 <- function (..., vertical = TRUE, pos = NULL)
     upViewport(2)
   }
 }
+
