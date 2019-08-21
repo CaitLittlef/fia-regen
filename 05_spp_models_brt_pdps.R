@@ -62,6 +62,9 @@ for (i in 1:(length(explan.vars))){
               # median.y = quantile(y, probs = 0.50),
               lower.y = quantile(y, probs = 0.025),
               upper.y= quantile(y, probs = 0.975))
+              # lower.y = quantile(y, probs = 0.05),
+              # upper.y= quantile(y, probs = 0.95))
+  
   
   ## Create plotting object for 95% bounds with smooth, else ribbin is choppy)
   ## Match span here (for smoothing) with geom_smooth() span in plot
@@ -78,7 +81,8 @@ for (i in 1:(length(explan.vars))){
                           ymax = gg1$data[[2]]$y)
   
   ## Add 5th & 95th percentile values so we can no which range of predictor var to trust
-  (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
+  (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.1, 0.9)))
+  # (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
   
   ## Create partial curve (orig data) and add in new ribbon data
   plot <- ggplot() +
@@ -95,7 +99,7 @@ for (i in 1:(length(explan.vars))){
     scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
     # scale_y_continuous(expand=c(0,0),
-    #                    limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
+                       # limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
     scale_y_continuous(expand=c(0,0),
                        limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
     expand_limits(x = 0) + 
@@ -158,6 +162,7 @@ for (i in 1:(length(explan.vars))){
   dev.off()
 } 
 
+dev.off()
 
 #############################################
 ##PDPS BY QUANTILE###########################
@@ -175,13 +180,13 @@ par(mfrow=c(1,1))
 ## Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
 # Only need to do this for final variables retained
 explan.vars
-# var <- "BALive_brt_m"
+var <- "BALive_brt_m"
 # var <- "def.tc"
 # var <- "tmax.tc"
 # var <- "ppt.tc"
 # var <- "def59_z_max15"
-var <- "DUFF_DEPTH_cm"
-# var <- "LITTER_DEPTH_cm" 
+# var <- "DUFF_DEPTH_cm"
+# var <- "LITTER_DEPTH_cm"
 # var <- "FIRE.SEV"
 # var <- "REBURN"
 
@@ -206,13 +211,13 @@ year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by
 print(var)
 newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
-    BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
+    # BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
     def.tc = mean(def.tc),
     tmax.tc = mean(tmax.tc),
     ppt.tc = mean(ppt.tc),
     CMD_CHNG = mean(CMD_CHNG),
     def59_z_max15 = mean(def59_z_max15),
-    # DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
+    DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
     LITTER_DEPTH_cm = mean(LITTER_DEPTH_cm),
     FIRE.SEV = Mode(FIRE.SEV), # homegrown function
     REBURN = Mode(REBURN)
@@ -233,12 +238,12 @@ for (q in 1:3){ # Pick quantiles BUT MUST SPECIFY IN PROBS (10, 50 90)
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
     r1 <- predict(gbm.mod,
-                  # newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
+                  newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
                   # newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
                   # newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
                   # newdata = transform(newdata, ppt.tc = quantile(ppt.tc, probs = probs)[q]),
                   # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15, probs = probs)[q]),
-                  newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
+                  # newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, LITTER_DEPTH_cm = quantile(LITTER_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
                   # newdata = transform(newdata, REBURN = as.factor(NY[q])),
@@ -295,10 +300,10 @@ colnames(pred.df) <- c("x", paste0("y", quant.temp, "mod",1:length(models)))
 # Gather into long-form with diff rows for each predictor and each model
 pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
 
-# Add col to specify quant (not best way but whatevs)
+# Add col to specify quant (pulling from name is maybe not best way but whatevs)
 pred.df.long$q <- paste0("q", mid(pred.df.long$model,2,1))
 
-# Compute median and upper/lower bounds
+# Compute mean and upper/lower bounds
 pred.df.long <- pred.df.long %>%
   group_by(x, q) %>%
   summarise(mean.y = mean(y),
@@ -322,8 +327,9 @@ df.up.low <- data.frame(x = gg1$data[[1]]$x,
                         ymax = gg1$data[[2]]$y,
                         q = gg1$data[[1]]$group)
 
-## Add 5th & 95th percentile values so we can no which range of predictor var to trust
-(quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
+## Add 5th & 95th percentile values so we can no which year.diff range to trust (here i = YEAR.DIFF)
+# (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
+(quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.1, 0.9)))
 
 
 ## Create plot -- CHANGE LAGEND LABEL NAME!! AND CHANGE LIMITS PER SPECIES
@@ -334,9 +340,9 @@ plot <- ggplot() +
               span = 0.25,
               se = FALSE) +
   scale_color_manual(values = palette[3:5],
-                     # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-                     # name = "Deficit anomaly",
-                     name = "Duff depth (cm)",
+                     name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                     # name = "Max deficit anomaly",
+                     # name = "Litter depth (cm)",
                      # name = expression(paste("Max temp (",degree*C,")")),
                      labels = c(expression(paste("10"^"th"," percentile")),
                                 expression(paste("50"^"th"," percentile")),
@@ -352,7 +358,7 @@ plot <- ggplot() +
   # scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
   scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
   # scale_y_continuous(expand=c(0,0), limits=c(0.14,0.42)) + # pipo
-  scale_y_continuous(expand=c(0,0), limits=c(0.09,0.57)) + # psme
+  scale_y_continuous(expand=c(0,0), limits=c(0.09,0.61)) + # psme
   expand_limits(x = 0) + 
   labs(x = paste0(explan.vars.names[i]),
        y = "Probability of juvenile presence") +
@@ -366,10 +372,11 @@ plot <- ggplot() +
         legend.title=element_text(size=14),
         legend.title.align=1)
 
-
+plot
 
 # Save
 tiff(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.tif"))
 # tiff(paste0(plot.dir, explan.vars[[i]], "_alt.tiff"))
 print(plot) # When using ggplot in for loop, need to print.
 dev.off()
+
