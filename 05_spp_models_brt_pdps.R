@@ -22,8 +22,13 @@ dir.create(paste0(out.dir, sp,"_brt_plots_", currentDate))
 plot.dir <- paste0(out.dir, sp,"_brt_plots_", currentDate,"/")
 
 
-## Loop through vars. Orig code overlaid loess fit and hist iteratively. Here, ggplot. and overlay # N.b., if factor plots are needed, will have to add additional code. Exclude in loop (-2 below) for (i in 1:(length(explan.vars)-2)){
-for (i in 1:(length(explan.vars))){   
+## Loop through vars. Orig code overlaid loess fit and hist iteratively. 
+## If factor, have to run subsequent loop to create boxplot.
+
+str(data.brt[,explan.vars]) # exclude FIRE.SEV, the 5th one
+
+# for (i in c(1:4)){ # thru 4 for pipo, to exclude FIRE.SEV
+for (i in 1:(length(explan.vars))){   # works if none are factors
   
   # Loop through the models and populate  lists of predictors & (marginal) responses.
   # With plot.gbm, other vars  "integrated out" -- not true pdp with mean effect of other vars.
@@ -37,8 +42,6 @@ for (i in 1:(length(explan.vars))){
     responses[[j]]<-r1[,2]
   }
   
-  # currentDate <- Sys.Date()
-  tiff(paste0(plot.dir, explan.vars[[i]], ".tif"))
   
   # Get limits for plotting
   ymin=min(unlist(responses))
@@ -80,7 +83,7 @@ for (i in 1:(length(explan.vars))){
                           ymin = gg1$data[[1]]$y,
                           ymax = gg1$data[[2]]$y)
   
-  ## Add 5th & 95th percentile values so we can no which range of predictor var to trust
+  ## Add 5th & 95th percentile values so we can know which range of predictor var to trust
   (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.1, 0.9)))
   # (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
   
@@ -134,6 +137,7 @@ for (i in 1:(length(explan.vars))){
           axis.ticks.y=element_blank(),
           plot.margin=unit(c(-10, 5.5, 5.5, 5.5), "pt")) # shrink margins for adjacency
   
+  
   ## To stack plots with aligned width, extract max width from each object.
   # Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
   
@@ -160,9 +164,153 @@ for (i in 1:(length(explan.vars))){
   # do.call("grid.arrange", c(grobs, ncol = 1))
   grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
   dev.off()
-} 
+
+}  
 
 dev.off()
+
+
+##############################
+#### PDPS FOR FACTOR VARIABLES (FIRE.SEV) ####
+
+str(data.brt[,explan.vars]) # exclude FIRE.SEV, the 5th one
+for (i in c(5)){
+
+  # Loop through the models and populate  lists of predictors & (marginal) responses.
+  # With plot.gbm, other vars  "integrated out" -- not true pdp with mean effect of other vars.
+  # With type = "response", automagically on scale of repsonse var (don't need to subtract mean)
+  # Return.grid skips plot and gives grid of predictor vals and response vals
+  
+  for(j in 1:length(models)){
+    gbm.mod<-models[[j]]
+    r1 <- gbm::plot.gbm(gbm.mod, i.var = i, type = "response", return.grid = TRUE)
+    predictors[[j]]<-r1[,1]
+    responses[[j]]<-r1[,2]
+  }
+  
+  # currentDate <- Sys.Date()
+  tiff(paste0(plot.dir, explan.vars[[i]], ".tif"))
+  
+  # Get limits for plotting
+  ymin=min(unlist(responses))
+  ymax=max(unlist(responses))
+  # xmin=min(unlist(predictors)) # fire sev scale 1-4
+  # xmax=max(unlist(predictors)) # fire sev scale 1-4
+  
+  ## Tidy data into single dataframe so can add multiple curves onto same plot)
+  predictor.cols <- do.call(cbind, predictors) # each col reps a model -- VALS ALL IDENTICAL
+  response.cols <- do.call(cbind, responses) # each col reps a model
+  pred.df <- as.data.frame(cbind(predictor.cols[,1], response.cols))
+  colnames(pred.df) <- c("x", paste0("y", 1:length(models)))
+  
+  ## Gather into long-form with diff rows for each predictor and each model
+  pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
+  pred.df.long$x <- as.factor(pred.df.long$x) # for grp-ing in plot
+  
+  ## Compute mean and upper/lower bounds
+  # pred.df.long <- pred.df.long %>%
+  #   group_by(x) %>%
+  #   summarise(mean.y = mean(y),
+  #             # median.y = quantile(y, probs = 0.50),
+  #             lower.y = quantile(y, probs = 0.025),
+  #             upper.y= quantile(y, probs = 0.975))
+  
+  
+  ## Create "partial" boxes (orig data) with predictions
+  
+  data.summ <- function(x) { # create summary for plotting as geom (crossbar)
+    m <- mean(x)
+    ymin <- unname(quantile(x, probs = 0.025)) # else get named number
+    ymax <- unname(quantile(x, probs = 0.975)) # else get named number
+    return(c(y=m,ymin=ymin,ymax=ymax))
+  }
+  
+  # Here, just add in homegrown summary. Alt: geom_box, geom_violin
+  plot <- ggplot(data = pred.df.long, aes(x = x, y = y)) + 
+    stat_summary(fun.data=data.summ, 
+                      geom="crossbar", width = 0.95,
+                      fill = "light grey", alpha = 0.25)+
+    scale_y_continuous(expand=c(0,0),
+                       limits=c(0.15,0.31)) + # based on pipo ribbons for other vars
+    # limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
+    # expand_limits(x = 0) + # no: for factor, DON'T force to zero.
+    # labs(x = paste0(explan.vars.names[i]),
+    labs(x = NULL,
+         y = "Probability of juvenile presence") +
+    # coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]), # don't need with factor
+    #                        max(data.brt[,explan.vars[i]]))) +
+    theme_bw(base_size = 18) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          plot.margin=unit(c(5.5, 5.5, -10, 5.5), "pt")) # shrink margins for adjacency
+  # plot
+  
+  ## Create hist to put underneath partial curve. Use orig data.
+  hist <- ggplot(data = data.brt, aes(x = as.factor(data.brt[,explan.vars[i]]))) +
+    # geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
+    # geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") +
+    geom_histogram(stat = "count") +
+    # scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
+    #                             max(data.brt[,explan.vars[i]]))) +
+    # coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
+    #                        max(data.brt[,explan.vars[i]]))) +
+    labs(x = explan.vars.names[i]) +
+    theme_bw(base_size = 18) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          plot.margin=unit(c(-10, 5.5, 5.5, 5.5), "pt")) # shrink margins for adjacency
+  
+  
+  ## To stack plots with aligned width, extract max width from each object.
+  # Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
+  
+  plots <- list(plot, hist)
+  grobs <- list()
+  widths <- list()
+  
+  
+  ## Collect the widths for each grob of each plot
+  for (l in 1:length(plots)){
+    grobs[[l]] <- ggplotGrob(plots[[l]])
+    widths[[l]] <- grobs[[l]]$widths[2:5]
+  }
+  
+  ## Use do.call to get the max width 
+  maxwidth <- do.call(grid::unit.pmax, widths)
+
+  ## Assign the max width to each grob
+  for (l in 1:length(grobs)){
+    grobs[[l]]$widths[2:5] <- as.list(maxwidth)
+    grobs[[l]]$widths[2:5] <- as.list(maxwidth)
+  }
+  
+  
+  ## Plot
+  tiff(paste0(plot.dir, explan.vars[[i]], ".tiff"))
+  # do.call("grid.arrange", c(grobs, ncol = 1))
+  grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
+  dev.off()
+  
+} 
+dev.off()
+dev.off()
+dev.off()
+dev.off()
+dev.off()
+dev.off()
+dev.off()
+dev.off()
+
+
+
+
+
 
 #############################################
 ##PDPS BY QUANTILE###########################
@@ -174,17 +322,19 @@ dev.off()
 # Lines 205-217: turn that variable off
 # Lines 235-243: turn that variable on
 # Lines 337-349: turn that variable label on
+## SKIP FOR FIRE SEVERITY
 
 
 par(mfrow=c(1,1))
 ## Which var am I varying? # Change in newdata mutate (pre-loop) & newdata transform (in loop) below
 # Only need to do this for final variables retained
 explan.vars
-var <- "BALive_brt_m"
+# var <- "BALive_brt_m"
 # var <- "def.tc"
-# var <- "tmax.tc"
+var <- "tmax.tc"
 # var <- "ppt.tc"
-# var <- "def59_z_max15"
+# var <- "def59_z_max13"
+# var <- "def59_z_max14"
 # var <- "DUFF_DEPTH_cm"
 # var <- "LITTER_DEPTH_cm"
 # var <- "FIRE.SEV"
@@ -211,12 +361,11 @@ year.new <- seq(from = min(data.brt$YEAR.DIFF), to = max(data.brt$YEAR.DIFF), by
 print(var)
 newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
-    # BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
+    BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
     def.tc = mean(def.tc),
-    tmax.tc = mean(tmax.tc),
+    # tmax.tc = mean(tmax.tc),
     ppt.tc = mean(ppt.tc),
-    CMD_CHNG = mean(CMD_CHNG),
-    def59_z_max15 = mean(def59_z_max15),
+    def59_z_max13 = mean(def59_z_max13),
     DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
     LITTER_DEPTH_cm = mean(LITTER_DEPTH_cm),
     FIRE.SEV = Mode(FIRE.SEV), # homegrown function
@@ -238,11 +387,12 @@ for (q in 1:3){ # Pick quantiles BUT MUST SPECIFY IN PROBS (10, 50 90)
   for(j in 1:length(models)){
     gbm.mod<-models[[j]]
     r1 <- predict(gbm.mod,
-                  newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
+                  # newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
                   # newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
-                  # newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
+                  newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
                   # newdata = transform(newdata, ppt.tc = quantile(ppt.tc, probs = probs)[q]),
-                  # newdata = transform(newdata, def59_z_max15 = quantile(def59_z_max15, probs = probs)[q]),
+                  # newdata = transform(newdata, def59_z_max13 = quantile(def59_z_max13, probs = probs)[q]),
+                  # newdata = transform(newdata, def59_z_max14 = quantile(def59_z_max14, probs = probs)[q]),
                   # newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, LITTER_DEPTH_cm = quantile(LITTER_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
@@ -340,10 +490,10 @@ plot <- ggplot() +
               span = 0.25,
               se = FALSE) +
   scale_color_manual(values = palette[3:5],
-                     name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                     # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
                      # name = "Max deficit anomaly",
-                     # name = "Litter depth (cm)",
-                     # name = expression(paste("Max temp (",degree*C,")")),
+                     # name = "Duff depth (cm)",
+                     name = expression(paste("Max temp (",degree*C,")")),
                      labels = c(expression(paste("10"^"th"," percentile")),
                                 expression(paste("50"^"th"," percentile")),
                                 expression(paste("90"^"th"," percentile")))) +
@@ -357,7 +507,7 @@ plot <- ggplot() +
   geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") + 
   # scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
   scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
-  # scale_y_continuous(expand=c(0,0), limits=c(0.14,0.42)) + # pipo
+  # scale_y_continuous(expand=c(0,0), limits=c(0.14,0.36)) + # pipo
   scale_y_continuous(expand=c(0,0), limits=c(0.09,0.61)) + # psme
   expand_limits(x = 0) + 
   labs(x = paste0(explan.vars.names[i]),
