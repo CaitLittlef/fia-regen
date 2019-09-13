@@ -377,10 +377,10 @@ def.data$def59_z_12 <- foo$def59_z_12
 def.data$def59_z_13 <- foo$def59_z_13
 def.data$def59_z_14 <- foo$def59_z_14
 def.data$def59_z_15 <- foo$def59_z_15
-def.data$def59_z_max15 <- foo$def59_z_max1
-def.data$def59_z_max15 <- foo$def59_z_max12
-def.data$def59_z_max15 <- foo$def59_z_max13
-def.data$def59_z_max15 <- foo$def59_z_max14
+def.data$def59_z_max1 <- foo$def59_z_max1
+def.data$def59_z_max12 <- foo$def59_z_max12
+def.data$def59_z_max13 <- foo$def59_z_max13
+def.data$def59_z_max14 <- foo$def59_z_max14
 def.data$def59_z_max15 <- foo$def59_z_max15
 
 def.data$def68_z_0 <- boo$def68_z_0
@@ -393,21 +393,21 @@ def.data$def68_z_12 <- boo$def68_z_12
 def.data$def68_z_13 <- boo$def68_z_13
 def.data$def68_z_14 <- boo$def68_z_14
 def.data$def68_z_15 <- boo$def68_z_15
-def.data$def68_z_max15 <- boo$def68_z_max1
-def.data$def68_z_max15 <- boo$def68_z_max12
-def.data$def68_z_max15 <- boo$def68_z_max13
-def.data$def68_z_max15 <- boo$def68_z_max14
+def.data$def68_z_max1 <- boo$def68_z_max1
+def.data$def68_z_max12 <- boo$def68_z_max12
+def.data$def68_z_max13 <- boo$def68_z_max13
+def.data$def68_z_max14 <- boo$def68_z_max14
 def.data$def68_z_max15 <- boo$def68_z_max15
 
 
 #########################################
 ## Save as csv
 sapply(def.data, class) # make sure all are real cols, not lists
-# write.csv(def.data, paste0("def_z_n20543_",currentDate,".csv"))
+write.csv(def.data, paste0("def_z_n20543_",currentDate,".csv"))
 
 ## Save as csv
 sapply(terraclim, class) # make sure all are real cols, not lists
-# write.csv(terraclim, paste0("tc_n20543_",currentDate,".csv"))
+write.csv(terraclim, paste0("tc_n20543_",currentDate,".csv"))
 
 
 
@@ -423,7 +423,7 @@ data.all <- data.all %>%
 ## Save as csv
 sapply(data.all, class) # make sure all are real cols, not lists
 # write.csv(data.all, "DATA_PlotFireClim_PostFireSamp_n1971_",currentDate,".csv"))
-# write.csv(data.all, paste0("DATA_PlotwwoFireClim_n20543_",currentDate,".csv"))
+write.csv(data.all, paste0("DATA_PlotwwoFireClim_n20543_",currentDate,".csv"))
 
 ## Tidy up
 # rm(rst, pts, pts.trans, FIA.CRS, coords, output, i, loop.ready, def.dir, def.list, def.data, def59.cols, def68.cols, temp, foo, boo, moo)
