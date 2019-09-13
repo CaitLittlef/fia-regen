@@ -1,5 +1,7 @@
 ## Predict spatially
 
+par(mfrow=c(1,1))
+
 # Which species?
 sp
 if (sp == "pipo") rng.r <- pipo.rng else rng.r <- psme.rng
@@ -7,8 +9,8 @@ plot(st_geometry(rng.r))
 sp
 
 # which explan vars?
-pipo.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max15"
-psme.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "LITTER_DEPTH_cm"
+pipo.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max13" " FIRE.SEV"
+psme.explan.vars # "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "DUFF_DEPTH_cm"
 
 ## What are vars for which I need rasters? Vary year, let tmax.tc change in space, hold others at mean
 
@@ -33,26 +35,38 @@ BALive_brt_m <- r
 BALive_brt_m[! is.na(BALive_brt_m)] <- mean(data.brt$BALive_brt_m)
 extent(BALive_brt_m)
 
-LITTER_DEPTH_cm <- r
-LITTER_DEPTH_cm[! is.na(LITTER_DEPTH_cm)] <- mean(data.brt$LITTER_DEPTH_cm)
-extent(LITTER_DEPTH_cm)
+DUFF_DEPTH_cm <- r
+DUFF_DEPTH_cm[! is.na(DUFF_DEPTH_cm)] <- mean(data.brt$DUFF_DEPTH_cm)
+extent(DUFF_DEPTH_cm)
 
-def59_z_max15 <- r
-def59_z_max15[! is.na(def59_z_max15)] <- mean(data.brt$def59_z_max15) ; defz <- "avg_max"
+FIRE.SEV <- r
+FIRE.SEV[! is.na(FIRE.SEV)] <- Mode(data.brt$FIRE.SEV)
+extent(FIRE.SEV)
 
-## Alternative -- using super drought year
+## For deficit, could use average max
+# def59_z_max13 <- r
+# def59_z_max13[! is.na(def59_z_max13)] <- mean(data.brt$def59_z_max13) ; defz <- "avg_max"
+
+## Alternative: use 1 droughty yr or take 3-yr max for periods with clear spatial patterns to CMD
 
 # 2012: generally very droughty across US, especially southern US.
-def59_z_max15 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2012.5.9.tif") %>%
-  crop(rng.r) %>%
-  mask(rng.r) %>%
-  extend(rng.r) ; defz <- "2012"# extend b/c for whatever reason shrunk
+# def59_z_max13 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2012.5.9.tif") %>%
+#   crop(rng.r) %>%
+#   mask(rng.r) %>%
+#   extend(rng.r) ; defz <- "2012"# extend b/c for whatever reason shrunk
 
 # 2017: v. droughty in N. Rockies.
-def59_z_max15 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2017.5.9.tif") %>%
+# def59_z_max13 <- raster("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data/terraclimate/def_z/def.2017.5.9.tif") %>%
+#   crop(rng.r) %>%
+#   mask(rng.r) %>%
+#   extend(rng.r) ; defz <- "2017"# extend b/c for whatever reason shrunk
+
+# Max deficit from 2010-2012; 2015-2017
+# defz <- "max1012" ; def59_z_max13 <- def1012 %>% # from 02b
+defz <- "max1517" ; def59_z_max13 <- def1517 %>% # from 02b
   crop(rng.r) %>%
   mask(rng.r) %>%
-  extend(rng.r) ; defz <- "2017"# extend b/c for whatever reason shrunk
+  extend(rng.r) 
 
 
 # plot(def59_z_max15)
@@ -67,12 +81,12 @@ names(tmax.tc) <- "tmax.tc"
 labels(tmax.tc) # gives "tmax.tc"
 names(YEAR.DIFF) <- "YEAR.DIFF"
 names(BALive_brt_m) <- "BALive_brt_m"
-names(def59_z_max15) <- "def59_z_max15"
-names(LITTER_DEPTH_cm) <- "LITTER_DEPTH_cm"
-
+names(def59_z_max13) <- "def59_z_max13"
+names(DUFF_DEPTH_cm) <- "DUFF_DEPTH_cm"
+names(FIRE.SEV) <- "FIRE.SEV"
 
 ## Create brick for prediction (ok to have all b/c each sp will only pull what it needs)
-brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max15, LITTER_DEPTH_cm)
+brick <- brick(YEAR.DIFF, BALive_brt_m, tmax.tc, def59_z_max13, DUFF_DEPTH_cm, FIRE.SEV)
 names(brick)
 
 ## Predict! Below JUST uses first model; instead, run for all 100 and take avg.
@@ -95,7 +109,7 @@ for (i in 1:100) {
 }
 print(Sys.time() - start)
 
-## Combine all predictors into table. *** REFERENCING i ABOVE!! ***
+## Combine all predictors into table. *** REFERENCING i in pred loop ABOVE!! ***
 # dplyr's bind_rows() avoids duped names unlike do.call(rbind...)
 preds.df <- bind_rows(preds) %>% dplyr::select(-variable) # 3 vars
 # preds.raw.df <- bind_cols(preds) # 400 vars
@@ -114,8 +128,8 @@ values.df <- values.df %>%
   dplyr::select(value)
 
 values.xy <- as.data.frame(cbind(x, y, values.df))
-min(values.xy$value, na.rm = T) # 0.1594297 2012 & 2017 <- pipo; 0.2410127 psme
-max(values.xy$value, na.rm = T) # 0.2283218 2012, 0.2283177 2017; 0.5131914 psme
+min(values.xy$value, na.rm = T) #  0.1656636 2010-2012; 0.1656636 2015-2017 (pipo)
+max(values.xy$value, na.rm = T) # 0.2376445 2010-2012; 0.2376209 2015-2017 (pipo)
 
 # Turn deficit raster into table (FUNCTION DEFINED AT SET-UP)
 # space.data <- gplot_data(space)
@@ -124,13 +138,16 @@ max(values.xy$value, na.rm = T) # 0.2283218 2012, 0.2283177 2017; 0.5131914 psme
 
 # Set gradient limits based on sp
 sp
-if (sp == "pipo") limits <- c(0.15,0.23) else limits <- c(0.24,0.52)
+if (sp == "pipo") limits <- c(0.16,0.24) else limits <- c(0.24,0.52)
 limits
 # limits <- c(0.19, 0.23) # for pipo when just using avg defz, not 2012 or 2017.
 
 ## Plot into map; create shapefile for just Gulf of California
 p <- ggplot() +
-  geom_tile(data = values.xy, aes(x = x, y = y, fill = value)) +
+  # annotate(geom = 'raster', x = hill.data$x, y = hill.data$y,
+           # fill = scales::colour_ramp(c("white", "black"))(hill.data$value),
+           # interpolate = TRUE)  +
+  geom_raster(data = values.xy, aes(x = x, y = y, fill = value))+#, interpolate=T) +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) + # NA else covers tile with color.
   # ggtitle(paste0(sp," at yr ",yr,", deficit z scores: ",defz)) +
@@ -150,8 +167,9 @@ p <- ggplot() +
         legend.title = element_text(size=12),
         legend.text=element_text(size=10),
         plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
-  # annotate("text", x = -120.5, y = 49.5, label = "a) ponderosa pine", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = "b) Douglas-fir", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "b) 2010-2013", hjust = 0)
+  annotate("text", x = -120.5, y = 49.5, label = "d) 2015-2017", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "b) Douglas-fir", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "b) 2012", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "d) 2017", hjust = 0)
 p
