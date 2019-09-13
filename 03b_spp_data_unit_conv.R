@@ -1,8 +1,10 @@
 ## Old versions have CMD_CHNG with 2017 included. New versions do not.
 # data.pipo.old <- read.csv("data.pipo_2019-05-14.csv") ; data.pipo$X <- NULL
 # data.psme.old <- read.csv("data.psme_2019-05-14.csv") ; data.psme$X <- NULL
-data.pipo <- read.csv("data.pipo_2019-07-01.csv") ; data.pipo$X <- NULL
-data.psme <- read.csv("data.psme_2019-07-01.csv") ; data.psme$X <- NULL
+# data.pipo <- read.csv("data.pipo_2019-07-01.csv") ; data.pipo$X <- NULL
+# data.psme <- read.csv("data.psme_2019-07-01.csv") ; data.psme$X <- NULL
+data.pipo <- read.csv("data.pipo_2019-08-21.csv") ; data.pipo$X <- NULL
+data.psme <- read.csv("data.psme_2019-08-21.csv") ; data.psme$X <- NULL
 
 ## Convert BA to metric
 data.pipo$BALiveTot_m <- data.pipo$BALiveTot/4.359
