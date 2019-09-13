@@ -44,8 +44,8 @@ FIRE.SEV[! is.na(FIRE.SEV)] <- Mode(data.brt$FIRE.SEV)
 extent(FIRE.SEV)
 
 ## For deficit, could use average max
-# def59_z_max13 <- r
-# def59_z_max13[! is.na(def59_z_max13)] <- mean(data.brt$def59_z_max13) ; defz <- "avg_max"
+def59_z_max13 <- r
+def59_z_max13[! is.na(def59_z_max13)] <- mean(data.brt$def59_z_max13) ; defz <- "avg_max"
 
 ## Alternative: use 1 droughty yr or take 3-yr max for periods with clear spatial patterns to CMD
 
@@ -62,8 +62,8 @@ extent(FIRE.SEV)
 #   extend(rng.r) ; defz <- "2017"# extend b/c for whatever reason shrunk
 
 # Max deficit from 2010-2012; 2015-2017
-# defz <- "max1012" ; def59_z_max13 <- def1012 %>% # from 02b
-defz <- "max1517" ; def59_z_max13 <- def1517 %>% # from 02b
+defz <- "max1012" ; def59_z_max13 <- def1012 %>% # from 02b
+# defz <- "max1517" ; def59_z_max13 <- def1517 %>% # from 02b
   crop(rng.r) %>%
   mask(rng.r) %>%
   extend(rng.r) 
@@ -128,8 +128,8 @@ values.df <- values.df %>%
   dplyr::select(value)
 
 values.xy <- as.data.frame(cbind(x, y, values.df))
-min(values.xy$value, na.rm = T) #  0.1656636 2010-2012; 0.1656636 2015-2017 (pipo)
-max(values.xy$value, na.rm = T) # 0.2376445 2010-2012; 0.2376209 2015-2017 (pipo)
+min(values.xy$value, na.rm = T) #  0.1656636 2010-2012; 0.1656636 2015-2017 (pipo); (psme)
+max(values.xy$value, na.rm = T) # 0.2376445 2010-2012; 0.2376209 2015-2017 (pipo); (psme)
 
 # Turn deficit raster into table (FUNCTION DEFINED AT SET-UP)
 # space.data <- gplot_data(space)
@@ -147,18 +147,20 @@ p <- ggplot() +
   # annotate(geom = 'raster', x = hill.data$x, y = hill.data$y,
            # fill = scales::colour_ramp(c("white", "black"))(hill.data$value),
            # interpolate = TRUE)  +
-  geom_raster(data = values.xy, aes(x = x, y = y, fill = value))+#, interpolate=T) +
+  geom_raster(data = values.xy, aes(x = x, y = y, fill = value)) +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) + # NA else covers tile with color.
   # ggtitle(paste0(sp," at yr ",yr,", deficit z scores: ",defz)) +
   scale_fill_gradient(name = "Prob. juv.\npresence",
                       low = palette[6], high = palette[3],
+                      # na.value = NA, # doesn't work.
                       na.value = "#EAECEE", # sets background IntW states pale grey
                       limits = limits) +
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
   theme_bw(base_size = 18) +
   theme(panel.grid.major = element_line(color = "#808B96", size = 1), # blend lat/long into background
         panel.border = element_rect(fill = NA, color = "black", size = 0.5),
+        panel.background = element_rect(fill = "#808B96"), # irrelevant in this plot b/c pred raster
         axis.title = element_blank(),
         axis.line = element_line(size = 0.5),
         legend.background = element_rect(fill = "white", color = "black", size = 0,5),
@@ -167,8 +169,8 @@ p <- ggplot() +
         legend.title = element_text(size=12),
         legend.text=element_text(size=10),
         plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
-  # annotate("text", x = -120.5, y = 49.5, label = "b) 2010-2013", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = "d) 2015-2017", hjust = 0)
+  annotate("text", x = -120.5, y = 49.5, label = "b) 2010-2013", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "d) 2015-2017", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "b) Douglas-fir", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "b) 2012", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "d) 2017", hjust = 0)
