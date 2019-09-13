@@ -82,7 +82,7 @@ NAmer <- st_read(dsn = "NorthAmer_StatesProvinces.shp") %>%
   st_buffer(dist = 0) # fix invalid geometries (warning re: lat/long vs. dd)
 NAmer <- NAmer[!NAmer$NAME == "Guam",]
 NAmer.outline <- st_union(NAmer)
-plot(NAmer.outline)
+# plot(NAmer.outline)
 Wsts.names = c('California', 'Oregon', 'Washington','Idaho', 'Nevada',
         'Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
 IntWsts.names = c('Idaho', 'Nevada','Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
@@ -91,6 +91,10 @@ IntWsts <- NAmer[NAmer$NAME %in% IntWsts.names, ]
 nonIntWest  <- NAmer[! NAmer$NAME %in% IntWsts.names, ]
 crs <- crs(Wsts)
 bbox <- st_as_sfc(st_bbox(nonIntWest))
+
+## Load hillshade (already created on goshawk in 'topo - random' folder)
+hill <-raster("hill.IntWst.tif")
+plot(hill)
 
 ## Load pipo & psme range (I think from DAtabasin -- confirm source!!)
 pipo.rng <- st_read(dsn = "pinupond.shp")
@@ -314,3 +318,4 @@ align.plots2 <- function (..., vertical = TRUE, pos = NULL)
   }
 }
 
+# 
