@@ -4,7 +4,9 @@
 # data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-04-24.csv")
 # data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-05-14.csv") # CMD_CHNG starts at 1984 DOES include 2017.
 # data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-06-29.csv") # CMD_CHNG starts at 1984 and does NOT include 2017.
-data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-07-01.csv") # CMD_CHNG starts at 1984 and does NOT include 2017.
+# data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-07-01.csv") # CMD_CHNG starts at 1984 and does NOT include 2017.
+data <- read.csv("DATA_PlotwwoFireClim_n20543_2019-08-21.csv") # CMD_CHNG starts at 1984 and does NOT include 2017; new deficit maxes 1-5 yrs
+
 
 data$X <- NULL # In case there's weird X col added
 
