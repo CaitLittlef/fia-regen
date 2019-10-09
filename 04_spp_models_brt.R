@@ -15,12 +15,29 @@ data.psme <- read.csv("data.psme_2019-08-21.csv") ; data.psme$X <- NULL
 # mean(data.pipo$BALive_pipo_m) # 9.203423
 # mean(data.psme$BALive_psme_m) # 9.550503
 # sites without fire:
-# pipo.woburn <- data.pipo[is.na(data.pipo$FIRE.SEV) ,]
-# psme.woburn <- data.psme[is.na(data.psme$FIRE.SEV) ,]
+pipo.woburn <- data.pipo[is.na(data.pipo$FIRE.SEV) ,]
+psme.woburn <- data.psme[is.na(data.psme$FIRE.SEV) ,]
 # mean(pipo.woburn$regen_pipo) # 0.2659649
 # mean(psme.woburn$regen_psme) # 0.4694846
 # mean(pipo.woburn$BALive_pipo_m) # 9.684631
 # mean(psme.woburn$BALive_psme_m) # 10.39258
+# State-specific BA: 4 AZ, 35 NM, 16 ID, 30 MT
+pipo.woburn %>%
+  filter(STATECD.x == 16 | STATECD.x == 30) %>%
+  summarize(mean = mean(BALive_pipo_m),
+            median = median(BALive_pipo_m))
+pipo.woburn %>%
+  filter(STATECD.x == 4 | STATECD.x == 35) %>%
+  summarize(mean = mean(BALive_pipo_m),
+            median = median(BALive_pipo_m))
+psme.woburn %>%
+  filter(STATECD.x == 16 | STATECD.x == 30) %>%
+  summarize(mean = mean(BALive_psme_m),
+            median = median(BALive_psme_m))
+psme.woburn %>%
+  filter(STATECD.x == 4 | STATECD.x == 35) %>%
+  summarize(mean = mean(BALive_psme_m),
+            median = median(BALive_psme_m))
 
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
@@ -32,6 +49,16 @@ data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
 #   filter(YEAR.DIFF > 19) %>%
 #   summarize_at(vars(BALive_pipo_m), mean)
 # mean(data.psme$BALive_psme_m) # 3.915973
+data.psme %>%
+  filter(STATECD.x == 4 | STATECD.x == 35) %>%
+  summarize(mean = mean(BALive_psme_m),
+            median = median(BALive_psme_m))
+data.psme %>%
+  filter(STATECD.x == 16 | STATECD.x == 30) %>%
+  summarize(mean = mean(BALive_psme_m),
+            median = median(BALive_psme_m))
+
+
 
 # count(data.pipo) # 521
 # count(data.psme) # 693
@@ -78,7 +105,7 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 
 ## If I've already run & saved models and want to re-load, do so here:
 # tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
-# tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
+# # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
 # temp.env = new.env()
 # invisible(lapply(tobeloaded, load, envir = temp.env))
 # models = as.list(temp.env)
