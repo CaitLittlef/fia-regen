@@ -99,8 +99,8 @@ names(brick)
 start <- Sys.time() 
 
 preds <- list()
-# for (i in 1:5) {
-for (i in 1:100) {
+for (i in 1:5) {
+# for (i in 1:100) {
   preds[[i]] <- brick %>% 
   raster::predict(models[[i]],
                   n.trees = models[[i]]$n.trees,
@@ -114,10 +114,10 @@ print(Sys.time() - start)
 preds.df <- bind_rows(preds) %>% dplyr::select(-variable) # 3 vars
 # preds.raw.df <- bind_cols(preds) # 400 vars
 nrow(preds.df)/i # 49815 for pipo, 49920 for psme
-x <- preds.df$x[1:49815] # for pipo
-y <- preds.df$y[1:49815] # for pipo
-# x <- preds.df$x[1:49920] # for psme
-# y <- preds.df$y[1:49920] # for psme
+# x <- preds.df$x[1:49815] # for pipo
+# y <- preds.df$y[1:49815] # for pipo
+x <- preds.df$x[1:49920] # for psme
+y <- preds.df$y[1:49920] # for psme
 values.df <- preds.df %>% dplyr::select(-x, -y) 
 i
 values.df <- as.data.frame(matrix(values.df$value, ncol = i, byrow = FALSE))
@@ -128,17 +128,13 @@ values.df <- values.df %>%
   dplyr::select(value)
 
 values.xy <- as.data.frame(cbind(x, y, values.df))
-min(values.xy$value, na.rm = T) #  0.1656636 2010-2012; 0.1656636 2015-2017 (pipo); (psme)
-max(values.xy$value, na.rm = T) # 0.2376445 2010-2012; 0.2376209 2015-2017 (pipo); (psme)
+min(values.xy$value, na.rm = T) #  0.1656636 2010-2012; 0.1656636 2015-2017 (pipo); 0.2338595 (psme)
+max(values.xy$value, na.rm = T) # 0.2376445 2010-2012; 0.2376209 2015-2017 (pipo); 0.4677445 (psme)
 
-# Turn deficit raster into table (FUNCTION DEFINED AT SET-UP)
-# space.data <- gplot_data(space)
-# min(space.data$value, na.rm = T) # 0.1539761 pipo, 0.2455601 psme
-# max(space.data$value, na.rm = T) # 0.2347101 pipo, 0.4743217 psme
 
 # Set gradient limits based on sp
 sp
-if (sp == "pipo") limits <- c(0.16,0.24) else limits <- c(0.24,0.52)
+if (sp == "pipo") limits <- c(0.16,0.24) else limits <- c(0.23,0.47)
 limits
 # limits <- c(0.19, 0.23) # for pipo when just using avg defz, not 2012 or 2017.
 
@@ -168,10 +164,10 @@ p <- ggplot() +
         legend.position=c(0,0),
         legend.title = element_text(size=12),
         legend.text=element_text(size=10),
-        plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
-  annotate("text", x = -120.5, y = 49.5, label = "b) 2010-2013", hjust = 0)
+        plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm"))  # top, right, bottom, left
+  # annotate("text", x = -120.5, y = 49.5, label = "b) 2010-2013", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "d) 2015-2017", hjust = 0)
-  # annotate("text", x = -120.5, y = 49.5, label = "b) Douglas-fir", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "b) 2012", hjust = 0)
   # annotate("text", x = -120.5, y = 49.5, label = "d) 2017", hjust = 0)
 p
