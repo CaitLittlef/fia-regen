@@ -16,9 +16,6 @@ names(def.stack) <- paste0("def", right(c(1981:2017),2))
 #                     fun=function(x){ max(x,na.rm=T)})
 # def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
 #                     fun=function(x){ max(x,na.rm=T)})
-# plot(def9395)
-# plot(def1012)
-# plot(def1517)
 # 
 # ## For trajectory, find points on either extreme (min and max deficits)
 # maxValue(def1012) # 5.88
@@ -49,6 +46,10 @@ names(def.stack) <- paste0("def", right(c(1981:2017),2))
 # # pixels$layer <- NULL
 # # write.csv(pixels, "pred.pixels.csv", row.names = FALSE)
 pixels <- read.csv("pred.pixels.csv")
+rownames(pixels) <- c("pix.min.1012",
+                      "pix.max.1012",
+                      "pix.min.1517",
+                      "pix.max.1517")
 
 # What are values to use as predictors associated with each point?
 # Retain spatial climate (tmax) but impute avgs. for other predictors
@@ -89,19 +90,8 @@ pix.preds$FIRE.SEV <- Mode(data.brt$FIRE.SEV)
 pix.preds <- pix.preds %>% dplyr::select(BALive_brt_m, YEAR.DIFF, tmax.tc, FIRE.SEV, everything())
 
 
-## I don't think adding in these additional vars should matter, but maybe...
-# pix.preds$def.tc <- mean(data.brt$def.tc)
-# pix.preds$ppt.tc <- mean(data.brt$ppt.tc)
-# pix.preds$DUFF_DEPTH_cm <- mean(data.brt$DUFF_DEPTH_cm)
-# pix.preds$LITTER_DEPTH_cm <- mean(data.brt$LITTER_DEPTH_cm)
-# pix.preds$REBURN <- Mode(data.brt$REBURN)
-# pix.preds <- pix.preds %>% dplyr::select(BALive_brt_m, YEAR.DIFF, tmax.tc, FIRE.SEV,
-#                                          def.tc, ppt.tc, DUFF_DEPTH_cm, LITTER_DEPTH_cm, REBURN,
-#                                          everything())
 
-head(pix.preds, 2)
-
-# Fill prediction table: each row is diff model, each column diff 3yr def
+## Predict each pixel's likelihood of juv presence for each 3yr interval, by 100 models.
 preds.all.defs <- NULL # 35 vals (for each def)
 preds.all.mods <- NULL # 100 rows (for each model), 35 cols (for each def)
 preds.all.pix <- list() # there will be 4 (for each pixel) of 100x35
@@ -115,51 +105,55 @@ for(p in 1:4){ # for each of 4 pixels
                           newdata=newdata,
                           n.trees = models[[i]]$n.trees,
                           type = "response")
-      preds.all.defs <- cbind(preds.all.defs, temp) # bind preds for each 3 yr stretch
+      preds.all.defs <- cbind(preds.all.defs,
+                              temp) # bind preds for each 3 yr stretch
       temp <- NULL
     }
-    preds.all.mods <- rbind(preds.all.mods, preds.all.defs) # stick that models predictions into a row
+    preds.all.mods <- rbind(preds.all.mods,
+                            preds.all.defs) # stick that models predictions into a row
     preds.all.defs <- NULL
   }
-  preds.all.pix[[p]] <- preds.all.mods # Stick that pixel's predictions into a list of predictions
+  preds.all.pix[[p]] <- preds.all.mods # Stick df of preds into list
   preds.all.mods <- NULL 
 }
 
+## Take mean of each column (diff 3yr starts) aross all mods
+# Apply colMean to each list element (df); return list
+preds <- lapply(preds.all.pix, colMeans) 
+preds <- data.frame(do.call(rbind, preds)) # make df else can't gather below.
+colnames(preds) <- (1981:2015)
+preds$pixel <- rownames(pixels) # Alt: set rownames then rownames_to_columns
 
-view(preds.all.pix[[4]])
+
+## Gather into long-form with diff rows for each pixel x year; don't gather pixel
+pred.long <- tidyr::gather(preds, key = "year", value = "prob", -pixel)
+# Start with only 2015-2017 extreme pixels
+pred.long <- pred.long %>% filter(pixel == c("pix.min.1517", "pix.max.1517"))
+  
+
+## Plot path of each pixel
+temp.data <- pred.long %>% filter(pixel == "pix.min.1517")
+
+p <- ggplot(pred.long, aes(x = year, y = prob, group = pixel, color = pixel))
+p + geom_point() +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 20), se = FALSE) +
+  theme_bw()
 
 
+## Load ENSO index
+# Source: https://climatedataguide.ucar.edu/climate-data/nino-sst-indices-nino-12-3-34-4-oni-and-tni
+mei <- read.csv("meiv2.data.csv")
+mei <- mei %>%
+  mutate(dec.lag = lag(dec, 1)) # put prior december into next "growing" year
+mei %>% dplyr::select(dec, dec.lag) # checks out
+mei.winter <- mei %>%
+  group_by(year) %>%
+  summarise(mei.winter = mean(dec.lag, jan, feb))
+
+# Keep only years that correspond w/ FIA predictions
+min(pred.long$year)
+max(pred.long$year) # 2015, but 3yr time period then ends in 2017 so retain thru 2017
+mei.winter <- mei.winter %>%
+  filter(year > 1980 & year <2018)
 
 
-
-warnings()
-
-a <- colnames(data.brt)[7]
-b <- colnames(newdata)[5]
-identical(a, b)
-
-colnames(newdata)
-colnames(data.brt)
-d
-summary(models[[2]])
-
-pred.list[[p]] <- preds
-lapply to average all the means within the 100 df per pixel
-
-start <- Sys.time() 
-
-preds <- list()
-for (i in 1:5) {
-  # for (i in 1:100) {
-  preds[[i]] <- brick %>% 
-    gbm::predict.gbm(models[[i]],
-                     newdata = 
-                     n.trees = models[[i]]$n.trees,
-                     type = "response") %>%
-    gplot_data()
-}
-print(Sys.time() - start)
-
-?predict.gbm
-n.trees = models[[i]]$n.trees,
-maxes
