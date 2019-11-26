@@ -9,7 +9,10 @@ wd <- setwd("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data") # If working 
 def.stack <- def.stack %>% crop(IntWsts) %>% mask(IntWsts)
 names(def.stack) <- paste0("def", right(c(1981:2017),2))
 
-# # Pick 10-12 and 15-17 maxes given big spatial variability
+
+
+####ID FOCAL PIXELS#####################################################
+# Pick 10-12 and 15-17 maxes given big spatial variability
 # def9395 <-  overlay(def.stack$def93, def.stack$def94, def.stack$def95,
 #                     fun=function(x){ max(x,na.rm=T)})
 # def1012 <-  overlay(def.stack$def10, def.stack$def11, def.stack$def12,
@@ -42,10 +45,10 @@ names(def.stack) <- paste0("def", right(c(1981:2017),2))
 # # geom_point(data = pix.min.1012, aes(x=x, y=y), color = "red") +
 # 
 # # Save to csv. for future look-up
-# # pixels <- rbind(pix.min.1012, pix.max.1012, pix.min.1517, pix.max.1517)
-# # pixels$layer <- NULL
-# # write.csv(pixels, "pred.pixels.csv", row.names = FALSE)
-pixels <- read.csv("pred.pixels.csv")
+# pixels <- rbind(pix.min.1012, pix.max.1012, pix.min.1517, pix.max.1517)
+# pixels$layer <- NULL
+# write.csv(pixels, "loc.pixels.csv", row.names = FALSE)
+pixels <- read.csv("loc.pixels.csv")
 rownames(pixels) <- c("pix.min.1012",
                       "pix.max.1012",
                       "pix.min.1517",
@@ -55,10 +58,13 @@ rownames(pixels) <- c("pix.min.1012",
 # Retain spatial climate (tmax) but impute avgs. for other predictors
 # will need to get 3-yr def max for each 3-yr period since begin of record.
 
+
+
+
+####DATA FOR FOCAL PIXELS#####################################################
 ## Iteratively extract 3-yr maxes for each of the selected pixels from '81-'17
 # But must end before 2016 else can't get 3 yrs inclusive (no 2018)
 # Need as.numeric() else named number.
-
 maxes.temp <- vector() # empty vector to drop maxes for each 3yr period
 maxes <- matrix(data = NA, nrow = 4, ncol = nbands(def.stack)-2) # empty matrix to fill with maxes
 # l <- list()
@@ -74,10 +80,15 @@ for(p in 1:nrow(pixels)){
   maxes[p,] <- maxes.temp
 }
 
+
 maxes <- data.frame(maxes)
 colnames(maxes) <- c(paste0("start_",(1981:2015)))
 rownames(maxes) <- c("pos.min.1012", "pos.max.1012", "pos.min.1517", "pos.max.1517")
 
+# Grab annual vals too JIC
+avg.nID <- as.numeric(raster::extract(def.stack, pixels[4,]))
+avg.nID <- data.frame(avg.nID) ; colnames(avg.nID) <- "index"
+avg.nID$year <- as.numeric(c(paste0((1981:2017))))
 
 ## Get other predictor variables set for using predicting response at these pixels.
 pix.preds <- maxes
@@ -91,6 +102,8 @@ pix.preds <- pix.preds %>% dplyr::select(BALive_brt_m, YEAR.DIFF, tmax.tc, FIRE.
 
 
 
+
+####PIXEL PREDICTIONS#####################################################
 ## Predict each pixel's likelihood of juv presence for each 3yr interval, by 100 models.
 preds.all.defs <- NULL # 35 vals (for each def)
 preds.all.mods <- NULL # 100 rows (for each model), 35 cols (for each def)
@@ -127,33 +140,183 @@ preds$pixel <- rownames(pixels) # Alt: set rownames then rownames_to_columns
 
 ## Gather into long-form with diff rows for each pixel x year; don't gather pixel
 pred.long <- tidyr::gather(preds, key = "year", value = "prob", -pixel)
-# Start with only 2015-2017 extreme pixels
-pred.long <- pred.long %>% filter(pixel == c("pix.min.1517", "pix.max.1517"))
-  
+pred.long$year <- as.numeric(pred.long$year)
+# Drop anything before 1984 (earliest fire yr) and after 2015 (last inventory)
+pred.long <- pred.long %>% filter(year > 1983 & year < 2016)
 
-## Plot path of each pixel
-temp.data <- pred.long %>% filter(pixel == "pix.min.1517")
+## Chose with pixel pairs -- those which were extremely diff in...
+# 2010-2012
+pred.long <- pred.long %>%
+  filter(pixel == c("pix.min.1012", "pix.max.1012")) ;
+pix.names <- c("CO/NM border", "southwest UT")
+pix <- c("CO_UT")
 
-p <- ggplot(pred.long, aes(x = year, y = prob, group = pixel, color = pixel))
-p + geom_point() +
-  geom_smooth(method = "lm", formula = y ~ poly(x, 20), se = FALSE) +
-  theme_bw()
+# 2015-2017
+pred.long <- pred.long %>%
+  filter(pixel == c("pix.min.1517", "pix.max.1517")) ;
+pix.names <- c("northern ID", "central AZ")
+pix <- c("ID_AZ")
 
 
-## Load ENSO index
-# Source: https://climatedataguide.ucar.edu/climate-data/nino-sst-indices-nino-12-3-34-4-oni-and-tni
+## How smooth should the line be?
+# span <- 0.1
+# span <- 0.2
+span <- 0.3
+# span <- 0.5
+
+## Plot likelihood of pixels thru time
+# Try to smooth line w/ polynomial; can't go over 24 degrees:
+# Computation failed in `stat_smooth()`:
+#   'degree' must be less than number of unique points 
+# Even jittering values slightly (as some are the same) doesn't change
+# pred.long$prob <- jitter(pred.long$prob, 2)
+p1 <- ggplot(pred.long, aes(x = year, y = prob, group = pixel, color = pixel)) +
+  # geom_point() +
+  # geom_line() +
+  # geom_smooth(method = "lm", formula = y ~ poly(x, 25), se = FALSE) +
+  geom_smooth(method = "loess", span = span, se = FALSE) +
+  scale_color_manual(values = palette[4:5],
+  labels = pix.names) +
+  labs(x = NULL,
+       y = "Probability of juvenile presence") +
+  scale_x_continuous(breaks = seq(1980, 2015, 5)) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.justification=c(1,0), 
+        legend.position = c(1, 0.33),
+        # legend.position = c(0.1, 0.75),
+        # legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.box = "horizontal",
+        legend.text=element_text(size=12), #angle = 90),
+        legend.background = element_rect(color = "transparent", fill = "transparent")) 
+dev.off()
+p1
+
+
+
+# Save
+tiff(paste0(out.dir, "pixel_track_",pix,"_loess",span,".tiff"), width = 600, height = 200)
+p1
+dev.off()
+
+
+
+####ENSO/PDO INDICES#####################################################
+## To match 3-year deficit max, chose thru 2015 (<2016)
+
+## MEI
+# Source: https://www.esrl.noaa.gov/psd/enso/mei/
 mei <- read.csv("meiv2.data.csv")
 mei <- mei %>%
   mutate(dec.lag = lag(dec, 1)) # put prior december into next "growing" year
 mei %>% dplyr::select(dec, dec.lag) # checks out
 mei.winter <- mei %>%
   group_by(year) %>%
-  summarise(mei.winter = mean(dec.lag, jan, feb))
-
+  summarise(index = mean(dec.lag, jan, feb))
 # Keep only years that correspond w/ FIA predictions
-min(pred.long$year)
-max(pred.long$year) # 2015, but 3yr time period then ends in 2017 so retain thru 2017
+# 1st fire yr is 1984, last inventory yr is 2015
 mei.winter <- mei.winter %>%
-  filter(year > 1980 & year <2018)
+  # filter(year > 1983 & year <2016) 
+  filter(year > 1980 & year <2018) 
 
+
+## NINO34
+# Source: https://climatedataguide.ucar.edu/climate-data/nino-sst-indices-nino-12-3-34-4-oni-and-tni
+nino34 <- read.csv("nina34.data.csv")
+head(nino34)
+nino34 <- nino34 %>%
+  mutate(dec.lag = lag(dec, 1)) # put prior december into next "growing" year
+nino34 %>% dplyr::select(dec, dec.lag) # checks out
+nino34.winter <- nino34 %>%
+  group_by(year) %>%
+  summarise(index = mean(dec.lag, jan, feb))
+# Keep only years that correspond w/ FIA predictions
+# 1st fire yr is 1984, last inventory yr is 2015
+nino34.winter <- nino34.winter %>%
+  # filter(year > 1983 & year <2016) 
+  filter(year > 1980 & year <2018) 
+
+
+## PDO
+# Source: https://www.ncdc.noaa.gov/teleconnections/pdo/
+# Ref: https://climatedataguide.ucar.edu/climate-data/north-pacific-np-index-trenberth-and-hurrell-monthly-and-winter
+pdo <- read.csv("pdo.csv")
+pdo <- rownames_to_column(pdo)
+colnames(pdo) <- c("date", "value")
+pdo <-pdo[-(1),]
+pdo$date <- as.numeric(pdo$date)
+pdo$value <- as.numeric(pdo$value)
+# plot(pdo$value ~ pdo$date)
+pdo$year <- as.integer(left(pdo$date, 4))
+pdo$month <- right(pdo$date, 2)
+pdo$date <- NULL
+pdo <- spread(pdo, key = month, value = value)
+colnames(pdo) <- c("year", "jan", "feb", "march", "april", "may", "june",
+                  "july", "aug", "sept", "oct", "nov", "dec")
+pdo <- pdo %>%
+  mutate(nov.lag = lag(nov, 1),
+         dec.lag = lag(dec, 1))
+pdo %>% dplyr::select(nov, nov.lag, dec, dec.lag)
+pdo.winter <- pdo %>%
+  group_by(year) %>%
+  summarise(index = mean(nov.lag, dec.lag, jan, feb, march)) # based on ref above
+pdo.winter <- pdo.winter %>%
+  # filter(year > 1983 & year <2016) 
+  filter(year > 1980 & year <2018) 
+
+
+# pick which dataset to plot; set to p2, p3, then p4
+index.data <- mei.winter ; ylab <- "mei"
+index.data <- nino34.winter ; ylab <- "nino34"
+index.data <- pdo.winter ; ylab <- "pdo"
+index.data <- avg.nID ; ylab <- "avg n ID"
+
+# Plot index (change p# iteratively when selecting index)
+p4 <- ggplot(index.data, aes(x = year, y = index)) +
+  geom_line(aes(x = year, y = index)) +
+  ylab(paste0(ylab)) + 
+  scale_x_continuous(breaks = seq(1980, 2015, 5)) +
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank())
+p4  
+
+# MEI & NINO34 look very similar
+
+
+
+####JOINT PLOTS#####################################################
+
+## To stack plots with aligned width, extract max width from each object.
+# Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
+
+plots <- list(p1, p2)
+plots <- list(p1, p2, p3, p4)
+grobs <- list()
+widths <- list()
+
+## Collect the widths for each grob of each plot
+for (l in 1:length(plots)){
+  grobs[[l]] <- ggplotGrob(plots[[l]])
+  widths[[l]] <- grobs[[l]]$widths[2:5]
+}
+
+## Use do.call to get the max width
+maxwidth <- do.call(grid::unit.pmax, widths)
+
+## Assign the max width to each grob
+for (l in 1:length(grobs)){
+  grobs[[l]]$widths[2:5] <- as.list(maxwidth)
+}
+
+## Plot
+# tiff(paste0(plot.dir, explan.vars[[i]], ".tiff"))
+# do.call("grid.arrange", c(grobs, ncol = 1))
+# grid.arrange(grobs = grobs, ncol = 1, heights = c(1, 1))
+grid.arrange(grobs = grobs, nrow = 4, ncol = 1, heights = c(1, 1, 1, 1))
+tiff(paste0(out.dir, "cmd anomaly nID vs indices.tiff"))
+dev.off()
 
