@@ -16,28 +16,28 @@ data.psme <- read.csv("data.psme_2019-08-21.csv") ; data.psme$X <- NULL
 # mean(data.psme$BALive_psme_m) # 9.550503
 # sites without fire:
 pipo.woburn <- data.pipo[is.na(data.pipo$FIRE.SEV) ,]
-psme.woburn <- data.psme[is.na(data.psme$FIRE.SEV) ,]
+# psme.woburn <- data.psme[is.na(data.psme$FIRE.SEV) ,]
 # mean(pipo.woburn$regen_pipo) # 0.2659649
 # mean(psme.woburn$regen_psme) # 0.4694846
 # mean(pipo.woburn$BALive_pipo_m) # 9.684631
 # mean(psme.woburn$BALive_psme_m) # 10.39258
 # State-specific BA: 4 AZ, 35 NM, 16 ID, 30 MT
-pipo.woburn %>%
-  filter(STATECD.x == 16 | STATECD.x == 30) %>%
-  summarize(mean = mean(BALive_pipo_m),
-            median = median(BALive_pipo_m))
-pipo.woburn %>%
-  filter(STATECD.x == 4 | STATECD.x == 35) %>%
-  summarize(mean = mean(BALive_pipo_m),
-            median = median(BALive_pipo_m))
-psme.woburn %>%
-  filter(STATECD.x == 16 | STATECD.x == 30) %>%
-  summarize(mean = mean(BALive_psme_m),
-            median = median(BALive_psme_m))
-psme.woburn %>%
-  filter(STATECD.x == 4 | STATECD.x == 35) %>%
-  summarize(mean = mean(BALive_psme_m),
-            median = median(BALive_psme_m))
+# pipo.woburn %>%
+#   filter(STATECD.x == 16 | STATECD.x == 30) %>%
+#   summarize(mean = mean(BALive_pipo_m),
+#             median = median(BALive_pipo_m))
+# pipo.woburn %>%
+#   filter(STATECD.x == 4 | STATECD.x == 35) %>%
+#   summarize(mean = mean(BALive_pipo_m),
+#             median = median(BALive_pipo_m))
+# psme.woburn %>%
+#   filter(STATECD.x == 16 | STATECD.x == 30) %>%
+#   summarize(mean = mean(BALive_psme_m),
+#             median = median(BALive_psme_m))
+# psme.woburn %>%
+#   filter(STATECD.x == 4 | STATECD.x == 35) %>%
+#   summarize(mean = mean(BALive_psme_m),
+#             median = median(BALive_psme_m))
 
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
@@ -49,14 +49,14 @@ data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
 #   filter(YEAR.DIFF > 19) %>%
 #   summarize_at(vars(BALive_pipo_m), mean)
 # mean(data.psme$BALive_psme_m) # 3.915973
-data.psme %>%
-  filter(STATECD.x == 4 | STATECD.x == 35) %>%
-  summarize(mean = mean(BALive_psme_m),
-            median = median(BALive_psme_m))
-data.psme %>%
-  filter(STATECD.x == 16 | STATECD.x == 30) %>%
-  summarize(mean = mean(BALive_psme_m),
-            median = median(BALive_psme_m))
+# data.psme %>%
+#   filter(STATECD.x == 4 | STATECD.x == 35) %>%
+#   summarize(mean = mean(BALive_psme_m),
+#             median = median(BALive_psme_m))
+# data.psme %>%
+#   filter(STATECD.x == 16 | STATECD.x == 30) %>%
+#   summarize(mean = mean(BALive_psme_m),
+#             median = median(BALive_psme_m))
 
 
 
@@ -85,12 +85,17 @@ data.psme %>%
 # Crazy big outlier in psme duff
 data.psme <- data.psme[data.psme$DUFF_DEPTH_cm < 13,]
 
+## How many unique plots?
+temp.pipo <- data.pipo %>% dplyr::select(UNIQUEID, Fire_ID)
+temp.psme <- data.psme %>% dplyr::select(UNIQUEID, Fire_ID)
+temp <- full_join(temp.pipo, temp.psme, by = c("UNIQUEID", "Fire_ID"))
+fires <- temp %>% count(Fire_ID)
 
 ## Set variable classes
 # data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
 data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo)) 
 # data.psme$regen_psme <- factor(data.psme$regen_psme, ordered = FALSE)
-data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
+# data.psme$regen_psme <- as.numeric(as.character(data.psme$regen_psme))
 
 data.pipo$FIRE.SEV <- factor(data.pipo$FIRE.SEV, ordered = TRUE)
 # data.pipo$FIRE.SEV <- as.numeric(data.pipo$FIRE.SEV)
@@ -99,17 +104,17 @@ data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
 
 data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.pipo$REBURN <- as.numeric(data.pipo$REBURN)
-data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+# data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN)
 
 
 ## If I've already run & saved models and want to re-load, do so here:
-# tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
-# # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
-# temp.env = new.env()
-# invisible(lapply(tobeloaded, load, envir = temp.env))
-# models = as.list(temp.env)
-# rm(temp.env, tobeloaded)
+tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
+# # # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
+temp.env = new.env()
+invisible(lapply(tobeloaded, load, envir = temp.env))
+models = as.list(temp.env)
+rm(temp.env, tobeloaded)
 
 ## If want to re-load stats.new from existing model run (for boxplot)
 # stats.new <- read.csv(paste0(out.dir,"pipo_brt_stats_fin_relinf_ordered_2019-07-01.csv"))
@@ -130,13 +135,13 @@ data.brt <- data.pipo %>%
 
 
 # PSME
-data.brt <- data.psme %>%
-  dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, #CMD_CHNG,
-                def59_z_max13, 
-                # def59_z_max1, def59_z_max12, def59_z_max13, def59_z_max14, def59_z_max15,
-                DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
-  rename(regen_brt = regen_psme,
-         BALive_brt_m = BALive_psme_m) ; sp <- c("psme")
+# data.brt <- data.psme %>%
+#   dplyr::select(regen_psme, BALive_psme_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, #CMD_CHNG,
+#                 def59_z_max13,
+#                 # def59_z_max1, def59_z_max12, def59_z_max13, def59_z_max14, def59_z_max15,
+#                 DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
+#   rename(regen_brt = regen_psme,
+#          BALive_brt_m = BALive_psme_m) ; sp <- c("psme")
 
 
 
@@ -187,15 +192,15 @@ pipo.explan.vars
 pipo.explan.vars.names
 
 ## PSME
-psme.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
+# psme.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
 # psme.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10)] # including 13cm duff outlier, max 13
 # psme.explan.vars <- explan.vars[-c(3, 5, 7, 9, 10)]  # max1-5
 # ^ This is the final dataset for PSME, as removing others doesn't improve AUC
-psme.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
+# psme.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
 # psme.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10)] # including 13cm duff outlier, max 13
 # psme.explan.vars.names <- explan.vars.names[-c(3, 5, 7, 9, 10)] # max1-5
-psme.explan.vars
-psme.explan.vars.names
+# psme.explan.vars
+# psme.explan.vars.names
 
 if (sp == "pipo") explan.vars <- pipo.explan.vars else explan.vars <- psme.explan.vars
 if (sp == "pipo") explan.vars.names <- pipo.explan.vars.names else explan.vars.names <- psme.explan.vars.names
