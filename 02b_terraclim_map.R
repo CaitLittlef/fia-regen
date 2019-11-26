@@ -26,91 +26,23 @@ def.stack <- def.stack %>% crop(IntWsts) %>% mask(IntWsts)
 # }
 # def.list <- def.list.2 ; rm(def.list.2)
 
-names(def.stack[[1]])
+# Rename; have run full dates then crop 2 digits off of right
+names(def.stack) <- paste0("def", right(c(1981:2017),2))
 
-# Create raster stack from this list
-test <- stack(def.list)
-plot(test[[1]])
-r <- stack(L[[1]])
-for(i in 2:length(L)) r <- addLayer(r, L[[i]])
-
-plot(def.list.2[[2]])
-
-def.list <- lapply(def.list, mask, y = IntWsts)
-plot(def.list[[1]])
-
-need to specify second var in fun as y = 
-%>%lapply(crop(IntWsts)) %>% lapply(mask(IntWsts))
-def.list[[1]]
-def.list <- lapply(lapply(lapply(def.tifs, raster), crop(IntWsts)), mask(IntWsts))
-names(def.list[[1]])
-
-## Look at one yr; 2012 super droughty towards east, 2017 super droughty in N. Rockies
-# def91 <- raster(paste0(tc.dir,"/def_z/def.1991.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def92 <- raster(paste0(tc.dir,"/def_z/def.1992.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def93 <- raster(paste0(tc.dir,"/def_z/def.1993.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def94 <- raster(paste0(tc.dir,"/def_z/def.1994.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def95 <- raster(paste0(tc.dir,"/def_z/def.1995.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def96 <- raster(paste0(tc.dir,"/def_z/def.1996.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def97 <- raster(paste0(tc.dir,"/def_z/def.1997.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def98 <- raster(paste0(tc.dir,"/def_z/def.1998.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def99 <- raster(paste0(tc.dir,"/def_z/def.1999.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def00 <- raster(paste0(tc.dir,"/def_z/def.2000.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def01 <- raster(paste0(tc.dir,"/def_z/def.2001.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def02 <- raster(paste0(tc.dir,"/def_z/def.2002.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def03 <- raster(paste0(tc.dir,"/def_z/def.2003.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def04 <- raster(paste0(tc.dir,"/def_z/def.2004.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def05 <- raster(paste0(tc.dir,"/def_z/def.2005.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def06 <- raster(paste0(tc.dir,"/def_z/def.2006.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def07 <- raster(paste0(tc.dir,"/def_z/def.2007.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def08 <- raster(paste0(tc.dir,"/def_z/def.2008.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def09 <- raster(paste0(tc.dir,"/def_z/def.2009.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def10 <- raster(paste0(tc.dir,"/def_z/def.2010.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def11 <- raster(paste0(tc.dir,"/def_z/def.2011.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def12 <- raster(paste0(tc.dir,"/def_z/def.2012.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def13 <- raster(paste0(tc.dir,"/def_z/def.2013.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def14 <- raster(paste0(tc.dir,"/def_z/def.2014.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def15 <- raster(paste0(tc.dir,"/def_z/def.2015.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def16 <- raster(paste0(tc.dir,"/def_z/def.2016.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-# def17 <- raster(paste0(tc.dir,"/def_z/def.2017.5.9.tif")) %>% crop(IntWsts) %>% mask(IntWsts)
-
-
-par(mfrow=c(1,2))
-par(mfrow=c(2,2))
-par(mfrow=c(1,3))
-# plot(def91)
-# plot(def92)
-# plot(def93)
-# plot(def94)
-# plot(def95)
-# plot(def96)
-# plot(def97)
-# plot(def98)
-# plot(def99)
-# plot(def00)
-# plot(def01)
-# plot(def02)
-# plot(def03)
-# plot(def04)
-# plot(def05)
-# plot(def06)
-# plot(def07)
-# plot(def08)
-# plot(def09)
-# plot(def10)
-# plot(def11)
-# plot(def12)
-# plot(def13)
-# plot(def14)
-# plot(def15)
-# plot(def16)
-# plot(def17)
-
+## Based on looking thru each of those plots...
+# ...select 10-12 and 15-17 as big spatial variabiltiy 
+plot(def.stack$def15)
+# Alt, could unlist and assign names to each separate raster.
 
 # Take max from those series of yrs: 
-def9395 <-  overlay(def93, def94, def95, fun=function(x){ max(x,na.rm=T)})
-def1012 <-  overlay(def10, def11, def12, fun=function(x){ max(x,na.rm=T)})
-def1517 <-  overlay(def15, def16, def17, fun=function(x){ max(x,na.rm=T)})
+def9395 <-  overlay(def.stack$def93, def.stack$def94, def.stack$def95,
+                    fun=function(x){ max(x,na.rm=T)})
+def1012 <-  overlay(def.stack$def10, def.stack$def11, def.stack$def12,
+                    fun=function(x){ max(x,na.rm=T)})
+def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
+                    fun=function(x){ max(x,na.rm=T)})
+plot(def9395)
+plot(def1012)
 plot(def1517)
 zoom(def1517)
 
@@ -119,7 +51,6 @@ zoom(def1517)
 # Turn deficit raster into table (function defiend in 00_setup)
 def.data <- gplot_data(def9395)
 def.data <- gplot_data(def1012)
-def.data <- gplot_data(def15)
 def.data <- gplot_data(def1517)
 
 # What should the limits when plotting be?
@@ -135,6 +66,16 @@ max(def.data$value[is.finite(def.data$value)], na.rm =TRUE) # 1997: 0.92; 1998: 
 # ref re: plotting rasters in ggplot
 # https://stackoverflow.com/questions/47116217/overlay-raster-layer-on-map-in-ggplot2-in-r
 # Here, can turn on/off hillshade
+
+# For pix min max, load this (from 05_spp_models_brt_pixel_track.R):
+pixels <- read.csv("loc.pixels.csv")
+rownames(pixels) <- c("pix.min.1012",
+                      "pix.max.1012",
+                      "pix.min.1517",
+                      "pix.max.1517")
+
+display.brewer.pal(7, "Set1")
+dev.off()
 par(mfrow=c(1,1))
 p <- ggplot() +
   # annotate(geom = 'raster', x = hill.data$x, y = hill.data$y,
@@ -143,10 +84,16 @@ p <- ggplot() +
     geom_raster(data = def.data, aes(x = x, y = y, fill = value), interpolate = TRUE) +
     geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
     geom_sf(data = IntWsts, color = "#808B96", fill = NA) +  
-    scale_fill_gradient("Max CMD\nanomaly",
-                        low = palette[2], high = palette[6],
+    # geom_point(data = pixels["pix.min.1012",], aes(x=x, y=y), color = palette[5], size = 5) + 
+    # geom_point(data = pixels["pix.max.1012",], aes(x=x, y=y), color = palette[3], size = 5) + 
+    geom_point(data = pixels["pix.min.1517",], aes(x=x, y=y), color = palette[1], size = 5) +
+    geom_point(data = pixels["pix.max.1517",], aes(x=x, y=y), color = palette[4], size = 5) +
+    scale_fill_gradient2("Max CMD\nanomaly",
+                        low = palette[2], mid = "white", high = palette[1],
+                        midpoint = 0,
                         limits = c(-1.5,3.5), # 2015-2017
                         # limits = c(-1,5.5), # 2010-2012
+                        # limits = c(13,19), # temp
                         na.value = NA) +
                         # na.value = "#EAECEE")+ # sets background IntW states pale grey
     coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
@@ -161,10 +108,12 @@ p <- ggplot() +
           legend.position=c(0,0),
           legend.text=element_text(size=10),
           legend.title = element_text(size=12),
-          plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
-    # annotate("text", x = -120.5, y = 49.5, label = "a) 2010-2012", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = "c) 2015-2017", hjust = 0)
-  p
+          # plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
+          plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm")) + # top, right, bottom, left
+    # annotate("text", x = -120.5, y = 49.5, label = "2010-2012", hjust = 0)
+  annotate("text", x = -120.5, y = 49.5, label = "2015-2017", hjust = 0)
+dev.off()
+p
 
 
 # tiff(paste0(out.dir,"def-z_2012_map_",currentDate,".tiff"),
@@ -180,3 +129,73 @@ p
 dev.off()
 
 
+
+
+
+## What's the envi amplidue over which pipo optimum (14-19 degrees C) occurs?
+
+p <- plot_ly(data.pipo, x = ~tmax.tc, y = ~LAT_FS, z = ~ELEV, color = ~tmax.tc) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'TMAX'),
+                      yaxis = list(title = 'LAT'),
+                      zaxis = list(title = 'ELEV')))
+p
+
+temp <- data.pipo %>% filter(tmax.tc >14 & tmax.tc <19)
+min(temp$LAT_FS[temp$tmax.tc >18]) # 32.45029
+max(temp$LAT_FS[temp$tmax.tc <15]) # 47.70303
+min(temp$ELEV[temp$tmax.tc >18]) # 6248
+max(temp$ELEV[temp$tmax.tc <15]) # 9143
+
+# 
+
+
+## map of study sites
+temp.pipo <- data.pipo %>% dplyr::select(UNIQUEID, LAT_FS, LON_FS) %>%
+  rename(x = LON_FS, y = LAT_FS) %>%
+  mutate(pipo = "pipo")
+temp.psme <- data.psme %>% dplyr::select(UNIQUEID, LAT_FS, LON_FS) %>%
+  rename(x = LON_FS, y = LAT_FS) %>%
+  mutate(psme = "psme")
+temp <- full_join(temp.pipo, temp.psme, by = c("UNIQUEID", "x", "y")) %>%
+  mutate(sp = ifelse(is.na(pipo), "ponderosa", ifelse(is.na(psme), "Douglas-fir", "both species")))
+# Order so "both" are plotted on top
+temp <- arrange(temp, desc(sp))
+
+# dummy raster to cover up coordinate lines; plot this as single color raster
+# dummy <- def.data %>% dplyr::select(x, y, value)
+# dummy$value <- ifelse(is.na(dummy$value, 1, NA))
+# ^ nevermind. unnecessary if panel.grid.major= element_blank()
+
+display.brewer.pal(7, "Set1")
+dev.off()
+par(mfrow=c(1,1))
+
+p <- ggplot() +
+  # geom_raster(data = dummy, aes(x = x, y = y, fill = value), interpolate = TRUE) +
+  scale_fill_gradient(low = "#EAECEE", high = "#EAECEE", na.value ="#EAECEE", guide = FALSE) +
+  geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
+  geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
+  # geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE", na.value = NA) + 
+  geom_point(data = temp, aes(x=x, y=y, color = sp), size = 3, alpha = 0.6) +
+  scale_color_manual("FIA plots used", values = c(palette[4], palette[1], palette[2])) + 
+  coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
+  theme_bw(base_size = 18) +
+  theme(panel.grid.major = element_blank(), # blend lat/long into background
+        panel.border = element_rect(fill = NA, color = "black", size = 0.5),
+        panel.background = element_rect(fill = "#EAECEE"),
+        axis.title = element_blank(),
+        legend.background = element_rect(fill = "white", color = "black", size = 0,5),
+        # legend.title = element_blank(),
+        legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
+        legend.position=c(0,0),
+        legend.text=element_text(size=10),
+        legend.title = element_text(size=12),
+        plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm"))  # top, right, bottom, left
+dev.off()
+p
+
+tiff(paste0(out.dir,"FIA_plots_used_",currentDate,".tiff"),
+     width = 475, height = 600, units = "px")
+p
+dev.off()
