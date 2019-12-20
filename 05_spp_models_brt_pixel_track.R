@@ -1,11 +1,11 @@
 ## ID pixels on extremes of climatic variability dipole and predict through time.
 # Builds right from 02b_terraclim_map.R -- load all of those climate layers
 
-## Pasted from 02b (where code is commented)
+## If 02b has been run, no need to re-run this chunk.
 setwd(paste0(tc.dir,"/def_z/"))
 def.tifs = list.files(pattern="*5.9.tif", full.names = TRUE)
 def.stack <- stack(def.tifs)
-wd <- setwd("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data") # If working with/within drive
+wd <- setwd("C:/Users/clittlef/Google Drive/2RMRS/fia-regen/data")
 def.stack <- def.stack %>% crop(IntWsts) %>% mask(IntWsts)
 names(def.stack) <- paste0("def", right(c(1981:2017),2))
 
@@ -17,8 +17,9 @@ names(def.stack) <- paste0("def", right(c(1981:2017),2))
 #                     fun=function(x){ max(x,na.rm=T)})
 # def1012 <-  overlay(def.stack$def10, def.stack$def11, def.stack$def12,
 #                     fun=function(x){ max(x,na.rm=T)})
-# def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
-#                     fun=function(x){ max(x,na.rm=T)})
+def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
+                    fun=function(x){ max(x,na.rm=T)})
+
 # 
 # ## For trajectory, find points on either extreme (min and max deficits)
 # maxValue(def1012) # 5.88
@@ -55,15 +56,13 @@ rownames(pixels) <- c("pix.min.1012",
                       "pix.max.1517")
 
 # What are values to use as predictors associated with each point?
-# Retain spatial climate (tmax) but impute avgs. for other predictors
-# will need to get 3-yr def max for each 3-yr period since begin of record.
-
+# Use actual spatial climate (tmax) but avgs for other predictors (BA, fire sev)
 
 
 
 ####DATA FOR FOCAL PIXELS#####################################################
 ## Iteratively extract 3-yr maxes for each of the selected pixels from '81-'17
-# But must end before 2016 else can't get 3 yrs inclusive (no 2018)
+# But must end before 2016 at 2015 else can't get 3 yrs inclusive (no 2018)
 # Need as.numeric() else named number.
 maxes.temp <- vector() # empty vector to drop maxes for each 3yr period
 maxes <- matrix(data = NA, nrow = 4, ncol = nbands(def.stack)-2) # empty matrix to fill with maxes
@@ -84,11 +83,26 @@ for(p in 1:nrow(pixels)){
 maxes <- data.frame(maxes)
 colnames(maxes) <- c(paste0("start_",(1981:2015)))
 rownames(maxes) <- c("pos.min.1012", "pos.max.1012", "pos.min.1517", "pos.max.1517")
+# For later, save pixel maxes
+max3yr.nID <- maxes[4,]
+max3yr.nID <-as.data.frame(t(max3yr.nID))
+max3yr.nID$year <- as.integer(right(rownames(max3yr.nID), 4))
+max3yr.nID <- max3yr.nID %>% rename(value = pos.max.1517)
 
-# Grab annual vals too JIC
+max3yr.cAZ <- maxes[3,]
+max3yr.cAZ <-as.data.frame(t(max3yr.cAZ))
+max3yr.cAZ$year <- as.integer(right(rownames(max3yr.cAZ), 4))
+max3yr.cAZ <- max3yr.cAZ %>% rename(value = pos.min.1517)
+
+## Grab annual vals too JIC
 avg.nID <- as.numeric(raster::extract(def.stack, pixels[4,]))
-avg.nID <- data.frame(avg.nID) ; colnames(avg.nID) <- "index"
+avg.nID <- data.frame(avg.nID) ; colnames(avg.nID) <- "value"
 avg.nID$year <- as.numeric(c(paste0((1981:2017))))
+
+avg.cAZ <- as.numeric(raster::extract(def.stack, pixels[3,]))
+avg.cAZ <- data.frame(avg.cAZ) ; colnames(avg.cAZ) <- "value"
+avg.cAZ$year <- as.numeric(c(paste0((1981:2017))))
+
 
 ## Get other predictor variables set for using predicting response at these pixels.
 pix.preds <- maxes
@@ -99,6 +113,7 @@ pix.preds$YEAR.DIFF <- as.integer(10)
 pix.preds$BALive_brt_m <- mean(data.brt$BALive_brt_m)
 pix.preds$FIRE.SEV <- Mode(data.brt$FIRE.SEV)
 pix.preds <- pix.preds %>% dplyr::select(BALive_brt_m, YEAR.DIFF, tmax.tc, FIRE.SEV, everything())
+
 
 
 
@@ -146,10 +161,10 @@ pred.long <- pred.long %>% filter(year > 1983 & year < 2016)
 
 ## Chose with pixel pairs -- those which were extremely diff in...
 # 2010-2012
-pred.long <- pred.long %>%
-  filter(pixel == c("pix.min.1012", "pix.max.1012")) ;
-pix.names <- c("CO/NM border", "southwest UT")
-pix <- c("CO_UT")
+# pred.long <- pred.long %>%
+#   filter(pixel == c("pix.min.1012", "pix.max.1012")) ;
+# pix.names <- c("CO/NM border", "southwest UT")
+# pix <- c("CO_UT")
 
 # 2015-2017
 pred.long <- pred.long %>%
@@ -160,8 +175,9 @@ pix <- c("ID_AZ")
 
 ## How smooth should the line be?
 # span <- 0.1
-# span <- 0.2
-span <- 0.3
+span <- 0.2
+# span <- 0.3
+# span <- 0.4
 # span <- 0.5
 
 ## Plot likelihood of pixels thru time
@@ -172,9 +188,9 @@ span <- 0.3
 # pred.long$prob <- jitter(pred.long$prob, 2)
 p1 <- ggplot(pred.long, aes(x = year, y = prob, group = pixel, color = pixel)) +
   # geom_point() +
-  # geom_line() +
-  # geom_smooth(method = "lm", formula = y ~ poly(x, 25), se = FALSE) +
-  geom_smooth(method = "loess", span = span, se = FALSE) +
+  geom_line() +
+  # geom_smooth(method = "lm", formula = y ~ poly(x, 12), se = FALSE) +
+  # geom_smooth(method = "loess", span = span, se = FALSE) +
   scale_color_manual(values = palette[4:5],
   labels = pix.names) +
   labs(x = NULL,
@@ -203,6 +219,16 @@ dev.off()
 
 
 
+####ALTERNATIVE TO INDIVID PIXELS: ZONES#####################################################
+## N.b., I could use level III ecoregions, but in AZ at least, level III spans areas w/ big and sml deficit
+## Load AZ & ID level IV ecoregions; fix any invalid geometries
+# AZ4 <- st_read(dsn = "ecoregIV/az_eco_l4.shp") %>%  st_buffer(dist = 0) 
+# ID4 <- st_read(dsn = "ecoregIV/id_eco_l4.shp") %>%  st_buffer(dist = 0)
+
+
+
+
+
 ####ENSO/PDO INDICES#####################################################
 ## To match 3-year deficit max, chose thru 2015 (<2016)
 
@@ -214,7 +240,7 @@ mei <- mei %>%
 mei %>% dplyr::select(dec, dec.lag) # checks out
 mei.winter <- mei %>%
   group_by(year) %>%
-  summarise(index = mean(dec.lag, jan, feb))
+  summarise(value = mean(dec.lag, jan, feb))
 # Keep only years that correspond w/ FIA predictions
 # 1st fire yr is 1984, last inventory yr is 2015
 mei.winter <- mei.winter %>%
@@ -231,7 +257,7 @@ nino34 <- nino34 %>%
 nino34 %>% dplyr::select(dec, dec.lag) # checks out
 nino34.winter <- nino34 %>%
   group_by(year) %>%
-  summarise(index = mean(dec.lag, jan, feb))
+  summarise(value = mean(dec.lag, jan, feb))
 # Keep only years that correspond w/ FIA predictions
 # 1st fire yr is 1984, last inventory yr is 2015
 nino34.winter <- nino34.winter %>%
@@ -261,28 +287,71 @@ pdo <- pdo %>%
 pdo %>% dplyr::select(nov, nov.lag, dec, dec.lag)
 pdo.winter <- pdo %>%
   group_by(year) %>%
-  summarise(index = mean(nov.lag, dec.lag, jan, feb, march)) # based on ref above
+  summarise(value = mean(nov.lag, dec.lag, jan, feb, march)) # based on ref above
 pdo.winter <- pdo.winter %>%
   # filter(year > 1983 & year <2016) 
   filter(year > 1980 & year <2018) 
 
 
-# pick which dataset to plot; set to p2, p3, then p4
-index.data <- mei.winter ; ylab <- "mei"
-index.data <- nino34.winter ; ylab <- "nino34"
-index.data <- pdo.winter ; ylab <- "pdo"
-index.data <- avg.nID ; ylab <- "avg n ID"
 
-# Plot index (change p# iteratively when selecting index)
-p4 <- ggplot(index.data, aes(x = year, y = index)) +
-  geom_line(aes(x = year, y = index)) +
+## PC1
+# Source: Jon Abatzoglou generated; captures N-S dipole.
+# Positive values: HIGH deficit (dry) in SW; LOW deficit (moist) in N. Rockies
+# Negative values: LOW deficit (moist) in SW; HIGH deficit (dry) in N. Rockies
+pc1.raw <- read.table("pc1.txt", header = TRUE, sep=",")
+pc1.raw <- pc1.raw %>% rename(value = score1)
+pc1.raw <- pc1.raw %>% filter(year > 1983 & year <2018) 
+# Don't filter to 2015 yet; wait til moving windox max extracted.
+
+# Find 3-yr max and min w/ moving window.
+library(RcppRoll)
+# Rolling has 2 fewer yrs than raw b/c stops at 3rd to last.
+# Retain through 2015, corresponding to row 32 in raw.
+temp.max <- roll_max(pc1.raw$value, n = 3, align = "left")
+pc1.max3yr <- as.data.frame(cbind(pc1.raw$year[1:32], temp.max))
+colnames(pc1.max3yr) <- c("year", "value")
+
+temp.min <- roll_min(pc1.raw$value, n = 3, align = "left")
+pc1.min3yr <- as.data.frame(cbind(pc1.raw$year[1:32], temp.min))
+colnames(pc1.min3yr) <- c("year", "value")
+
+temp.mean <- roll_mean(pc1.raw$value, n = 3, align = "left")
+pc1.mean3yr <- as.data.frame(cbind(pc1.raw$year[1:32], temp.mean))
+colnames(pc1.mean3yr) <- c("year", "value")
+
+
+# Now fully filter pc1.raw
+pc1.raw <- pc1.raw %>% filter(year > 1983 & year <2016) 
+# install.packages("RcppRoll")
+
+
+
+## pick which dataset to plot; set to p2, p3, then p4
+# mode.data <- mei.winter ; ylab <- "mei"
+# mode.data <- nino34.winter ; ylab <- "nino34"
+# mode.data <- pdo.winter ; ylab <- "pdo"
+
+mode.data <- pc1.raw ; ylab <- "pc1" ; mode.data <- mode.data %>% filter(year > 1983)
+mode.data <- pc1.max3yr ; ylab <- "pc1 3yr max" ; mode.data <- mode.data %>% filter(year > 1983)
+mode.data <- pc1.min3yr ; ylab <- "pc1 3yr min" ; mode.data <- mode.data %>% filter(year > 1983)
+mode.data <- pc1.mean3yr ; ylab <- "pc1 3yr mean" ; mode.data <- mode.data %>% filter(year > 1983)
+
+mode.data <- avg.nID ; ylab <- "avg n ID" ; mode.data <- mode.data %>% filter(year > 1983)
+mode.data <- max3yr.nID ; ylab <- "3yrmax n ID" ; mode.data <- mode.data %>% filter(year > 1983)
+mode.data <- avg.cAZ ; ylab <- "avg c AZ" ; mode.data <- mode.data %>% filter(year > 1983)
+mode.data <- max3yr.cAZ ; ylab <- "3yrmax c AZ" ; mode.data <- mode.data %>% filter(year > 1983)
+
+
+# Plot climate mode (change p# iteratively when selecting index)
+p5 <- ggplot(mode.data, aes(x = year, y = value)) +
+  geom_line(aes(x = year, y = value)) +
   ylab(paste0(ylab)) + 
   scale_x_continuous(breaks = seq(1980, 2015, 5)) +
   theme_bw() +
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_blank())
-p4  
+p3 
 
 # MEI & NINO34 look very similar
 
@@ -294,7 +363,11 @@ p4
 # Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
 
 plots <- list(p1, p2)
+plots <- list(p1, p2, p3)
 plots <- list(p1, p2, p3, p4)
+plots <- list(p1, p2, p3, p4, p5)
+plots <- list(p1, p2, p3, p4, p5, p6)
+
 grobs <- list()
 widths <- list()
 
@@ -316,7 +389,10 @@ for (l in 1:length(grobs)){
 # tiff(paste0(plot.dir, explan.vars[[i]], ".tiff"))
 # do.call("grid.arrange", c(grobs, ncol = 1))
 # grid.arrange(grobs = grobs, ncol = 1, heights = c(1, 1))
+grid.arrange(grobs = grobs, nrow = 6, ncol = 1, heights = c(1, 1, 1, 1, 1, 1))
+grid.arrange(grobs = grobs, nrow = 5, ncol = 1, heights = c(1, 1, 1, 1, 1))
 grid.arrange(grobs = grobs, nrow = 4, ncol = 1, heights = c(1, 1, 1, 1))
+grid.arrange(grobs = grobs, nrow = 3, ncol = 1, heights = c(1, 1, 1))
 tiff(paste0(out.dir, "cmd anomaly nID vs indices.tiff"))
 dev.off()
 
