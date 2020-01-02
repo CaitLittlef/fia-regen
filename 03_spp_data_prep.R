@@ -59,7 +59,7 @@ data.psme <- data %>%
   filter(BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0) %>%
   dplyr::rename(BALive_psme = BALive_202)
 
-# To send to John for site index extraction
+# To send to John Shaw for site index extraction
 # data.pipo.psme <- data %>%
 #   filter(BALive_122 >0 | BADeadStanding_122 >0 | BAMortStanding_122 >0 | BAMortDown_122 >0 |
 #            BALive_202 >0 | BADeadStanding_202 >0 | BAMortStanding_202 >0 | BAMortDown_202 >0)
@@ -99,6 +99,10 @@ max(data.pied$BALive_pied) # 373 seems high
 data.pied <- data.pied[data.pied$BALive_pied < 350,]
 max(data.pied$regen_pied_tpa)
 hist(data.pied$regen_pied_tpa)
+
+
+
+
 
 
 
