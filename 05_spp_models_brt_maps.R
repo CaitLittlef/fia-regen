@@ -139,6 +139,9 @@ if (sp == "pipo") limits <- c(0.16,0.24) else limits <- c(0.23,0.47)
 # if (sp == "pipo") limits <- c(0.19,0.35) else limits <- c(0.23,0.47)
 limits
 # limits <- c(0.19, 0.23) # for pipo when just using avg defz, not 2012 or 2017.
+display.brewer.pal(8, "Dark2")
+
+
 
 ## Plot into map; create shapefile for just Gulf of California
 p <- ggplot() +
@@ -150,7 +153,7 @@ p <- ggplot() +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) + # NA else covers tile with color.
   # ggtitle(paste0(sp," at yr ",yr,", deficit z scores: ",defz)) +
   scale_fill_gradient(name = "Prob. juv.\npresence",
-                      low = palette[6], high = palette[3],
+                      low = palette[6], high = palette[1],
                       # na.value = NA, # doesn't work.
                       na.value = "#EAECEE", # sets background IntW states pale grey
                       limits = limits) +
@@ -167,14 +170,11 @@ p <- ggplot() +
         legend.title = element_text(size=12),
         legend.text=element_text(size=10),
         # plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm"))  # top, right, bottom, left
-        plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm")) + # top, right, bottom, left
-  # annotate("text", x = -120.5, y = 49.5, label = "2010-2012", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = "2015-2017", hjust = 0)
-  # annotate("text", x = -120.5, y = 49.5, label = "", hjust = 0)
-  # annotate("text", x = -120.5, y = 49.5, label = "b) 2012", hjust = 0)
-  # annotate("text", x = -120.5, y = 49.5, label = "d) 2017", hjust = 0)
+        plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm"))  # top, right, bottom, left
+
 p
-tiff(paste0(out.dir, sp,"_yr",yr,"z_",defz,"_pred_map_",currentDate,".tiff"),
+
+png(paste0(out.dir, sp,"_yr",yr,"z_",defz,"_pred_map_",currentDate,".png"),
    width = 475, height = 600, units = "px")
 p
 dev.off()
