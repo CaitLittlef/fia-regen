@@ -29,7 +29,9 @@ def.stack <- def.stack %>% crop(IntWsts) %>% mask(IntWsts)
 # Rename; have run full dates then crop 2 digits off of right
 names(def.stack) <- paste0("def", right(c(1981:2017),2))
 
-## Based on looking thru each of those plots...
+
+#############################################WHICH YRS?########################
+
 # ...select 10-12 and 15-17 as big spatial variabiltiy 
 plot(def.stack$def15)
 # Alt, could unlist and assign names to each separate raster.
@@ -44,11 +46,14 @@ def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
 plot(def9395)
 plot(def1012)
 plot(def1517)
-zoom(def1517)
+# zoom(def1517)
 
 
-
+#############################################PLOTTING########################
 # Turn deficit raster into table (function defiend in 00_setup)
+def.data <- gplot_data(def.stack$def15)
+def.data <- gplot_data(def.stack$def16)
+def.data <- gplot_data(def.stack$def17)
 def.data <- gplot_data(def9395)
 def.data <- gplot_data(def1012)
 def.data <- gplot_data(def1517)
@@ -74,31 +79,34 @@ rownames(pixels) <- c("pix.min.1012",
                       "pix.min.1517",
                       "pix.max.1517")
 
-display.brewer.pal(7, "Set1")
+display.brewer.pal(8, "Dark2")
 dev.off()
 par(mfrow=c(1,1))
-p <- ggplot() +
+# def.data <- gplot_data(def.stack$def15); yrlabel <- 2015; p15 <- ggplot() +
+# def.data <- gplot_data(def.stack$def16); yrlabel <- 2016; p16 <- ggplot() +
+def.data <- gplot_data(def.stack$def17); yrlabel <- 2017; p17 <- ggplot() +
   # annotate(geom = 'raster', x = hill.data$x, y = hill.data$y,
   #          fill = scales::colour_ramp(c("light grey", "dark grey"))(hill.data$value),
   #          interpolate = TRUE)  +
     geom_raster(data = def.data, aes(x = x, y = y, fill = value), interpolate = TRUE) +
     geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
-    geom_sf(data = IntWsts, color = "#808B96", fill = NA) +  
+    geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
     # geom_point(data = pixels["pix.min.1012",], aes(x=x, y=y), color = palette[5], size = 5) + 
     # geom_point(data = pixels["pix.max.1012",], aes(x=x, y=y), color = palette[3], size = 5) + 
-    geom_point(data = pixels["pix.min.1517",], aes(x=x, y=y), color = palette[1], size = 5) +
-    geom_point(data = pixels["pix.max.1517",], aes(x=x, y=y), color = palette[4], size = 5) +
-    scale_fill_gradient2("Max CMD\nanomaly",
-                        low = palette[2], mid = "white", high = palette[1],
+    # geom_point(data = pixels["pix.min.1517",], aes(x=x, y=y), color = palette[1], size = 5) +
+    # geom_point(data = pixels["pix.max.1517",], aes(x=x, y=y), color = palette[4], size = 5) +
+    scale_fill_gradient2("CMD\nanomaly",
+                        low = palette[3], mid = "white", high = palette[7],
                         midpoint = 0,
-                        limits = c(-1.5,3.5), # 2015-2017
-                        # limits = c(-1,5.5), # 2010-2012
-                        # limits = c(13,19), # temp
+                        limits = c(-3.5,3.5), # 2015
+                        # limits = c(-1,5.5), # 2016
+                        # limits = c(13,19), # 2017
                         na.value = NA) +
                         # na.value = "#EAECEE")+ # sets background IntW states pale grey
     coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
     theme_bw(base_size = 18) +
-    theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+    # theme(panel.grid.major = element_line(color = "#808B96"), # blend lat/long into background
+    theme(panel.grid.major = element_blank(), # blend lat/long into background
           panel.border = element_rect(fill = NA, color = "black", size = 0.5),
           panel.background = element_rect(fill = "#EAECEE"),
           axis.title = element_blank(),
@@ -111,27 +119,26 @@ p <- ggplot() +
           # plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
           plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm")) + # top, right, bottom, left
     # annotate("text", x = -120.5, y = 49.5, label = "2010-2012", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = "2015-2017", hjust = 0)
+  annotate("text", x = -120.5, y = 49.5, label = paste0(yrlabel), hjust = 0)
+
 dev.off()
-p
+p15
+p16
+p17
 
-
-# tiff(paste0(out.dir,"def-z_2012_map_",currentDate,".tiff"),
-#      width = 475, height = 600, units = "px")
-# tiff(paste0(out.dir,"def-z_2017_map_",currentDate,".tiff"),
-#    width = 475, height = 600, units = "px")
-# tiff(paste0(out.dir,"def-z_1012_map_",currentDate,".tiff"),
-#      width = 475, height = 600, units = "px")
-tiff(paste0(out.dir,"def-z_1517_map_",currentDate,".tiff"),
+temp <- 2015
+temp <- 2016
+temp <- 2017
+png(paste0(out.dir, "def_map_", temp, "_", currentDate,".png"),
      width = 475, height = 600, units = "px")
-
-p
-dev.off()
-
-
+p15; dev.off()
+p16; dev.off()
+p17; dev.off()
 
 
 
+
+########################################ENVI AMPLITUDE#####################
 ## What's the envi amplidue over which pipo optimum (14-19 degrees C) occurs?
 
 p <- plot_ly(data.pipo, x = ~tmax.tc, y = ~LAT_FS, z = ~ELEV, color = ~tmax.tc) %>%
@@ -147,9 +154,9 @@ max(temp$LAT_FS[temp$tmax.tc <15]) # 47.70303
 min(temp$ELEV[temp$tmax.tc >18]) # 6248
 max(temp$ELEV[temp$tmax.tc <15]) # 9143
 
-# 
+ 
 
-
+#################################################STUDY SITES#####################3
 ## map of study sites
 temp.pipo <- data.pipo %>% dplyr::select(UNIQUEID, LAT_FS, LON_FS) %>%
   rename(x = LON_FS, y = LAT_FS) %>%
