@@ -109,13 +109,10 @@ pc1
 pc2
 
 
-
-
-grid.arrange(pc1, pc2, ncol = 2)
-
+## Save both together as png
 png(paste0(out.dir,"pc_map_",currentDate,".png"),
-    width = 950, height = 600, units = "px")
-p
+    width = 950, height = 600, units = "px")\\
+grid.arrange(pc1, pc2, ncol = 2)
 dev.off()
   
 
@@ -128,8 +125,13 @@ pc1.raw <- read.table("pc1.txt", header = TRUE, sep=",")
 pc1.raw <- pc1.raw %>% rename(value = score1)
 pc1.raw <- pc1.raw %>% filter(year > 1983 & year <2017) 
 
+## How many years had strong dipole?
+count(pc1.raw, value > 1)
+count(pc1.raw, value < -1)
 
 
+
+## Generate plot
 t <- ggplot() +
   geom_hline(yintercept=0, col = palette[8], linetype="dashed") + 
   geom_line(data = pc1.raw, aes(x = year, y = value), cex = 1) +
@@ -152,22 +154,22 @@ t <- ggplot() +
 dev.off()
 t
 
-
+## Save as png
 png(paste0(out.dir,"pc1_time_series_",currentDate,".png"),
     width = 550, height = 250, units = "px")
 t
 dev.off()
 
 
-count(pc1.raw, value > 1)
-count(pc1.raw, value < -1)
-
-
 
 
 
 ##################################
-## If decide to plot all together -- i.e., time series below maps. See tips below:
+##################################
+##################################
+##################################
+##################################
+## If decide to plot all together:
 
 # # Some suggest switching to more powerful gtable
 # library(gtable)
