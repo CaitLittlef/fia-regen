@@ -210,7 +210,8 @@ Mode <- function(x) {
   ux[which.max(tabulate(match(x, ux)))]
 }
 
-
+# SE
+stdErr <- function(x) {sd(x)/ sqrt(length(x))}
 
 
 ############################################################################################
@@ -229,15 +230,19 @@ Mode <- function(x) {
 
 # Color blind palette
 # The palette with grey:
-# cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 
 # grey, orange, light blue, pine green, yellow, dark blue, red, pink
-
 
 library(RColorBrewer)
 display.brewer.all(7)
 display.brewer.pal(7, "Set1")
 palette <- brewer.pal(7, "Set1")
+
+display.brewer.all(colorblindFriendly = TRUE)
+display.brewer.pal(8, "Dark2")
+palette <- brewer.pal(8, "Dark2")
 
 
 ###########################################
