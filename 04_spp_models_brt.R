@@ -42,41 +42,12 @@ pipo.woburn <- data.pipo[is.na(data.pipo$FIRE.SEV) ,]
 ## Exclude sites w/o fire OR w/ fire.sev 5 & 6 (here NA)
 data.pipo <- data.pipo[! is.na(data.pipo$FIRE.SEV) ,]
 data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
-# mean(data.pipo$regen_pipo) # 0.1996161
-# mean(data.psme$regen_psme) # 0.2828283
-# mean(data.pipo$BALive_pipo_m) # 6.571094
-# data.pipo %>%
-#   filter(YEAR.DIFF > 19) %>%
-#   summarize_at(vars(BALive_pipo_m), mean)
-# mean(data.psme$BALive_psme_m) # 3.915973
-# data.psme %>%
-#   filter(STATECD.x == 4 | STATECD.x == 35) %>%
-#   summarize(mean = mean(BALive_psme_m),
-#             median = median(BALive_psme_m))
-# data.psme %>%
-#   filter(STATECD.x == 16 | STATECD.x == 30) %>%
-#   summarize(mean = mean(BALive_psme_m),
-#             median = median(BALive_psme_m))
 
-
-
-# count(data.pipo) # 521
-# count(data.psme) # 693
-# count(data.pipo) + count(data.psme) # 1214
-# count(inner_join(data.pipo, data.psme, by = "UNIQUEID")) # 224 both pipo and psme
-# count(full_join(data.pipo, data.psme, by = "UNIQUEID")) # 990
-# 990 + 224 # 1214
-# fire count
-# count(full_join(data.pipo, data.psme, by = "UNIQUEID"), "Fire_ID.x")
-# temp <- full_join(data.pipo, data.psme, by = "UNIQUEID")
-# length(unique(temp$Fire_ID.x)) # 264 different fires
-# rm(temp)
-
-## Still have outliers, more apparant post-fire?
-# max(data.pipo$DUFF_DEPTH_cm) ; mean(data.pipo$DUFF_DEPTH_cm)
-# boxplot(data.pipo$DUFF_DEPTH_cm)
-# max(data.pipo$LITTER_DEPTH_cm) ; mean(data.pipo$LITTER_DEPTH_cm)
-# boxplot(data.pipo$LITTER_DEPTH_cm)
+## ID outliers present in this fire-filtered dataset:
+# max(data.pipo$DUFF_DEPTH) ; mean(data.pipo$DUFF_DEPTH)
+# boxplot(data.pipo$DUFF_DEPTH)
+# max(data.pipo$LITTER_DEPTH) ; mean(data.pipo$LITTER_DEPTH)
+# boxplot(data.pipo$LITTER_DEPTH)
 # 
 # max(data.psme$DUFF_DEPTH_cm) ; mean(data.psme$DUFF_DEPTH_cm)
 # boxplot(data.psme$DUFF_DEPTH_cm)
@@ -85,11 +56,21 @@ data.psme <- data.psme[! is.na(data.psme$FIRE.SEV) ,]
 # Crazy big outlier in psme duff
 data.psme <- data.psme[data.psme$DUFF_DEPTH_cm < 13,]
 
-## How many unique plots?
-temp.pipo <- data.pipo %>% dplyr::select(UNIQUEID, Fire_ID)
-temp.psme <- data.psme %>% dplyr::select(UNIQUEID, Fire_ID)
-temp <- full_join(temp.pipo, temp.psme, by = c("UNIQUEID", "Fire_ID"))
-fires <- temp %>% count(Fire_ID)
+
+## What are dimensions of dataset?
+# count(data.pipo) # 521
+# count(data.psme) # 693
+# count(data.pipo) + count(data.psme) # 1214
+# count(inner_join(data.pipo, data.psme, by = "UNIQUEID")) # 224 both pipo and psme
+# count(full_join(data.pipo, data.psme, by = "UNIQUEID")) # 990
+# 990 + 224 # 1214
+# fire count
+# count(full_join(data.pipo, data.psme, by = "UNIQUEID"), "Fire_ID.x")
+# temp <- full_join(data.pipo, data.psme, by = c("UNIQUEID", "Fire_ID"))
+# length(unique(temp$Fire_ID)) # 431
+# rm(temp)
+
+
 
 ## Set variable classes
 # data.pipo$regen_pipo <- factor(data.pipo$regen_pipo, ordered = FALSE)
@@ -104,20 +85,20 @@ data.psme$FIRE.SEV <- factor(data.psme$FIRE.SEV, ordered = TRUE)
 
 data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.pipo$REBURN <- as.numeric(data.pipo$REBURN)
-# data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
+# data.psme$REBURN <- factor(data.psme$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN)
 
 
 ## If I've already run & saved models and want to re-load, do so here:
-tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
+# tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
 # # # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
-temp.env = new.env()
-invisible(lapply(tobeloaded, load, envir = temp.env))
-models = as.list(temp.env)
-rm(temp.env, tobeloaded)
+# temp.env = new.env()
+# invisible(lapply(tobeloaded, load, envir = temp.env))
+# models = as.list(temp.env)
+# rm(temp.env, tobeloaded)
 
 ## If want to re-load stats.new from existing model run (for boxplot)
-# stats.new <- read.csv(paste0(out.dir,"pipo_brt_stats_fin_relinf_ordered_2019-07-01.csv"))
+# stats.new <- read.csv(paste0(out.dir,"pipo_brt_stats_fin_relinf_ordered_2019-08-23.csv"))
 # stats.new <- read.csv(paste0(out.dir,"psme_brt_stats_fin_relinf_ordered_2019-07-03.csv"))
 # stats.new[1] <- NULL # extra column gets added
 
@@ -126,8 +107,11 @@ rm(temp.env, tobeloaded)
 ## PIPO
 data.brt <- data.pipo %>%
   dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, #CMD_CHNG,
-                def59_z_max13, 
-                # def59_z_max1, def59_z_max12, def59_z_max13, def59_z_max14, def59_z_max15,
+                 # def59_z_max1,
+                # def59_z_max12,
+                # def59_z_max13,
+                def59_z_max14,
+                # def59_z_max15,
                 DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
   rename(regen_brt = regen_pipo,
          BALive_brt_m = BALive_pipo_m) ; sp <- c("pipo")
@@ -154,8 +138,8 @@ explan.vars <- c("YEAR.DIFF",
                  "ppt.tc",
                  # "def59_z_max1",
                  # "def59_z_max12",
-                 "def59_z_max13",
-                 # "def59_z_max14",
+                 # "def59_z_max13",
+                 "def59_z_max14",
                  # "def59_z_max15",
                  "DUFF_DEPTH_cm",
                  "LITTER_DEPTH_cm",
@@ -168,11 +152,7 @@ explan.vars.names <- c("Years since fire",
                        "Deficit (mm)",
                        expression(paste("Max temp (",degree*C,")")),
                        "Precip (mm)",
-                       # "Max deficit anomaly (1 yr)",
-                       # "Max deficit anomaly (2 yr)",
-                       # "Max deficit anomaly",# (3 yr)",
-                       "Max deficit anomaly",# (4 yr)",
-                       # "Max deficit anomaly (5 yr)",
+                       "Max deficit anomaly",
                        "Duff depth (cm)",
                        "Litter depth (cm)",
                        "Fire severity",
@@ -183,10 +163,18 @@ explan.vars.names <- c("Years since fire",
 
 ## PIPO
 pipo.explan.vars <- explan.vars[-c(3, 5, 7, 8, 10)] # have iteratively removed vars and 
-# pipo.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10, 11)] # have iteratively removed vars, including CMD to begin with
+# pipo.explan.vars <- explan.vars[-c(7, 8, 9, 10)] # have iteratively removed vars, including CMD to begin with
 # ^ This is the final dataset for PIPO, as removing others doesn't improve AUC
 pipo.explan.vars.names <- explan.vars.names[-c(3, 5, 7, 8, 10)]
+# pipo.explan.vars.names <- explan.vars.names[-c(7, 8, 9, 10)]
 # pipo.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10, 11)] # max15, exclude cmd
+
+# N.b., overall AUC with max def 13, following var selection process gives AUC: 0.7704252
+# N.b., swapping max def 12 in for max def 1-3 but retaining other var selection gives AUC: 0.7630822
+# N.b., swapping max def 1 (so, just 1) in for max def 1-3 but retaining other var selection gives AUC: 0.7584048
+# 1-4: 0.774231
+# 1-5: 0.7717764
+
 
 pipo.explan.vars
 pipo.explan.vars.names
@@ -235,8 +223,8 @@ TC <- 3
 # num.loops <- 1:2
 # num.loops <- 1:3
 # num.loops <- 1:5
-# num.loops <- 1:10
-num.loops <- 1:100
+num.loops <- 1:10
+# num.loops <- 1:100
 
 
 ## Create empty list to store models in; create vectors to store stats, etc.
@@ -273,8 +261,9 @@ for (v in 1){ # if not iteratively dropping vars
   # If iteratively dropping var, include x in name to ID which has been left out.
   # version <- "allvars"
   # version <- paste0("x",explan.vars[v])
-  version <- "fin"
-    
+  # version <- "fin"
+  version <- "fin_1yr"
+
   data <- data.brt
   
   # Loop through model creation i times
@@ -332,7 +321,7 @@ print(Sys.time() - start)
 #####################################################################
 
 # How many vars? If all, retain all in number. If dropping iteratively, remove one.
-num.vars <- ifelse((version == "allvars" | version == "fin"), length(explan.vars), length(explan.vars)-1)
+num.vars <- ifelse((version == "allvars" | version == "fin" | version == "fin_1yr"), length(explan.vars), length(explan.vars)-1)
 
 # Size of matrix will adjust depending on number of explanatory variables
 var.mat <- matrix(unlist(var), ncol = num.vars, byrow = TRUE) 
@@ -352,7 +341,7 @@ mean(auc) ; sd(auc) ; range(auc) ; max(auc) - min(auc)
 # Save as csv -- options below are for runs with vars dropped iteratively
 currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_all_", currentDate,".csv") # all vars in
-# csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv") # 1 var removed
+csvFileName <- paste0(sp,"_brt_stats_x1_", currentDate,".csv") # 1 var removed
 # csvFileName <- paste0(sp,"_brt_stats_x2_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x3_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x4_", currentDate,".csv")
@@ -360,7 +349,8 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x6_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x7_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x8_", currentDate,".csv")
-csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_fin_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_fin_1yr_", currentDate,".csv")
 write.csv(stats, paste0(out.dir,"/",csvFileName))
 
 ## If iteratively dropping, get mean & sd of all stats and relative influences
@@ -383,7 +373,8 @@ currentDate <- Sys.Date()
 # csvFileName <- paste0(sp,"_brt_stats_x6_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x7_sum_", currentDate,".csv")
 # csvFileName <- paste0(sp,"_brt_stats_x8_sum_", currentDate,".csv")
-csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
+# csvFileName <- paste0(sp,"_brt_stats_fin_sum_", currentDate,".csv")
+csvFileName <- paste0(sp,"_brt_stats_fin_1yr_sum_", currentDate,".csv")
 write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 
 
@@ -398,6 +389,7 @@ write.csv(stats.sum, paste0(out.dir,"/",csvFileName))
 # all.auc <- 0.785582688 # original with all variables
 # all.perc.dev. <- 0.095961917 # original with all variables
 # all.auc <- 0.775534118 # original with all variables max 1-3 not 1-5
+# all.auc <- 0.7688434 # all variables max 1
 
 # psme
 # all.auc <- 0.8495447 # original with all variables
@@ -416,6 +408,7 @@ stats.sum[which.max(stats.sum$auc_fn1),]$brt.perc.dev.expl_fn1
 ########################################################################## 
 #### PIPO VARIABLE SELECTION: DEF.MAX.13 WAS BEST OF ALL DEF.MAXS NUM ####
 ########################################################################## 
+
 
 ##################################### BELOW HAS DROPPING ASSOCIATED WITH MAX13 ####
 # stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - all.auc
@@ -443,6 +436,39 @@ explan.vars
 # [1] "YEAR.DIFF"     "BALive_brt_m"  "tmax.tc"       "def59_z_max13" "FIRE.SEV"    
 # ^ AUC is 0.7745826
 0.7745826 - all.auc # -0.000951518 # not substantial decline from all, either.
+
+
+##################################### BELOW HAS DROPPING ASSOCIATED WITH MAX1 ####
+# all.auc <- 0.768843387
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - all.auc (no reburn)
+# ^ dropping reburn increases auc by 0.0022851 (pursue any increase)
+# No reburn: 0.7711285 
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7729009 #(no litter)
+# ^ dropping litter increases auc by 0.0000000100412 (pursue any increase)
+# No litter: 0.7729009
+# stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7738617 #(no def max 1)
+# ^ dropping 1 yr deficit decreases auc but by -0.00000002011314 (pursue <0.01 decrease)
+# STOPPING HERE B/C MAX13 WAS BETTER AND RETAINS A POST-FIRE DEFICIT
+
+
+##################################### BELOW HAS DROPPING ASSOCIATED WITH MAX12 ####
+# all.auc <- 0.7730469
+stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - all.auc
+# ^ dropping litter increase auc by 0.004427275 (pursue any increase)
+# no litter: 0.7774742
+stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 -  0.7774742
+# ^ dropping fire severity increases auc by 0.0006763565 (pursue any increase)
+# no fire severity: 0.7781506
+stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 -  0.7781506
+# dropping duff decreases AUC but by only -0.002182913 (pursue <0.01 decrease)
+# no duff: 0.7759677
+stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 -  0.7759677
+# dropping reburn decreases auc but by only -0.003662467 (pursue < 0.01 decrease)
+# no reburn: 0.7723052 
+stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - 0.7723052
+# ^ dropping 12 yr defciit decreases auc but by -0.0006532908 (pursue <0.01 decrease)
+# STOPPING HERE B/C MAX13 WAS BETTER AND RETAINS A POST-FIRE DEFICIT
+
 
 ##################################### BELOW HAS DROPPING ASSOCIATED WITH MAX15 ####
 # stats.sum[which.max(stats.sum$auc_fn1),]$auc_fn1 - all.auc
