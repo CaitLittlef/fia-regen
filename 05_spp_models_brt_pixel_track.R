@@ -351,7 +351,7 @@ p5 <- ggplot(mode.data, aes(x = year, y = value)) +
   theme(legend.position = "none",
         panel.grid.minor = element_blank(),
         panel.grid.major = element_blank())
-p3 
+p5 
 
 # MEI & NINO34 look very similar
 
