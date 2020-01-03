@@ -111,7 +111,7 @@ pc2
 
 ## Save both together as png
 png(paste0(out.dir,"pc_map_",currentDate,".png"),
-    width = 950, height = 600, units = "px")\\
+    width = 950, height = 600, units = "px")
 grid.arrange(pc1, pc2, ncol = 2)
 dev.off()
   
@@ -123,12 +123,12 @@ dev.off()
 # Negative values: LOW deficit (moist) in SW; HIGH deficit (dry) in N. Rockies
 pc1.raw <- read.table("pc1.txt", header = TRUE, sep=",")
 pc1.raw <- pc1.raw %>% rename(value = score1)
-pc1.raw <- pc1.raw %>% filter(year > 1983 & year <2017) 
+pc1.raw <- pc1.raw %>% filter(year > 1983 )#& year <2017) 
 
 ## How many years had strong dipole?
 count(pc1.raw, value > 1)
 count(pc1.raw, value < -1)
-
+12/35
 
 
 ## Generate plot
