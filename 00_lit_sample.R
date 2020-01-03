@@ -14,7 +14,7 @@ data <- read.csv("rubric_simple_190619.csv", header = TRUE)
 # Includes all in mendeley folder called 190305 (plus Kim's paper that came out a week later on March 11th)
 # data <- na.omit(data)
 
-
+display.brewer.pal(8, "Dark2")
 
 # single color
 g <- ggplot(data, aes(x=yrs.btwn, fill = palette[4]))
@@ -32,7 +32,7 @@ p <- g + geom_vline(xintercept = median(data$yrs.btwn),
   scale_x_continuous(breaks = (seq(0, 45, by = 5)), expand = c(0,0)) +
   scale_y_continuous(expand = c(0,0), lim = c(0,50)) +
   coord_cartesian(ylim = c(0,50)) +
-  scale_fill_manual(values = palette[4]) +
+  scale_fill_manual(values = palette[3]) +
   labs(x = "Years between fire and sampling",
        y = "Number of sampling efforts", color = "black", size = 12) # +
 # annotate("text", x = 12.5, y = 28, label = "median", size = 6)
@@ -40,7 +40,7 @@ p
 
 p
 dev.off()
-tiff(paste0(out.dir,"SampYrHist1col_400dpi_",currentDate,"_.tiff"), res = 400, width = 5, height = 3, units = "in") 
+png(paste0(out.dir,"SampYrHist1col_400dpi_",currentDate,"_.png"), res = 400, width = 5, height = 3, units = "in") 
 p
 dev.off()
 # ggsave("SampYrHist1col_400dpi_190406.tiff", width = 5, height = 3, dpi = 400)
