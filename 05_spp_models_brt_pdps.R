@@ -56,10 +56,10 @@ for (i in 1:(length(explan.vars))){   # works if none are factors
   colnames(pred.df) <- c("x", paste0("y", 1:length(models)))
   
   ## Gather into long-form with diff rows for each predictor and each model
-  pred.df.long <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
+  pred.df.long.all <- tidyr::gather(pred.df, key = "model", value = "y", -"x")
   
-  ## Compute mean and upper/lower bounds
-  pred.df.long <- pred.df.long %>%
+  ## Compute mean and upper/lower bounds, summarizing all models
+  pred.df.long <- pred.df.long.all %>%
     group_by(x) %>%
     summarise(mean.y = mean(y),
               # median.y = quantile(y, probs = 0.50),
@@ -88,23 +88,62 @@ for (i in 1:(length(explan.vars))){   # works if none are factors
   # (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.05, 0.95)))
   
   ## Create partial curve (orig data) and add in new ribbon data
+  # plot <- ggplot() +
+  #   geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
+  #   geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") +
+  #   geom_smooth(data = pred.df.long,
+  #               aes(x = x, y = mean.y),
+  #               span = 0.25,
+  #               se = FALSE,
+  #               col = "black") + 
+  #   geom_ribbon(data = df.up.low,
+  #               aes(x = x, ymin = ymin, ymax = ymax),
+  #               alpha = 0.25, fill = "light grey") +
+  #   scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
+  #                               max(data.brt[,explan.vars[i]]))) +
+  #   scale_y_continuous(expand=c(0,0),
+  #   limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
+  #   # scale_y_continuous(expand=c(0,0),
+  #   #                    limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
+  #   expand_limits(x = 0) + 
+  #   # labs(x = paste0(explan.vars.names[i]),
+  #   labs(x = NULL,
+  #        y = "Probability of juvenile presence") +
+  #   coord_cartesian(xlim=c(min(data.brt[,explan.vars[i]]),
+  #                          max(data.brt[,explan.vars[i]]))) +
+  #   theme_bw(base_size = 18) +
+  #   theme(panel.grid.minor = element_blank(),
+  #         panel.grid.major = element_blank(),
+  #         axis.title.x=element_blank(),
+  #         axis.text.x=element_blank(),
+  #         axis.ticks.x=element_blank(),
+  #         plot.margin=unit(c(5.5, 5.5, -10, 5.5), "pt")) # shrink margins for adjacency
+  
+  
+  ## Alt: include all model runs as individ lines, overlay average
   plot <- ggplot() +
     geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
     geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") +
+    geom_smooth(data = pred.df.long.all,
+                aes(x = x, y = y, group = model),
+                span = 0.25,
+                se = FALSE,
+                col = "light grey",
+                lwd = 0.25) + 
     geom_smooth(data = pred.df.long,
-                aes(x = x, y = mean.y),
+                aes(x = x, mean.y),
                 span = 0.25,
                 se = FALSE,
                 col = "black") + 
-    geom_ribbon(data = df.up.low,
-                aes(x = x, ymin = ymin, ymax = ymax),
-                alpha = 0.25, fill = "light grey") +
+    # geom_ribbon(data = df.up.low,
+    #             aes(x = x, ymin = ymin, ymax = ymax),
+    #             alpha = 0.25, fill = "light grey") +
     scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
-    # scale_y_continuous(expand=c(0,0),
-                       # limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
     scale_y_continuous(expand=c(0,0),
-                       limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
+                       limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
+    # scale_y_continuous(expand=c(0,0),
+    #                    limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
     expand_limits(x = 0) + 
     # labs(x = paste0(explan.vars.names[i]),
     labs(x = NULL,
@@ -118,6 +157,8 @@ for (i in 1:(length(explan.vars))){   # works if none are factors
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank(),
           plot.margin=unit(c(5.5, 5.5, -10, 5.5), "pt")) # shrink margins for adjacency
+  
+  
   
   ## Create hist to put underneath partial curve. Use orig data.
   hist <- ggplot(data = data.brt, aes(x = data.brt[,explan.vars[i]])) +
@@ -315,6 +356,9 @@ dev.off()
 #############################################
 ##PDPS BY QUANTILE###########################
 #############################################
+
+## FIXME: UPDATE THESE LINE NUMBERS
+
 ## CHANGES FOR EACH SPECIES:
 # Lines 352-355: change plotting limits
 ## CHANGES FOR EACH VARIABLE:
