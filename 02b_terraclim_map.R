@@ -66,7 +66,6 @@ max(def.data$value[is.finite(def.data$value)], na.rm =TRUE) # 1997: 0.92; 1998: 
 # Turn hillshade raster into table (function defined in 00_setup)
 # hill.data <- gplot_data(hill)
 
-
 ## For overlaying 2 rasters, use annotate and geom_raster to control both colors.
 # ref re: plotting rasters in ggplot
 # https://stackoverflow.com/questions/47116217/overlay-raster-layer-on-map-in-ggplot2-in-r
@@ -96,7 +95,9 @@ def.data <- gplot_data(def.stack$def17); yrlabel <- 2017; p17 <- ggplot() +
     # geom_point(data = pixels["pix.min.1517",], aes(x=x, y=y), color = palette[1], size = 5) +
     # geom_point(data = pixels["pix.max.1517",], aes(x=x, y=y), color = palette[4], size = 5) +
     scale_fill_gradient2("CMD\nanomaly",
-                        low = palette[3], mid = "white", high = palette[7],
+                        # low = palette[8], mid = "white", high = "#145adb", #high = palette[4],
+                        # low = "#145adb", mid = "white", high = palette[2], 
+                        low = palette[3], mid = "white", high = palette[2], 
                         midpoint = 0,
                         limits = c(-3.5,3.5), # 2015
                         # limits = c(-1,5.5), # 2016
@@ -129,8 +130,17 @@ p17
 temp <- 2015
 temp <- 2016
 temp <- 2017
+
+# setEPS()
+# postscript(paste0(out.dir, "def_map_", temp, "_", currentDate,".eps"))
+# p15; dev.off()
+
+
+# pdf(paste0(out.dir, "def_map_", temp, "_", currentDate,".pdf"),
 png(paste0(out.dir, "def_map_", temp, "_", currentDate,".png"),
-     width = 475, height = 600, units = "px")
+    # width = 6, height = 8, units = "cm", res = 300)
+    width = 475, height = 600, units = "px", pointsize = 12)
+    # width = 3, height = 4)
 p15; dev.off()
 p16; dev.off()
 p17; dev.off()
@@ -174,7 +184,7 @@ temp <- arrange(temp, desc(sp))
 # dummy$value <- ifelse(is.na(dummy$value, 1, NA))
 # ^ nevermind. unnecessary if panel.grid.major= element_blank()
 
-display.brewer.pal(7, "Set1")
+display.brewer.pal(8, "Dark2")
 dev.off()
 par(mfrow=c(1,1))
 
@@ -184,8 +194,8 @@ p <- ggplot() +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
   # geom_sf(data = IntWsts, color = "#808B96", fill = "#EAECEE", na.value = NA) + 
-  geom_point(data = temp, aes(x=x, y=y, color = sp), size = 3, alpha = 0.6) +
-  scale_color_manual("FIA plots used", values = c(palette[4], palette[1], palette[2])) + 
+  geom_point(data = temp, aes(x=x, y=y, color = sp), size = 3, alpha = 0.5) +
+  scale_color_manual("FIA plots used", values = c(palette[1], palette[2], palette[3])) + 
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
   theme_bw(base_size = 18) +
   theme(panel.grid.major = element_blank(), # blend lat/long into background
@@ -196,13 +206,14 @@ p <- ggplot() +
         # legend.title = element_blank(),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
         legend.position=c(0,0),
-        legend.text=element_text(size=10),
+        legend.text=element_text(size=12),
         legend.title = element_text(size=12),
         plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm"))  # top, right, bottom, left
 dev.off()
 p
 
-tiff(paste0(out.dir,"FIA_plots_used_",currentDate,".tiff"),
+
+png(paste0(out.dir,"FIA_plots_used_",currentDate,".png"),
      width = 475, height = 600, units = "px")
 p
 dev.off()
