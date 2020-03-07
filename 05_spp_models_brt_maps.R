@@ -153,7 +153,8 @@ p <- ggplot() +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) + # NA else covers tile with color.
   # ggtitle(paste0(sp," at yr ",yr,", deficit z scores: ",defz)) +
   scale_fill_gradient(name = "Prob. juv.\npresence",
-                      low = "#E8F5F1", high = "#105E47", #palette[1],
+                      # low = "#E8F5F1", high = "#105E47", #palette[1],
+                      low = "#FFDE35", high = palette[3], #palette[6] lightneed by 20%
                       # found lighter/darker shades here: https://www.tutorialrepublic.com/html-reference/html-color-picker.php
                       # na.value = NA, # doesn't work.
                       na.value = "#EAECEE", # sets background IntW states pale grey
