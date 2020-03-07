@@ -136,9 +136,9 @@ AIC(glm.tree.pipo, mod.pipo.step, mod.pipo.select)
 
 # ###########
 # ## MSE
-# data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
-# regen_pred <- predict(glm.tree.pipo, newdata = data.pipo, type ="response")
-# (MSE = mean((data.pipo$regen_pipo - regen_pred)^2))
+data.pipo$regen_pipo <- as.numeric(as.character(data.pipo$regen_pipo))
+regen_pred <- predict(glm.tree.pipo, newdata = data.pipo, type ="response")
+(MSE = mean((data.pipo$regen_pipo - regen_pred)^2))
 # 
 # 
 # ###########
