@@ -238,7 +238,7 @@ cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 library(RColorBrewer)
 display.brewer.all(7)
 display.brewer.pal(7, "Set1")
-palette <- brewer.pal(7, "Set1")
+# palette <- brewer.pal(7, "Set1")
 
 display.brewer.all(colorblindFriendly = TRUE)
 display.brewer.pal(8, "Dark2")
