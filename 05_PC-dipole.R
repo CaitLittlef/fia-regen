@@ -80,13 +80,13 @@ max(pc.data$value[is.finite(pc.data$value)], na.rm =TRUE) # 0.9 for pc1, 0.6 for
 display.brewer.pal(8, "Dark2")
 dev.off()
 par(mfrow=c(1,1))
-# pc1 <- ggplot() +
-pc2 <- ggplot() +
+pc1 <- ggplot() +
+# pc2 <- ggplot() +
   geom_raster(data = pc.data, aes(x = x, y = y, fill = value), interpolate = TRUE) +
   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
   geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
   scale_fill_gradient2("PC1",
-                       low = palette[2], mid = "white", high = palette[8],
+                       low = palette[2], mid = "white", high = palette[3],
                        midpoint = 0,
                        limits = c(-1,1), 
                        na.value = NA) +
@@ -99,21 +99,21 @@ pc2 <- ggplot() +
         legend.background = element_rect(fill = "white", color = "black", size = 0,5),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
         legend.position=c(0,0),
-        legend.text=element_text(size=10),
+        legend.text=element_text(size=12),
         legend.title = element_blank(),
-        plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm")) + # top, right, bottom, left
-  # annotate("text", x = -120.5, y = 49.5, label = "PC1", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = "PC2", hjust = 0)
+        plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm")) + # top, right, bottom, left
+  annotate("text", x = -120.5, y = 49.5, label = "PC1", hjust = 0)
+  # annotate("text", x = -120.5, y = 49.5, label = "PC2", hjust = 0)
 dev.off()
 pc1
 pc2
 
 
 ## Save both together as png
-png(paste0(out.dir,"pc_map_",currentDate,".png"),
-    width = 950, height = 600, units = "px")
-grid.arrange(pc1, pc2, ncol = 2)
-dev.off()
+# png(paste0(out.dir,"pc_map_",currentDate,".png"),
+#     width = 950, height = 600, units = "px")
+# grid.arrange(pc1, pc2, ncol = 2)
+# dev.off()
   
 
 
@@ -140,7 +140,7 @@ t <- ggplot() +
   labs(x = NULL,
        y = "PC1") +
   scale_x_continuous(breaks = seq(1980, 2015, 5)) +
-  theme_bw() +
+  theme_bw(base_size = 18) +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         legend.justification=c(1,0), 
@@ -150,15 +150,52 @@ t <- ggplot() +
         legend.title = element_blank(),
         legend.box = "horizontal",
         legend.text=element_text(size=12), #angle = 90),
-        legend.background = element_rect(color = "transparent", fill = "transparent")) 
+        legend.background = element_rect(color = "transparent", fill = "transparent"),
+        plot.margin=unit(c(-1.5,0.5,0.5,0.5),"cm")) # shrink margins for adjacency
 dev.off()
 t
 
 ## Save as png
+# png(paste0(out.dir,"pc1_time_series_",currentDate,".png"),
+#     width = 550, height = 250, units = "px")
+# t
+# dev.off()
+
+
+
+
+
+## To stack plots with aligned width, extract max width from each object.
+# Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
+
+plots <- list(pc1, t)
+grobs <- list()
+widths <- list()
+
+## Collect the widths for each grob of each plot
+for (l in 1:length(plots)){
+  grobs[[l]] <- ggplotGrob(plots[[l]])
+  widths[[l]] <- grobs[[l]]$widths[2:5]
+}
+
+## Use do.call to get the max width
+maxwidth <- do.call(grid::unit.pmax, widths)
+
+## Assign the max width to each grob
+for (l in 1:length(grobs)){
+  grobs[[l]]$widths[2:5] <- as.list(maxwidth)
+}
+
+## Plot
 png(paste0(out.dir,"pc1_time_series_",currentDate,".png"),
-    width = 550, height = 250, units = "px")
-t
+    width = 550, height = 1000, units = "px")
+# do.call("grid.arrange", c(grobs, ncol = 1))
+grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
 dev.off()
+
+  
+
+
 
 
 
