@@ -201,7 +201,7 @@ for (i in c(1:4)){ # thru 4 for pipo, to exclude FIRE.SEV
   }
   
   ## Plot
-  png(paste0(plot.dir, explan.vars[[i]], ".png"), width = 400, height = 450, units = "px")
+  png(paste0(plot.dir, explan.vars[[i]], ".png"), width = 450, height = 450, units = "px")
   # tiff(paste0(plot.dir, explan.vars[[i]], ".tiff"))
   # do.call("grid.arrange", c(grobs, ncol = 1))
   grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
@@ -335,7 +335,7 @@ for (i in c(5)){
   
   
   ## Plot
-  png(paste0(plot.dir, explan.vars[[i]], ".png"), width = 400, height = 450, units = "px")
+  png(paste0(plot.dir, explan.vars[[i]], ".png"), width = 450, height = 450, units = "px")
   # tiff(paste0(plot.dir, explan.vars[[i]], ".tiff"))
   # do.call("grid.arrange", c(grobs, ncol = 1))
   grid.arrange(grobs = grobs, ncol = 1, heights = c(3,1))
@@ -597,8 +597,8 @@ plot <- ggplot() +
               span = 0.25,
               se = FALSE) +
   scale_color_manual(values = palette[c(3,5,7)],
-                     # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
-                     name = "Max deficit anomaly",
+                     name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                     # name = "Max deficit anomaly",
                      # name = "Duff depth (cm)",
                      # name = expression(paste("Max temp (",degree*C,")")),
                      labels = c(expression(paste("10"^"th"," percentile")),
@@ -634,7 +634,7 @@ plot <- ggplot() +
 plot
 
 # Save
-png(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.png"), width = 400, height = 450, units = "px")
+png(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.png"), width = 450, height = 450, units = "px")
 # tiff(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.tif"))
 # tiff(paste0(plot.dir, explan.vars[[i]], "_alt.tiff"))
 print(plot) # When using ggplot in for loop, need to print.
