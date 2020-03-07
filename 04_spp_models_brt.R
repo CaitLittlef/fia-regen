@@ -89,13 +89,13 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 # data.psme$REBURN <- as.numeric(data.psme$REBURN)
 
 
-## If I've already run & saved models and want to re-load, do so here:
-# tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
-# # # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
-# temp.env = new.env()
-# invisible(lapply(tobeloaded, load, envir = temp.env))
-# models = as.list(temp.env)
-# rm(temp.env, tobeloaded)
+# If I've already run & saved models and want to re-load, do so here:
+tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
+# # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
+temp.env = new.env()
+invisible(lapply(tobeloaded, load, envir = temp.env))
+models = as.list(temp.env)
+rm(temp.env, tobeloaded)
 
 ## If want to re-load stats.new from existing model run (for boxplot)
 # stats.new <- read.csv(paste0(out.dir,"pipo_brt_stats_fin_relinf_ordered_2019-08-23.csv"))
@@ -109,8 +109,8 @@ data.brt <- data.pipo %>%
   dplyr::select(regen_pipo, BALive_pipo_m, YEAR.DIFF, def.tc, tmax.tc, ppt.tc, #CMD_CHNG,
                  # def59_z_max1,
                 # def59_z_max12,
-                # def59_z_max13,
-                def59_z_max14,
+                def59_z_max13,
+                # def59_z_max14,
                 # def59_z_max15,
                 DUFF_DEPTH_cm, LITTER_DEPTH_cm, FIRE.SEV, REBURN) %>%
   rename(regen_brt = regen_pipo,
@@ -138,8 +138,8 @@ explan.vars <- c("YEAR.DIFF",
                  "ppt.tc",
                  # "def59_z_max1",
                  # "def59_z_max12",
-                 # "def59_z_max13",
-                 "def59_z_max14",
+                 "def59_z_max13",
+                 # "def59_z_max14",
                  # "def59_z_max15",
                  "DUFF_DEPTH_cm",
                  "LITTER_DEPTH_cm",
