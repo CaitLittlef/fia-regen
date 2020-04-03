@@ -50,5 +50,7 @@ g
 
 png(paste0(out.dir, "concept_diag_", currentDate,".png"),
     width = 550, height = 500, units = "px", pointsize = 12)
+pdf(paste0(out.dir, "concept_diag_", currentDate,".pdf"),
+    width = 8, height = 7)
 g; dev.off() ; dev.off()
 
