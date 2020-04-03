@@ -90,8 +90,8 @@ data.pipo$REBURN <- factor(data.pipo$REBURN, ordered = TRUE)
 
 
 # If I've already run & saved models and want to re-load, do so here:
-tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
-# # tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
+# tobeloaded <- paste0(out.dir,"pipo_mods_2019-08-23.Rdata") ; sp <- c("pipo")
+# tobeloaded <- paste0(out.dir,"psme_mods_2019-09-02.Rdata") ; sp <- c("psme")
 temp.env = new.env()
 invisible(lapply(tobeloaded, load, envir = temp.env))
 models = as.list(temp.env)
@@ -180,15 +180,15 @@ pipo.explan.vars
 pipo.explan.vars.names
 
 ## PSME
-# psme.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
+psme.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
 # psme.explan.vars <- explan.vars[-c(3, 5, 6, 8, 9, 10)] # including 13cm duff outlier, max 13
 # psme.explan.vars <- explan.vars[-c(3, 5, 7, 9, 10)]  # max1-5
 # ^ This is the final dataset for PSME, as removing others doesn't improve AUC
-# psme.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
+psme.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10)] # excluding 13cm duff outlier, max 13
 # psme.explan.vars.names <- explan.vars.names[-c(3, 5, 6, 8, 9, 10)] # including 13cm duff outlier, max 13
 # psme.explan.vars.names <- explan.vars.names[-c(3, 5, 7, 9, 10)] # max1-5
-# psme.explan.vars
-# psme.explan.vars.names
+psme.explan.vars
+psme.explan.vars.names
 
 if (sp == "pipo") explan.vars <- pipo.explan.vars else explan.vars <- psme.explan.vars
 if (sp == "pipo") explan.vars.names <- pipo.explan.vars.names else explan.vars.names <- psme.explan.vars.names
