@@ -133,6 +133,10 @@ count(d_new, value > 1)
 count(d_new, value < -1)
 12/38
 
+count(d_new, value > 1.5)
+count(d_new, value < -1.5)
+12/38
+
 
 ## Generate plot
 t <- ggplot() +
@@ -209,20 +213,22 @@ d_new <- read.csv("pc_8state.csv", header = TRUE, sep = ",")
 d_new <- d_new %>% rename(value = pc2) %>% dplyr::select(year,value)
 
 
-## Kim's recruitment data
+## Kim's recruitment data.
+# Her modeled projections run from '81-'15. That yields weak/no correlations.
+# BUT dipole is defined '84-'18. If I clip both to only overlap, get correlations.
 pipo <- read.csv("PIPO_recruitment_prob.csv", header = TRUE, sep = ",")
-pipo_nr <- pipo[,1:3] %>% dplyr::filter(region == "NR") %>% dplyr::select(-region)
+# pipo_nr <- pipo[,1:3] %>% dplyr::filter(region == "NR") %>% dplyr::select(-region)
 pipo_nr <- pipo[,1:3] %>% dplyr::filter(region == "NR", year > 1983) %>% dplyr::select(-region)
 range(pipo_nr$year)
 
 pipo <- read.csv("PIPO_recruitment_prob.csv", header = TRUE, sep = ",")
-pipo_sw <- pipo[,1:3] %>% dplyr::filter(region == "SW") %>% dplyr::select(-region)
+# pipo_sw <- pipo[,1:3] %>% dplyr::filter(region == "SW") %>% dplyr::select(-region)
 pipo_sw <- pipo[,1:3] %>% dplyr::filter(region == "SW", year > 1983) %>% dplyr::select(-region)
 range(pipo_sw$year)
 
 pipo <- pipo[,1:3] %>% filter(year > 1983)
 
-d_new <- d_new %>% filter(year>1980 & year<2016)
+# d_new <- d_new %>% filter(year>1980 & year<2016)
 d_new <- d_new %>% filter(year>1983 & year<2016)
 range(d_new$year)
 
@@ -263,15 +269,18 @@ NR <- ggplot() +
   geom_line(data = pipo[pipo$region == "NR",], aes(x = year, y = pr*4), cex = 1, col = palette[5]) +
   geom_point(data = d_new[abs(d_new$value)>1,],
              aes(x = year, y = value), col = palette[2], cex = 2) +
+  geom_vline(xintercept=d_new$year[abs(d_new$value)>1], col = palette[2], cex = 0.5, linetype="dotted") + 
   scale_x_continuous(breaks = seq(1985, 2015, 5)) +
   # add secondary axis: must be 1:1 transformation of primary axis.
   scale_y_continuous(limits = c(-2.5,2.5),
                      sec.axis = sec_axis(~./4, name = "Annual recruitment\nprobability")) +
   theme_bw(base_size = 18) +
   labs(x = NULL, y = expression(PC[dipole])) + # expression to set subscript of d
-  theme(panel.grid.major = element_blank(),
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        plot.margin=unit(c(0.25,0.25,0.25,0.25),"cm")) +  #trbl
+        plot.margin=unit(c(0.25,0.25,-0.25,0.25),"cm")) +  #trbl; snug bottom towards SW plot
   annotate("text", x = 1984, y = 2.4, label = "NR", size = 6)
 dev.off()
 NR
@@ -282,6 +291,7 @@ SW <- ggplot() +
   geom_line(data = pipo[pipo$region == "SW",], aes(x = year, y = pr*4), cex = 1, col = palette[6]) +
   geom_point(data = d_new[abs(d_new$value)>1,],
              aes(x = year, y = value), col = palette[2], cex = 2) +
+  geom_vline(xintercept=d_new$year[abs(d_new$value)>1], col = palette[2], cex = 0.5, linetype="dotted") + 
   scale_x_continuous(breaks = seq(1985, 2015, 5)) +
   # add secondary axis: must be 1:1 transformation of primary axis.
   scale_y_continuous(limits = c(-2.5,2.5),
@@ -290,7 +300,7 @@ SW <- ggplot() +
   labs(x = NULL, y = expression(PC[dipole])) + # expression to set subscript of d
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        plot.margin=unit(c(0.25,0.25,0.25,0.25),"cm")) +  #trbl
+        plot.margin=unit(c(-0.25,0.25,0.25,0.25),"cm")) +  #trbl; snug top towards NR plot
 annotate("text", x = 1984, y = 2.4, label = "SW", size = 6)
 dev.off()
 SW
@@ -305,6 +315,7 @@ pdf(paste0(out.dir,"pc_vs recruitment_",currentDate,".pdf"))
 grid.arrange(NR, SW)
 dev.off()
 
+# Or jut consider exporting from plot viewer; shrink from 8.5x11 to 8.5x6
 
 ###########################################################
 
