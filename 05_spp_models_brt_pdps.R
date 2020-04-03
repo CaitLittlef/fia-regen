@@ -141,9 +141,9 @@ for (i in c(1:4)){ # thru 4 for pipo, to exclude FIRE.SEV
     scale_x_continuous(limits=c(min(data.brt[,explan.vars[i]]),
                                 max(data.brt[,explan.vars[i]]))) +
     scale_y_continuous(expand=c(0,0),
-                       limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
+                       # limits=c(0.15,0.31)) + #else ribbon for yr diff cut-off pipo
     # scale_y_continuous(expand=c(0,0),
-    #                    limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
+                       limits=c(0.15,0.46)) + #else ribbon for yr diff cut-off psme
     expand_limits(x = 0) + 
     # labs(x = paste0(explan.vars.names[i]),
     labs(x = NULL,
@@ -377,9 +377,9 @@ par(mfrow=c(1,1))
 explan.vars
 # var <- "BALive_brt_m"
 # var <- "def.tc"
-# var <- "tmax.tc"
+var <- "tmax.tc"
 # var <- "ppt.tc"
-var <- "def59_z_max13"
+# var <- "def59_z_max13"
 # var <- "DUFF_DEPTH_cm"
 # var <- "LITTER_DEPTH_cm"
 # var <- "FIRE.SEV"
@@ -408,9 +408,9 @@ newdata <- data.brt %>% # Create new data with all but YEAR.DIFF & BALive_brt
   mutate(
     BALive_brt_m = mean(BALive_brt_m), # turn on/off var that's selected above
     def.tc = mean(def.tc),
-    tmax.tc = mean(tmax.tc),
+    # tmax.tc = mean(tmax.tc),
     ppt.tc = mean(ppt.tc),
-    # def59_z_max13 = mean(def59_z_max13),
+    def59_z_max13 = mean(def59_z_max13),
     DUFF_DEPTH_cm = mean(DUFF_DEPTH_cm),
     LITTER_DEPTH_cm = mean(LITTER_DEPTH_cm),
     FIRE.SEV = Mode(FIRE.SEV), # homegrown function
@@ -434,9 +434,9 @@ for (q in 1:3){ # Pick quantiles BUT MUST SPECIFY IN PROBS (10, 50 90)
     r1 <- predict(gbm.mod,
                   # newdata = transform(newdata, BALive_brt_m = quantile(BALive_brt_m, probs = probs)[q]),
                   # newdata = transform(newdata, def.tc = quantile(def.tc, probs = probs)[q]),
-                  # newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
+                  newdata = transform(newdata, tmax.tc = quantile(tmax.tc, probs = probs)[q]),
                   # newdata = transform(newdata, ppt.tc = quantile(ppt.tc, probs = probs)[q]),
-                  newdata = transform(newdata, def59_z_max13 = quantile(def59_z_max13, probs = probs)[q]),
+                  # newdata = transform(newdata, def59_z_max13 = quantile(def59_z_max13, probs = probs)[q]),
                   # newdata = transform(newdata, DUFF_DEPTH_cm = quantile(DUFF_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, LITTER_DEPTH_cm = quantile(LITTER_DEPTH_cm, probs = probs)[q]),
                   # newdata = transform(newdata, FIRE.SEV = as.factor(q)), 
@@ -526,6 +526,7 @@ df.up.low <- data.frame(x = gg1$data[[1]]$x,
 (quant <- quantile(data.brt[,explan.vars[i]], probs = c(0.1, 0.9)))
 
 
+################# W/ RIBBONS - USE LINES IN CHUNK BELOW ####
 ## Create plot -- CHANGE LAGEND LABEL NAME!! AND CHANGE LIMITS PER SPECIES
 # Create partial curve (orig data) and add in new ribbon data
 # plot <- ggplot() +
@@ -565,6 +566,8 @@ df.up.low <- data.frame(x = gg1$data[[1]]$x,
 #         legend.text=element_text(size=12),
 #         legend.title=element_text(size=14),
 #         legend.title.align=1)
+#################
+
 
 display.brewer.pal(8, "Dark2")
 
@@ -597,10 +600,10 @@ plot <- ggplot() +
               span = 0.25,
               se = FALSE) +
   scale_color_manual(values = palette[c(3,5,7)],
-                     name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
+                     # name = expression(paste("Live BA (m"^"2","ha"^"-1",")")),
                      # name = "Max deficit anomaly",
                      # name = "Duff depth (cm)",
-                     # name = expression(paste("Max temp (",degree*C,")")),
+                     name = expression(paste("Max temp (",degree*C,")")),
                      labels = c(expression(paste("10"^"th"," percentile")),
                                 expression(paste("50"^"th"," percentile")),
                                 expression(paste("90"^"th"," percentile")))) +
@@ -612,10 +615,10 @@ plot <- ggplot() +
   scale_fill_manual(values = palette[3:5]) +
   geom_vline(xintercept = quant[1], lty = 2, lwd = 0.5, col = "red") +
   geom_vline(xintercept = quant[2], lty = 2, lwd = 0.5, col = "red") + 
-  scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
-  # scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
-  scale_y_continuous(expand=c(0,0), limits=c(0.14,0.36)) + # pipo
-  # scale_y_continuous(expand=c(0,0), limits=c(0.09,0.61)) + # psme
+  # scale_x_continuous(expand=c(0,0), limits=c(0,30)) + # pipo, max year.diff is 30
+  scale_x_continuous(expand=c(0,0), limits=c(0,31)) + # psme, max year.diff is 31
+  # scale_y_continuous(expand=c(0,0), limits=c(0.14,0.36)) + # pipo
+  scale_y_continuous(expand=c(0,0), limits=c(0.09,0.61)) + # psme
   expand_limits(x = 0) + 
   labs(x = paste0(explan.vars.names[i]),
        y = "Probability of juvenile presence") +
@@ -638,5 +641,5 @@ png(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.png"), width = 450, height =
 # tiff(paste0(plot.dir, "yr.diff_pdp_by_",var,"_all_qs.tif"))
 # tiff(paste0(plot.dir, explan.vars[[i]], "_alt.tiff"))
 print(plot) # When using ggplot in for loop, need to print.
-dev.off()
+dev.off() ; dev.off()
 
