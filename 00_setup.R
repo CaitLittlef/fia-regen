@@ -84,7 +84,7 @@ NAmer <- NAmer[!NAmer$NAME == "Guam",]
 NAmer.outline <- st_union(NAmer)
 # plot(NAmer.outline)
 Wsts.names = c('California', 'Oregon', 'Washington','Idaho', 'Nevada',
-        'Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
+               'Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
 IntWsts.names = c('Idaho', 'Nevada','Montana','Wyoming','Utah','Arizona','New Mexico','Colorado')
 Wsts <- NAmer[NAmer$NAME %in% Wsts.names, ] # not NAmer@data$NAME
 IntWsts <- NAmer[NAmer$NAME %in% IntWsts.names, ]
@@ -242,7 +242,10 @@ display.brewer.pal(7, "Set1")
 
 display.brewer.all(colorblindFriendly = TRUE)
 display.brewer.pal(8, "Dark2")
+display.brewer.pal(8, "RdYlBu")
 palette <- brewer.pal(8, "Dark2")
+palette <- brewer.pal(8, "Set2")
+palette <- brewer.pal(8, "RdYlBu")
 
 
 ###########################################
