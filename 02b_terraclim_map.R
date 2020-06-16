@@ -34,15 +34,16 @@ names(def.stack) <- paste0("def", right(c(1981:2017),2))
 
 # ...select 10-12 and 15-17 as big spatial variabiltiy 
 plot(def.stack$def15)
+plot(def.stack$def99)
 # Alt, could unlist and assign names to each separate raster.
 
 # Take max from those series of yrs: 
-def9395 <-  overlay(def.stack$def93, def.stack$def94, def.stack$def95,
-                    fun=function(x){ max(x,na.rm=T)})
-def1012 <-  overlay(def.stack$def10, def.stack$def11, def.stack$def12,
-                    fun=function(x){ max(x,na.rm=T)})
-def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
-                    fun=function(x){ max(x,na.rm=T)})
+# def9395 <-  overlay(def.stack$def93, def.stack$def94, def.stack$def95,
+#                     fun=function(x){ max(x,na.rm=T)})
+# def1012 <-  overlay(def.stack$def10, def.stack$def11, def.stack$def12,
+#                     fun=function(x){ max(x,na.rm=T)})
+# def1517 <-  overlay(def.stack$def15, def.stack$def16, def.stack$def17,
+#                     fun=function(x){ max(x,na.rm=T)})
 plot(def9395)
 plot(def1012)
 plot(def1517)
@@ -65,6 +66,11 @@ max(def.data$value[is.finite(def.data$value)], na.rm =TRUE) # 1997: 0.92; 1998: 
 
 # Turn hillshade raster into table (function defined in 00_setup)
 # hill.data <- gplot_data(hill)
+# Then do somethign with this:
+# annotate(geom = 'raster', x = hill.data$x, y = hill.data$y,
+#          fill = scales::colour_ramp(c("light grey", "dark grey"))(hill.data$value),
+#          interpolate = TRUE)  +
+
 
 ## For overlaying 2 rasters, use annotate and geom_raster to control both colors.
 # ref re: plotting rasters in ggplot
@@ -81,13 +87,13 @@ rownames(pixels) <- c("pix.min.1012",
 display.brewer.pal(8, "Dark2")
 dev.off()
 par(mfrow=c(1,1))
-# def.data <- gplot_data(def.stack$def15); yrlabel <- 2015; p15 <- ggplot() +
+def.data <- gplot_data(def.stack$def15); yrlabel <- 2015; p15 <- ggplot() +
 # def.data <- gplot_data(def.stack$def16); yrlabel <- 2016; p16 <- ggplot() +
-def.data <- gplot_data(def.stack$def17); yrlabel <- 2017; p17 <- ggplot() +
-  # annotate(geom = 'raster', x = hill.data$x, y = hill.data$y,
-  #          fill = scales::colour_ramp(c("light grey", "dark grey"))(hill.data$value),
-  #          interpolate = TRUE)  +
+# def.data <- gplot_data(def.stack$def17); yrlabel <- 2017; p17 <- ggplot() +
     geom_raster(data = def.data, aes(x = x, y = y, fill = value), interpolate = TRUE) +
+    # geom_tile(data = def.data, aes(x = x, y = y, fill = value)) +
+    # geom_sf(data = nonIntWest.aea, color = "#808B96", fill = "white") +
+    # geom_sf(data = IntWsts.aea, color = "#808B96", fill = NA) +
     geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
     geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
     # geom_point(data = pixels["pix.min.1012",], aes(x=x, y=y), color = palette[5], size = 5) + 
@@ -120,7 +126,10 @@ def.data <- gplot_data(def.stack$def17); yrlabel <- 2017; p17 <- ggplot() +
           # plot.margin=unit(c(0.5,1.5,1.5,1.5),"cm")) + # top, right, bottom, left
           plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm")) + # top, right, bottom, left
     # annotate("text", x = -120.5, y = 49.5, label = "2010-2012", hjust = 0)
-  annotate("text", x = -120.5, y = 49.5, label = paste0(yrlabel), hjust = 0)
+  annotate("text", x = -120.5, y = 49.5, label = paste0(yrlabel), hjust = 0) #+
+  # coord_equal()
+  # coord_map("albers",lat0=39, lat1=45)
+
 
 dev.off()
 p15
@@ -131,9 +140,6 @@ temp <- 2015
 temp <- 2016
 temp <- 2017
 
-# setEPS()
-# postscript(paste0(out.dir, "def_map_", temp, "_", currentDate,".eps"))
-# p15; dev.off()
 
 
 # pdf(paste0(out.dir, "def_map_", temp, "_", currentDate,".pdf"),
@@ -148,23 +154,91 @@ p17; dev.off()
 
 
 
-########################################ENVI AMPLITUDE#####################
-## What's the envi amplidue over which pipo optimum (14-19 degrees C) occurs?
+#################################################non-ggplot maps#####################3
+## Goal: project maps. Folks recommend ggplot-similar tmap.
+# refs:
+# https://geocompr.robinlovelace.net/adv-map.html
+# see colors with this: 
+# tmaptools::palette_explorer()
 
-p <- plot_ly(data.pipo, x = ~tmax.tc, y = ~LAT_FS, z = ~ELEV, color = ~tmax.tc) %>%
-  add_markers() %>%
-  layout(scene = list(xaxis = list(title = 'TMAX'),
-                      yaxis = list(title = 'LAT'),
-                      zaxis = list(title = 'ELEV')))
-p
 
-temp <- data.pipo %>% filter(tmax.tc >14 & tmax.tc <19)
-min(temp$LAT_FS[temp$tmax.tc >18]) # 32.45029
-max(temp$LAT_FS[temp$tmax.tc <15]) # 47.70303
-min(temp$ELEV[temp$tmax.tc >18]) # 6248
-max(temp$ELEV[temp$tmax.tc <15]) # 9143
+# install.packages("tmap")
+# install.packages("shinyjs")
+library(tmap)
+library(shinyjs)
 
- 
+# FIXME: cannot add coordaintes. crs still stuck in m and tm_grid shows as such.
+# tm_graticules, which should add coords doesn't seem to exist anymore.
+
+
+
+## Pick Albers equal area projection & transform all data.
+aea.proj <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83  +units=m"
+
+IntWsts.aea <- st_transform(IntWsts, crs = aea.proj)
+nonIntWest.aea <- st_transform(nonIntWest, crs = aea.proj)
+def15.aea <- projectRaster(def.stack$def15, crs = aea.proj)
+hill.aea <- projectRaster(hill, crs = aea.proj)
+
+plot(st_geometry(IntWsts))
+plot(st_geometry(IntWsts.aea))
+plot(st_geometry(nonIntWest))
+plot(st_geometry(nonIntWest.aea))
+plot(def.stack$def15)
+plot(def15.aea)
+plot(hill.aea)
+
+
+
+## I'll want to control bounding box of map.
+# Use IntW, expanded slightly.
+# https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
+(bbox <- st_bbox(IntWsts.aea))
+bbox_new <- bbox
+bbox_new[1] <- (bbox[1] - 20000) #xmin 
+bbox_new[3] <- (bbox[3] + 20000) #xmas
+bbox_new[2] <- (bbox[2] - 20000) #ymin
+bbox_new[4] <- (bbox[4] + 20000) #ymax
+
+bbox_new <- bbox_new %>%  # take the bounding box ...
+  st_as_sfc() # ... and make it a sf polygon
+
+
+## Create map. Cannot figure out how to get negative values on bottom in legend.
+map <- # by default, set master to establish bbox, projection, etc (default = 1st raster)
+  tm_shape(IntWsts.aea, is.master = TRUE, bbox = bbox_new) + # master to rule bbox, proj
+  tm_fill("grey40") + # for holes in raster
+    # # add in hillshade for study area first with continuous grey gradient
+    # tm_shape(hill.aea) + tm_raster(palette = "Greys", style = "cont") +
+    # add in deficit values with reverse palette; may make transparent with alpha
+    tm_shape(def15.aea) + tm_raster(palette = "-RdYlBu",
+                                    style = "cont",
+                                    title = "CMD\nanomaly") +#, alpha = 0.85) +
+    # add in non-Interior West states with light grey fill
+    tm_shape(nonIntWest.aea) + tm_borders(lwd=1.5) + tm_fill("gray90") +
+    # add in Interior West states with no fill
+    tm_shape(IntWsts.aea) + tm_borders(lwd=1.5) + 
+    tm_layout(legend.show = TRUE,
+              legend.position = c(0.01, 0.01),
+              legend.bg.color = "white",
+              legend.title.size = 0.8,
+              legend.text.size = 0.6,
+              legend.frame = TRUE) ; map
+
+
+## Save as pdf by version
+# v <- 1
+pdf(paste0(out.dir, "def_map_2015_v",v, "_", currentDate,".pdf"),
+    width = 3, height = 4) ; v <- v+1
+map
+dev.off()
+
+
+# Coordinates? tm_graticules() no longer seems to exist. Can't figure out lat/long.
+# https://geocompr.github.io/post/2019/tmap-grid/
+
+
+
 
 #################################################STUDY SITES#####################3
 ## map of study sites
@@ -197,7 +271,7 @@ p <- ggplot() +
   geom_point(data = temp, aes(x=x, y=y, color = sp), size = 3, alpha = 0.5) +
   scale_color_manual("FIA plots used", values = c(palette[1], palette[2], palette[3])) + 
   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
-  theme_bw(base_size = 18) +
+  theme_bw(base_size = 12) +
   theme(panel.grid.major = element_blank(), # blend lat/long into background
         panel.border = element_rect(fill = NA, color = "black", size = 0.5),
         panel.background = element_rect(fill = "#EAECEE"),
@@ -206,7 +280,7 @@ p <- ggplot() +
         # legend.title = element_blank(),
         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
         legend.position=c(0,0),
-        legend.text=element_text(size=12),
+        legend.text=element_text(size=10),
         legend.title = element_text(size=12),
         plot.margin=unit(c(0.5,1.25,0.5,0.5),"cm"))  # top, right, bottom, left
 dev.off()
@@ -215,5 +289,26 @@ p
 
 png(paste0(out.dir,"FIA_plots_used_",currentDate,".png"),
      width = 475, height = 600, units = "px")
-p
+pdf(paste0(out.dir,"FIA_plots_used_",currentDate,".pdf"),
+    width = 3, height = 5)
+p # preview it then save as pdf 8x7
 dev.off()
+
+
+
+
+########################################ENVI AMPLITUDE#####################
+## What's the envi amplidue over which pipo optimum (14-19 degrees C) occurs?
+
+p <- plot_ly(data.pipo, x = ~tmax.tc, y = ~LAT_FS, z = ~ELEV, color = ~tmax.tc) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'TMAX'),
+                      yaxis = list(title = 'LAT'),
+                      zaxis = list(title = 'ELEV')))
+p
+
+temp <- data.pipo %>% filter(tmax.tc >14 & tmax.tc <19)
+min(temp$LAT_FS[temp$tmax.tc >18]) # 32.45029
+max(temp$LAT_FS[temp$tmax.tc <15]) # 47.70303
+min(temp$ELEV[temp$tmax.tc >18]) # 6248
+max(temp$ELEV[temp$tmax.tc <15]) # 9143
