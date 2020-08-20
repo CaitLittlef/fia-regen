@@ -11,11 +11,13 @@ library(ncdf4)
 ## Open connection to dataset & print info to see var names.
 # var names for z-scores are diff across .nc files
 (pc2_orig <- nc_open(paste0(wd, "/pc12/eightstate_pc2.nc"))) ; var_orig <- "PC"
+# New are from 1980-2019
 (pc1_new <- nc_open(paste0(wd, "/pc12.v2/pc1.nc"))) ; var_new <- "z"
 (pc2_new <- nc_open(paste0(wd, "/pc12.v2/pc2.nc"))) ; var_new <- "z"
 (pc12_new <- nc_open(paste0(wd, "/pc12.v2/pc1plus2.nc"))) ; var_new <- "z"
 
-## Get lat/long
+
+## Get lat/long for rasterizing
 lon_orig <- ncvar_get(pc2_orig, "lon") ; dim(lon_orig) ; head(lon_orig)
 lat_orig <- ncvar_get(pc2_orig, "lat") ; dim(lat_orig) ; head(lat_orig)
 
@@ -28,7 +30,7 @@ lat_new <- ncvar_get(pc1_new, "lat") ; dim(lat_orig) ; head(lat_orig) # same for
 pc2_orig.array <- ncvar_get(pc2_orig, var_orig)
 # dlname <- ncatt_get(pc2_orig, var_orig, "long_name")
 # dunits <- ncatt_get(pc2_orig, var_orig, "units")
-# fillvalue <- ncatt_get(pc2_orig, var_orig, "_FillValue")
+fillvalue <- ncatt_get(pc2_orig, var_orig, "_FillValue")
 dim(pc2_orig.array) # Only spatial dimensions -- no time.
 ## Close the NetCDF file and work with array henceforth.
 nc_close(pc2_orig)
@@ -37,18 +39,21 @@ pc2_orig.array[pc2_orig.array == fillvalue$value] <- NA
 
 ## PC1_NEW
 pc1_new.array <- ncvar_get(pc1_new, var_new)
+fillvalue <- ncatt_get(pc1_new, var_new, "_FillValue")
 dim(pc1_new.array) # 3 dimensions -- inclues time.
 nc_close(pc1_new)
 pc1_new.array[pc2_orig.array == fillvalue$value] <- NA
 
 ## PC2_NEW
 pc2_new.array <- ncvar_get(pc2_new, var_new)
+fillvalue <- ncatt_get(pc2_new, var_new, "_FillValue")
 dim(pc2_new.array) # 3 dimensions -- inclues time.
 nc_close(pc2_new)
 pc2_new.array[pc2_orig.array == fillvalue$value] <- NA
 
 ## PC12_NEW
 pc12_new.array <- ncvar_get(pc12_new, var_new)
+fillvalue <- ncatt_get(pc12_new, var_new, "_FillValue")
 dim(pc12_new.array) # 3 dimensions -- inclues time.
 nc_close(pc12_new)
 pc12_new.array[pc2_orig.array == fillvalue$value] <- NA
@@ -56,76 +61,91 @@ pc12_new.array[pc2_orig.array == fillvalue$value] <- NA
 
 ## Rasterize
 # orig was on it's side hence t()
-# news have time dimension, hence brick.
+# news have time dimension, hence brick, then stack (not sure what diff is, but I know stacks).
 pc2_orig.r <- raster(t(pc2_orig.array),
                      xmn=min(lon_orig), xmx=max(lon_orig), ymn=min(lat_orig), ymx=max(lat_orig),
                      crs=crs) 
+plot(pc2_orig.r) #; zoom(pc2_orig.r)
+
+## Unclear why, but lat/lon is swapped and it's mirror image.
 pc1_new.r <- brick(pc1_new.array,
-                   xmn=min(lon_new), xmx=max(lon_orig),
-                   ymn=min(lat_new), ymx=max(lat_new),
-                   crs=crs) 
+                   # xmn=min(lon_new), xmx=max(lon_new),
+                   # ymn=min(lat_new), ymx=max(lat_new),
+                   xmn=min(lat_new), xmx=max(lat_new),
+                   ymn=min(lon_new), ymx=max(lon_new),
+                   crs=crs) %>% t() %>% stack()
+names(pc1_new.r) <- paste0("pc1_", c(1980:2019)) 
+plot(pc1_new.r$pc1_1980)
+
 pc2_new.r <- brick(pc2_new.array,
-                    xmn=min(lon_new), xmx=max(lon_orig),
-                    ymn=min(lat_new), ymx=max(lat_new),
-                    crs=crs)
+                   # xmn=min(lon_new), xmx=max(lon_new),
+                   # ymn=min(lat_new), ymx=max(lat_new),
+                   xmn=min(lat_new), xmx=max(lat_new),
+                   ymn=min(lon_new), ymx=max(lon_new),
+                   crs=crs) %>% t() %>% stack()
+names(pc2_new.r) <- paste0("pc2_", c(1980:2019)) 
+plot(pc2_new.r$pc2_1980)
+
+
 pc12_new.r <- brick(pc12_new.array,
-                     xmn=min(lon_new), xmx=max(lon_orig),
-                     ymn=min(lat_new), ymx=max(lat_new),
-                     crs=crs)
-
-plot(pc2_orig.r)
-plot(pc1_new.r[[4]])
-
-cellStats(pc.r, "min")
-cellStats(pc.r, "max")
+                    # xmn=min(lon_new), xmx=max(lon_new),
+                    # ymn=min(lat_new), ymx=max(lat_new),
+                    xmn=min(lat_new), xmx=max(lat_new),
+                    ymn=min(lon_new), ymx=max(lon_new),
+                     crs=crs) %>% t() %>% stack()
+names(pc12_new.r) <- paste0("pc12_", c(1980:2019)) 
+plot(pc12_new.r$pc12_1980)
 
 
 
+################KIM'S DATA#####################3
+
+pipo <- read.csv("pipo_recruitment_probabilities_bysite.csv", header = TRUE, sep = ",")
+# pipo_nr <- pipo %>% dplyr::filter(region == "NR") %>% dplyr::select(Site, year, recruit_prob) %>% rename(site = Site)
+# pipo_sw <- pipo %>% dplyr::filter(region == "SW") %>% dplyr::select(Site, year, recruit_prob) %>% rename(site = Site)
+pipo <- pipo %>% dplyr::select(Site, year, recruit_prob) %>% rename(site = Site)
+
+sites <- read.csv("Davis_et_al_recruitment_plot_data.csv", header = TRUE, sep = ",") %>%
+  dplyr::filter(region == "NR" | region == "SW") %>%
+  dplyr::select(site, Long_WGS84, Lat_WGS84) %>% rename(lon = Long_WGS84, lat = Lat_WGS84) %>%
+  unique() # don't need multiple yrs.
+
+pipo <- left_join(pipo, sites, by = "site")
+# pipo_nr <- left_join(pipo_nr, deets, by = "site")
+# pipo_sw <- left_join(pipo_sw, deets, by = "site")
 
 
-# #### PLOT #####################################################3
-# 
-# ## Convert raster data to dataframe for plotting
-# pc.data <- gplot_data(pc.r)
-# 
-# 
-# # What should the limits when plotting be?
-# min(pc.data$value[is.finite(pc.data$value)], na.rm =TRUE) # -0.6473524 ; 0.05369005 for pc1 (region wide avg)
-# max(pc.data$value[is.finite(pc.data$value)], na.rm =TRUE) # 0.8484244 ; 1.038476 for pc1 (region wide avg)
-# 
-# install.packages("ggalt")
-# library(ggalt)
-# 
-# display.brewer.pal(8, "Dark2")
-# dev.off()
-# par(mfrow=c(1,1))
-# pc <- ggplot() +
-#   geom_raster(data = pc.data, aes(x = x, y = y, fill = value), interpolate = TRUE) +
-#   geom_sf(data = nonIntWest, color = "#808B96", fill = "white") +
-#   geom_sf(data = IntWsts, color = "#808B96", fill = NA) +
-#   scale_fill_gradient2(low = palette[2], mid = "white", high = palette[3],
-#                        midpoint = 0,
-#                        limits = c(-1,1), #pc2 (dipole)
-#                        # limits = c(0,1.5), #pc1
-#                        na.value = NA) +
-#   coord_sf(xlim = c(-121, -100), ylim = c(30, 50), expand = FALSE) +
-#   theme_bw(base_size = 18) +
-#   theme(panel.grid.major = element_blank(), # blend lat/long into background
-#         panel.border = element_rect(fill = NA, color = "black", size = 0.5),
-#         panel.background = element_rect(fill = "#EAECEE"),
-#         axis.title = element_blank(),
-#         legend.background = element_rect(fill = "white", color = "black", size = 0,5),
-#         legend.justification=c(0,0), # defines which side oflegend .position coords refer to 
-#         legend.position=c(0,0),
-#         legend.text=element_text(size=12),
-#         legend.title = element_blank(),
-#         plot.margin=unit(c(0.5,0.5,0.5,0.5),"cm")) + # top, right, bottom, left
-#   annotate("text", x = -120.5, y = 49.5, label = "a", size = 6)
-# 
-# dev.off()
-# pc
-# 
-# # ggsave(paste0(out.dir,"pc1_map_",currentDate,".png"))
+## Extract values for each site and each year from 3 new rasters.
+# create empty vectors to drop values into
+pc1.temps <- vector()
+pc2.temps <- vector() 
+pc12.temps <- vector() 
+site.temps <- vector() 
+year.temps <- vector() 
+
+for(p in 1:nrow(sites)){ # for each site
+  for(y in 1:nlayers(pc1_new.r)){ # number of rasters = number of yrs
+    a <- as.numeric(raster::extract(pc1_new.r[[y]], sites[p,2:3])) # extract value at site's lat/lon (4:5)
+    pc1.temps <- c(pc1.temps, a)
+    b <- as.numeric(raster::extract(pc2_new.r[[y]], sites[p,2:3])) # extract value at site's lat/lon (4:5)
+    pc2.temps <- c(pc2.temps, b)
+    c <- as.numeric(raster::extract(pc12_new.r[[y]], sites[p,2:3])) # extract value at site's lat/lon (4:5)
+    pc12.temps <- c(pc12.temps, c)
+    d <- paste(sites[p,1]) # save site name
+    site.temps <- c(site.temps, d)
+    e <- right(names(pc12_new.r[[y]]),4) # save yr; same for all rasters.
+    year.temps <- c(year.temps, e)
+  }
+}
+val <- matrix(data = NA, nrow = nrow(sites)*nlayers(pc1_new.r), ncol = 5) # empty matrix to fill with vals
+val[,1] <- pc1.temps
+val[,2] <- pc2.temps
+val[,3] <- pc12.temps
+val[,4] <- site.temps
+val[,5] <- year.temps
+
+vals <- as.data.frame(val, col.names = c("pc1","pc2", "pc12", "site", "year"))
+
 
 
 
