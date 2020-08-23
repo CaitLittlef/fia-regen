@@ -6,8 +6,6 @@
 
 
 
-
-
 ######################
 #### SETUP: PCAS #####
 ######################
@@ -19,87 +17,91 @@ library(ncdf4)
 
 ## Open connection to dataset & print info to see var names.
 # var names for z-scores are diff across .nc files
-# John's prior version are 1984-2018.
-# (pc2_v2 <- nc_open(paste0(wd, "/pc12/eightstate_pc2.nc"))) ; var_orig <- "PC"
-# New are from 1980-2019
-(pc1_v3 <- nc_open(paste0(wd, "/pc12.v2/pc1.nc"))) ; var_new <- "z"
-(pc2_v3 <- nc_open(paste0(wd, "/pc12.v2/pc2.nc"))) ; var_new <- "z"
-(pc12_v3 <- nc_open(paste0(wd, "/pc12.v2/pc1plus2.nc"))) ; var_new <- "z"
+# John's prior version (v2) are 1984-2018. Only loading pc2 in prior version
+# (pc1_v2 <- nc_open(paste0(wd, "/pc12/eightstate_pc1.nc"))) ; var_v2 <- "PC"
+(pc2_v2 <- nc_open(paste0(wd, "/pc12/eightstate_pc2.nc"))) ; var_v2 <- "PC"
+# Newer version (v3) are from 1980-2019
+(pc1_v3 <- nc_open(paste0(wd, "/pc12.v2/pc1.nc"))) ; var_v3 <- "z"
+(pc2_v3 <- nc_open(paste0(wd, "/pc12.v2/pc2.nc"))) ; var_v3 <- "z"
+(pc12_v3 <- nc_open(paste0(wd, "/pc12.v2/pc1plus2.nc"))) ; var_v3 <- "z"
 
 
 ## Get lat/long for rasterizing
-# lon_orig <- ncvar_get(pc2_v2, "lon") ; dim(lon_orig) ; head(lon_orig)
-# lat_orig <- ncvar_get(pc2_v2, "lat") ; dim(lat_orig) ; head(lat_orig)
+lon_v2 <- ncvar_get(pc2_v2, "lon") ; dim(lon_v2) ; head(lon_v2)
+lat_v2 <- ncvar_get(pc2_v2, "lat") ; dim(lat_v2) ; head(lat_v2)
 
-lon_new <- ncvar_get(pc1_v3, "lon") ; dim(lon_new) ; head(lon_new) # same for other news
-lat_new <- ncvar_get(pc1_v3, "lat") ; dim(lat_new) ; head(lat_new) # same for other news
+lon_v3 <- ncvar_get(pc1_v3, "lon") ; dim(lon_v3) ; head(lon_v3) # same for other news
+lat_v3 <- ncvar_get(pc1_v3, "lat") ; dim(lat_v3) ; head(lat_v3) # same for other news
 
-# ## pc2_v2
-# # Get variable (pc values) and attributes; verify size of array.
-# pc2_v2.array <- ncvar_get(pc2_v2, var_orig)
-# # dlname <- ncatt_get(pc2_v2, var_orig, "long_name")
-# # dunits <- ncatt_get(pc2_v2, var_orig, "units")
-# fillvalue <- ncatt_get(pc2_v2, var_orig, "_FillValue")
-# dim(pc2_v2.array) # Only spatial dimensions -- no time.
-# ## Close the NetCDF file and work with array henceforth.
-# nc_close(pc2_v2)
-# ## Convert NetCDF fill values to NAs (standard for R)
-# pc2_v2.array[pc2_v2.array == fillvalue$value] <- NA
+
+## pc2_v2
+# Get variable (pc values) and attributes; verify size of array.
+pc2_v2.array <- ncvar_get(pc2_v2, var_v2)
+# dlname <- ncatt_get(pc2_v2, var_v2, "long_name")
+# dunits <- ncatt_get(pc2_v2, var_v2, "units")
+fillvalue <- ncatt_get(pc2_v2, var_v2, "_FillValue")
+dim(pc2_v2.array) # Only spatial dimensions -- no time.
+## Close the NetCDF file and work with array henceforth.
+nc_close(pc2_v2)
+## Convert NetCDF fill values to NAs (standard for R)
+pc2_v2.array[pc2_v2.array == fillvalue$value] <- NA
 
 ## pc1_v3
-pc1_v3.array <- ncvar_get(pc1_v3, var_new)
-fillvalue <- ncatt_get(pc1_v3, var_new, "_FillValue")
+pc1_v3.array <- ncvar_get(pc1_v3, var_v3)
+fillvalue <- ncatt_get(pc1_v3, var_v3, "_FillValue")
 dim(pc1_v3.array) # 3 dimensions -- inclues time.
 nc_close(pc1_v3)
 pc1_v3.array[pc1_v3.array == fillvalue$value] <- NA
 
 ## pc2_v3
-pc2_v3.array <- ncvar_get(pc2_v3, var_new)
-fillvalue <- ncatt_get(pc2_v3, var_new, "_FillValue")
+pc2_v3.array <- ncvar_get(pc2_v3, var_v3)
+fillvalue <- ncatt_get(pc2_v3, var_v3, "_FillValue")
 dim(pc2_v3.array) # 3 dimensions -- inclues time.
 nc_close(pc2_v3)
 pc2_v3.array[pc1_v3.array == fillvalue$value] <- NA
 
 ## pc12_v3
-pc12_v3.array <- ncvar_get(pc12_v3, var_new)
-fillvalue <- ncatt_get(pc12_v3, var_new, "_FillValue")
+pc12_v3.array <- ncvar_get(pc12_v3, var_v3)
+fillvalue <- ncatt_get(pc12_v3, var_v3, "_FillValue")
 dim(pc12_v3.array) # 3 dimensions -- inclues time.
 nc_close(pc12_v3)
 pc12_v3.array[pc1_v3.array == fillvalue$value] <- NA
 
 
 ## Rasterize
-# on sides hence t(); v3 have time dimension, hence brick, then stack (not sure what diff is, but I know stacks).
-# pc2_v2.r <- raster(t(pc2_v2.array),
-#                      xmn=min(lon_orig), xmx=max(lon_orig), ymn=min(lat_orig), ymx=max(lat_orig),
-#                      crs=crs) 
-# plot(pc2_v2.r) #; zoom(pc2_v2.r)
+# on sides hence t()
+# v3 have time dimension, hence brick, then stack (not sure what diff is, but I know stacks).
+
+pc2_v2.r <- raster(t(pc2_v2.array),
+                     xmn=min(lon_v2), xmx=max(lon_v2), ymn=min(lat_v2), ymx=max(lat_v2),
+                     crs=crs)
+plot(pc2_v2.r) #; zoom(pc2_v2.r)
 
 ## Unclear why, but lat/lon is swapped and it's mirror image.
 pc1_v3.r <- brick(pc1_v3.array,
-                   # xmn=min(lon_new), xmx=max(lon_new),
-                   # ymn=min(lat_new), ymx=max(lat_new),
-                   xmn=min(lat_new), xmx=max(lat_new),
-                   ymn=min(lon_new), ymx=max(lon_new),
+                   # xmn=min(lon_v3), xmx=max(lon_v3),
+                   # ymn=min(lat_v3), ymx=max(lat_v3),
+                   xmn=min(lat_v3), xmx=max(lat_v3),
+                   ymn=min(lon_v3), ymx=max(lon_v3),
                    crs=crs) %>% t() %>% stack()
 names(pc1_v3.r) <- paste0("pc1_", c(1980:2019)) 
 plot(pc1_v3.r$pc1_1980)
 
 pc2_v3.r <- brick(pc2_v3.array,
-                   # xmn=min(lon_new), xmx=max(lon_new),
-                   # ymn=min(lat_new), ymx=max(lat_new),
-                   xmn=min(lat_new), xmx=max(lat_new),
-                   ymn=min(lon_new), ymx=max(lon_new),
+                   # xmn=min(lon_v3), xmx=max(lon_v3),
+                   # ymn=min(lat_v3), ymx=max(lat_v3),
+                   xmn=min(lat_v3), xmx=max(lat_v3),
+                   ymn=min(lon_v3), ymx=max(lon_v3),
                    crs=crs) %>% t() %>% stack()
 names(pc2_v3.r) <- paste0("pc2_", c(1980:2019)) 
 plot(pc2_v3.r$pc2_1980)
 
 
 pc12_v3.r <- brick(pc12_v3.array,
-                    # xmn=min(lon_new), xmx=max(lon_new),
-                    # ymn=min(lat_new), ymx=max(lat_new),
-                    xmn=min(lat_new), xmx=max(lat_new),
-                    ymn=min(lon_new), ymx=max(lon_new),
+                    # xmn=min(lon_v3), xmx=max(lon_v3),
+                    # ymn=min(lat_v3), ymx=max(lat_v3),
+                    xmn=min(lat_v3), xmx=max(lat_v3),
+                    ymn=min(lon_v3), ymx=max(lon_v3),
                      crs=crs) %>% t() %>% stack()
 names(pc12_v3.r) <- paste0("pc12_", c(1980:2019)) 
 plot(pc12_v3.r$pc12_1980)
@@ -112,8 +114,7 @@ plot(pc12_v3.r$pc12_1980)
 
 ## Load Kim's pipo data
 pipo <- read.csv("pipo_recruitment_probabilities_bysite.csv", header = TRUE, sep = ",")
-pipo <- pipo %>%
-  # dplyr::filter(region == "NR" | region == "SW") %>% # some non-overlap btwn csvs so don't pull out region in
+pipo <- pipo %>% # some non-overlap btwn csvs so only pull out regions here. 
   dplyr::select(Site, year, recruit_prob) %>%
   rename(site = Site, pr = recruit_prob)
 
@@ -168,6 +169,7 @@ vals[cols.num] <- sapply(vals[cols.num], as.numeric)
 ## Re-join with recruitment probabilities, only where there's overlap (in site and year)
 data <- vals %>% inner_join(pipo, by = c("site", "year"))
 
+## Create averages across sites, too. 
 data.avg <- data %>%
   # filter(region == "NR") %>% # NR n = 35
   # filter(region == "SW") %>% # SW n = 35
@@ -181,7 +183,7 @@ data.avg <- data %>%
 
 
 #######################################
-#### TEST CORRS BTWN RECRUIT & PCS ####
+#### CORR: RECRUIT & SITE-LEVEL PC ####
 #######################################
 
 ## Any correlations btwn recruitment & p1, pc2 or pc12 at individ sites?
@@ -191,8 +193,8 @@ corrs_nr <- data %>%
   filter(region == "NR") %>%
   # filter(region == "NR", year > 1983, year < 2016) %>%
   group_by(site) %>%
-  summarise(cor_pc1 = cor.test(pc1, pr, method = "spearman")[[4]], # corr coeff given as 4th in list from cor.test
-            p.cor_pc1 = cor.test(pc1, pr, method = "spearman")[[3]], # p-val given as 3rd in list from cor.test
+  summarise(cor_pc1 = cor.test(pc1, pr, method = "spearman")[[4]], # corr coeff is 4th in output list
+            p.cor_pc1 = cor.test(pc1, pr, method = "spearman")[[3]], # p-val is 3rd in output list
             cor_pc2 = cor.test(pc2, pr, method = "spearman")[[4]],
             p.cor_pc2 = cor.test(pc2, pr, method = "spearman")[[3]],
             cor_pc12 = cor.test(pc12, pr, method= "spearman")[[4]],
@@ -204,11 +206,6 @@ mean(corrs_nr$cor_pc1) ; mean(corrs_nr$p.cor_pc1)
 mean(corrs_nr$cor_pc2) ; mean(corrs_nr$p.cor_pc2)
 mean(corrs_nr$cor_pc12) ; mean(corrs_nr$p.cor_pc12)
 
-## Plots of recruitment against PCs at all sites in region
-# plot(data$pc1[data$region == "NR"], data$pr[data$region == "NR"])
-# plot(data$pc2[data$region == "NR"], data$pr[data$region == "NR"])
-# plot(data$pc12[data$region == "NR"], data$pr[data$region == "NR"])
-
 
 
 ## SW
@@ -216,8 +213,8 @@ corrs_sw <- data %>%
   filter(region == "NR") %>%
   # filter(region == "SW", year > 1983, year < 2016) %>%
   group_by(site) %>%
-  summarise(cor_pc1 = cor.test(pc1, pr, method = "spearman")[[4]], # corr coeff given as 4th in list from cor.test
-            p.cor_pc1 = cor.test(pc1, pr, method = "spearman")[[3]], # p-val given as 3rd in list from cor.test
+  summarise(cor_pc1 = cor.test(pc1, pr, method = "spearman")[[4]], # corr coeff is 4th in output list
+            p.cor_pc1 = cor.test(pc1, pr, method = "spearman")[[3]], # p-val is 3rd in output list
             cor_pc2 = cor.test(pc2, pr, method = "spearman")[[4]],
             p.cor_pc2 = cor.test(pc2, pr, method = "spearman")[[3]],
             cor_pc12 = cor.test(pc12, pr, method= "spearman")[[4]],
@@ -229,100 +226,255 @@ mean(corrs_sw$cor_pc1) ; mean(corrs_sw$p.cor_pc1)
 mean(corrs_sw$cor_pc2) ; mean(corrs_sw$p.cor_pc2)
 mean(corrs_sw$cor_pc12) ; mean(corrs_sw$p.cor_pc12)
 
-## Plots of recruitment against PCs at all sites in region
-# plot(data$pc1[data$region == "SW"], data$pr[data$region == "SW"])
-# plot(data$pc2[data$region == "SW"], data$pr[data$region == "SW"])
-# plot(data$pc12[data$region == "SW"], data$pr[data$region == "SW"])
 
 
 
-#############################################################
-#### TEST RELATIONSIHP BTWN AVG RECRUIT & AVG PCS & PLOT ####
-#############################################################
+#####################################################
+#### CORR: RECRUIT & AVG'D SITE & DOMAIN-WIDE PC ####
+#####################################################
 
-## Any relationship btwn average recruitment per region and average pc values??
+## What's correlation between AVERAGED recruit probs and AVERAGED PC vals across sites?
+## What about AVERAGED recruit probs and DOMAIN-WIDE PC vals?
 
-## Test correlations & plot between avg pr across sites and avg pc values; incl. prior dipole version.
-# # d_v2 is John's prior PCA based '84-'18 (otherwise hindcast) w no linear combo of 1&2.
-# This time series is domain-wide and we do NOT extract values to individual sites.
+# d_v2 is domain-wide PCA vals based '84-'18 (otherwise hindcast) w/o linear combo of 1&2.
 d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",") %>%
   filter(year >= min(data.avg$year),  year <= max(data.avg$year)) %>% dplyr::select(year,pc1, pc2)
 
-## Log-transform to spread out; add simple linear model to show trend. Show r^2 from mod summary.
-# Save by exporting what's in view.
 
+
+## MAke sure they hold up with bootstrapping?
+# ref: https://www.datacamp.com/community/tutorials/bootstrap-r
+
+## Define function for correlatio that we want to bootstrap
+fun.cor <- function(data, indices){ # dunno what indices is for
+  d <-data[indices,]
+  c(cor.test(d[,1], d[,2], method = "spearman")[[4]], # corr coeff given as 4th in list from cor.test
+    cor.test(d[,1], d[,2], method = "spearman")[[3]]) # p val given as 3rd in list from cor.test
+}
+
+
+dev.off()
 par(mfrow=c(2,3))
 
-##*********
-## NR
-(c <- cor.test(data.avg$pr.avg[data.avg$region == "NR"], data.avg$pc1.avg[data.avg$region == "NR"]))
-(m <- lm(pc1.avg ~ log(pr.avg), data = data.avg[data.avg$region == "NR",]))
-nr1 <- plot(log(data.avg$pr.avg[data.avg$region == "NR"]), data.avg$pc1.avg[data.avg$region == "NR"],
+##**##**##**##**##**##**##**##**##**##**##**##**##**##**##**##**##
+## Select NR
+temp <- data.avg[data.avg$region == "NR",]
+
+################ NR PC1
+# Test correlation; save as object
+(c <- cor.test(temp$pr.avg, temp$pc1.avg, method = "spearman"))
+# Create linear model of log-transformed recruit probs (b/s right skewed)
+(m <- lm(pc1.avg ~ log(pr.avg), data = temp))
+# Plot recruit probs and PC vals against one another; add line and r^2
+nr1 <- plot(log(temp$pr.avg), temp$pc1.avg,
             col = alpha(pal.ryb[1], 0.6), pch = 19, cex = 2,
             main = "NR recruitment vs. PC1", xlab = "log(recruitment probability)", ylab = "PC1")
 abline(m)
-# text(0.4, max(data.avg$pc1.avg[data.avg$region == "NR"])-0.2,
-#      paste0("r = ",round(c[[4]],4),"\np val = ",round(c[[3]],4)))
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
-# old, domain-wide pc values
-cor.test(data.avg$pr.avg[data.avg$region == "NR"], d_v2$pc1)
+# Test corr between avg recruit probs and domain-wide pc values
+cor.test(temp$pr.avg, d_v2$pc1, method = "spearman")
+
+# bootstrap for PC vals averaged across sites
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc1.avg)) 
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Original gives orig (with full dataset); get with booty$t0; get al new with booty$t
+# Bias gives diff btwn mean of bootstrap realizations & original with full dataset.
+# Bootstrap Statistics :
+#   original      bias    std. error
+# t1* -0.6078431373 0.018828880  0.11964559
+# t2*  0.0001469972 0.007119107  0.03481685
+# 95%   (-0.7829, -0.3085 ) 
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
+
+# bootstrap for domain-wide pc values
+boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc1))
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original      bias    std. error
+# t1* -0.63529411765 0.018611609  0.11087893
+# t2*  0.00006074087 0.002910884  0.01408498
+# 95%   (-0.8035, -0.3987 )
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 
-(c <- cor.test(data.avg$pr.avg[data.avg$region == "NR"], data.avg$pc2.avg[data.avg$region == "NR"]))
-(m <- lm(pc2.avg ~ log(pr.avg), data = data.avg[data.avg$region == "NR",]))
-nr2 <- plot(log(data.avg$pr.avg[data.avg$region == "NR"]), data.avg$pc2.avg[data.avg$region == "NR"],
+
+
+################ NR PC2
+(c <- cor.test(temp$pr.avg, temp$pc2.avg, method = "spearman"))
+(m <- lm(pc2.avg ~ log(pr.avg), data = temp))
+nr2 <- plot(log(temp$pr.avg), temp$pc2.avg,
             col = alpha(pal.ryb[1], 0.6), pch = 19, cex = 2,
             main = "NR recruitment vs. PC2", xlab = "log(recruitment probability)", ylab = "PC2")
 abline(m)
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
-# old, domain-wide pc values
-cor.test(data.avg$pr.avg[data.avg$region == "NR"], d_v2$pc2)
+# Test corr between avg recruit probs and domain-wide pc values
+cor.test(temp$pr.avg, d_v2$pc2, method = "spearman")
+
+# bootstrap for PC vals averaged across sites
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc2.avg)) 
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original     bias    std. error
+# t1* -0.38543417 0.01356734   0.1481252
+# t2*  0.02289188 0.07753115   0.1866583
+# 95%   (-0.6194, -0.0312 )
+
+# bootstrap for domain-wide pc values
+boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc2))
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original      bias    std. error
+# t1* 0.2705882 -0.001089782   0.1721986
+# t2* 0.1158756  0.110537209   0.2678702
+# 95%   (-0.1084,  0.5651 )
 
 
-(c <- cor.test(data.avg$pr.avg[data.avg$region == "NR"], data.avg$pc12.avg[data.avg$region == "NR"]))
-(m <- lm(pc12.avg ~ log(pr.avg), data = data.avg[data.avg$region == "NR",]))
-nr12 <- plot(log(data.avg$pr.avg[data.avg$region == "NR"]), data.avg$pc12.avg[data.avg$region == "NR"],
+################ NR PC12
+(c <- cor.test(temp$pr.avg, temp$pc12.avg, method = "spearman"))
+(m <- lm(pc12.avg ~ log(pr.avg), data = temp))
+nr12 <- plot(log(temp$pr.avg), temp$pc12.avg,
              col = alpha(pal.ryb[1], 0.6), pch = 19, cex = 2,
              main = "NR recruitment vs. PC1&2", xlab = "log(recruitment probability)", ylab = "PC1&2")
 abline(m)
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
 
+# bootstrap for PC vals averaged across sites (don't have domain-ide for pc12)
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc12.avg)) 
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original     bias    std. error
+# t1* -0.718207282913 0.020029709 0.090522876
+# t2*  0.000002837194 0.000319954 0.001834278
+# 95%   (-0.8437, -0.4933 )
 
 
-##**##**##**##**##
-##SW
-(c <- cor.test(data.avg$pr.avg[data.avg$region == "SW"], data.avg$pc1.avg[data.avg$region == "SW"]))
-(m <- lm(pc1.avg ~ log(pr.avg), data = data.avg[data.avg$region == "SW",]))
-sw1 <- plot(log(data.avg$pr.avg[data.avg$region == "SW"]), data.avg$pc1.avg[data.avg$region == "SW"],
+
+
+
+##**##**##**##**##**##**##**##**##**##**##**##**##**##**##**##**##
+## Select SW
+temp <- data.avg[data.avg$region == "SW",]
+
+################ SW PC1
+(c <- cor.test(temp$pr.avg, temp$pc1.avg, method = "spearman"))
+(m <- lm(pc1.avg ~ log(pr.avg), data = temp))
+sw1 <- plot(log(temp$pr.avg), temp$pc1.avg,
             col = alpha(pal.ryb[8], 0.6), pch = 19, cex = 2,
             main = "SW recruitment vs. PC1", xlab = "log(recruitment probability)", ylab = "PC1")
 abline(m)
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
-# old, domain-wide pc values
-cor.test(data.avg$pr.avg[data.avg$region == "SW"], d_v2$pc1)
+# Test corr between avg recruit probs and domain-wide pc values
+cor.test(temp$pr.avg, d_v2$pc1, method = "spearman")
 
+# bootstrap for PC vals averaged across sites
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc1.avg)) 
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original      bias    std. error
+# t1* -0.38739496 0.01879107   0.1483031
+# t2*  0.02216301 0.08333934   0.1907745
+# 95%   (-0.6174, -0.0363 )   
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
-(c <- cor.test(data.avg$pr.avg[data.avg$region == "SW"], data.avg$pc2.avg[data.avg$region == "SW"]))
-(m <- lm(pc2.avg ~ log(pr.avg), data = data.avg[data.avg$region == "SW",]))
-sw2 <- plot(log(data.avg$pr.avg[data.avg$region == "SW"]), data.avg$pc2.avg[data.avg$region == "SW"],
+# bootstrap for domain-wide pc values
+boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc1))
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original      bias    std. error
+# t1* -0.35882353 0.01362393   0.1548825
+# t2*  0.03493142 0.09868127   0.2079373
+# 95%   (-0.6271, -0.0312 )
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
+
+################ SW PC2
+(c <- cor.test(temp$pr.avg, temp$pc2.avg, method = "spearman"))
+(m <- lm(pc2.avg ~ log(pr.avg), data = temp))
+sw2 <- plot(log(temp$pr.avg), temp$pc2.avg,
             col = alpha(pal.ryb[8], 0.6), pch = 19, cex = 2,
             main = "SW recruitment vs. PC2", xlab = "log(recruitment probability)", ylab = "PC2")
 abline(m)
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
-# old, domain-wide pc values
-cor.test(data.avg$pr.avg[data.avg$region == "SW"], d_v2$pc2)
+# Test corr between avg recruit probs and domain-wide pc values
+cor.test(temp$pr.avg, d_v2$pc2, method = "spearman")
+
+# bootstrap for PC vals averaged across sites
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc2.avg)) 
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original     bias    std. error
+# t1* -0.455182073 0.003996809   0.1546509
+# t2*  0.006475758 0.050959701   0.1379573
+# 95%   (-0.7093, -0.1191 )
+
+# bootstrap for domain-wide pc values
+boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc2))
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original      bias    std. error
+# t1* -0.5490196078 0.01278176  0.13954785
+# t2*  0.0007724593 0.01854940  0.07164676
+# 95%   (-0.7720, -0.2177 )  
 
 
-(c <- cor.test(data.avg$pr.avg[data.avg$region == "SW"], data.avg$pc12.avg[data.avg$region == "SW"]))
-(m <- lm(pc12.avg ~ log(pr.avg), data = data.avg[data.avg$region == "SW",]))
-sw12 <- plot(log(data.avg$pr.avg[data.avg$region == "SW"]), data.avg$pc12.avg[data.avg$region == "SW"],
+
+
+################ SW PC12
+(c <- cor.test(temp$pr.avg, temp$pc12.avg, method = "spearman"))
+(m <- lm(pc12.avg ~ log(pr.avg), data = temp))
+sw12 <- plot(log(temp$pr.avg), temp$pc12.avg,
              col = alpha(pal.ryb[8], 0.6), pch = 19, cex = 2,
              main = "SW recruitment vs. PC1&2", xlab = "log(recruitment probability)", ylab = "PC1&2")
 abline(m)
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
 
+# bootstrap for PC vals averaged across sites (don't have domain-ide for pc12)
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc12.avg)) 
+(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+# Bootstrap Statistics :
+#   original     bias    std. error
+# t1* -0.700000000000 0.011167786 0.099842266
+# t2*  0.000005674013 0.001009157 0.009965444
+# 95%   (-0.8413, -0.4429 ) 
+
+
+# EXPORT FROM PLOT VIEWER TO SAVE.
+
 dev.off()
 par(mfrow=c(1,1))
+
+
+
+
+###################################
+#### TEST CORRS WITH BOOTSTRAP ####
+###################################
+
+
+
+## NR PC1
+
+
+############
+## SW
+data <- as.data.frame(cbind(pipo_sw, d_v2)) %>% dplyr::select(pr, value)
+booty <- boot(data, fun.cor, R=1000)
+
+booty
+
+## orig gives orig (with full dataset), bias gives diff btwn mean of bootstrap realizations & orig. 
+# Bootstrap Statistics :
+#   original     bias    std. error
+# t1* -0.540689150 0.01027947  0.13975005
+# t2*  0.001644087 0.02136227  0.07223205
+
+booty$t0 # gives orig
+booty$t # gives all new
+
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
+plot(booty, index = 2) # here, index refers to p-val
+
+boot.ci(booty, index = 1, type = "perc")
+
 
 
 
@@ -335,7 +487,7 @@ par(mfrow=c(1,1))
 
 ## Plot both recruitment and dipole. Incl. domain-wide (defined for 1984-2018) AND site-specifi PC vals averaged
 d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",") %>%
-  filter(year >= min(data.avg$year),  year <= max(data.avg$year)) %>% dplyr::select(year,pc1, pc2)
+  filter(year >= min(temp$year),  year <= max(temp$year)) %>% dplyr::select(year,pc1, pc2)
 
 display.brewer.pal(8, "Dark2")
 display.brewer.pal(8, "RdYlBu")
@@ -358,8 +510,8 @@ g <- ggplot() +
             # aes(x = year, y = pc12, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
   
   ########### Select NR or NR
-  # geom_line(data = data.avg[data.avg$region == "NR",],
-  geom_line(data = data.avg[data.avg$region == "SW",],
+  # geom_line(data = temp[temp$region == "NR",],
+  geom_line(data = temp[temp$region == "SW",],
             
             ########### Select which PC
             aes(x = year, y = pc1.avg), cex = 0.75, col = "dark grey") +
@@ -371,8 +523,8 @@ g <- ggplot() +
   geom_line(data = data[data$region == "SW",], aes(x = year, y = pr, group = site), cex = 0.5, col = pal.ryb[6], alpha = 0.25) +
   
   ########### Select NR or NR
-  # geom_line(data = data.avg[data.avg$region == "NR",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[1]) +
-  geom_line(data = data.avg[data.avg$region == "SW",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[8]) +
+  # geom_line(data = temp[temp$region == "NR",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[1]) +
+  geom_line(data = temp[temp$region == "SW",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[8]) +
   
   
   scale_x_continuous(breaks = seq(1980, 2016, 5)) +
@@ -623,14 +775,14 @@ range(d_v2$year)
 cor.test(pipo_nr$pr, d_v2$value, method = "spearman")
 # cor.test(pipo_nr$pr, d_v2_w$value, method = "spearman")
 
-temp <- data.avg %>% filter(region == "NR", year > 1983, year < 2016)
+temp <- temp %>% filter(region == "NR", year > 1983, year < 2016)
 cor.test(temp$pr.avg, d_v2$value, method = "spearman")
 
 # cor.test(pipo_sw$pr, d_v1$value, method = "spearman")
 cor.test(pipo_sw$pr, d_v2$value, method = "spearman")
 # cor.test(pipo_sw$pr, d_v2_w$value, method = "spearman") 
 
-temp <- data.avg %>% filter(region == "SW", year > 1983, year < 2016)
+temp <- temp %>% filter(region == "SW", year > 1983, year < 2016)
 cor.test(temp$pr.avg, d_v2$value, method = "spearman")
 
 # ## NR break-point 1996
@@ -648,62 +800,7 @@ cor.test(temp$pr.avg, d_v2$value, method = "spearman")
 
 
 
-####################################### BOOTSTRAP ###################################
-# ref: https://www.datacamp.com/community/tutorials/bootstrap-r
 
-
-## Define function for correlatio that we want to bootstrap
-fun.cor <- function(data, indices){ # dunno what indices is for
-  d <-data[indices,]
-  c(cor.test(d[,1], d[,2], method = "spearman")[[4]], # corr coeff given as 4th in list from cor.test
-    cor.test(d[,1], d[,2], method = "spearman")[[3]]) # p val given as 3rd in list from cor.test
-}
-
-
-
-############
-## NR
-data <- as.data.frame(cbind(pipo_nr, d_v2)) %>% dplyr::select(pr, value)
-booty <- boot(data, fun.cor, R=1000)
-
-booty
-
-## orig gives orig (with full dataset), bias gives diff btwn mean of bootstrap realizations & orig. 
-# Bootstrap Statistics :
-#     original    bias          std. error
-# t1* 0.34310850 -0.006477764   0.1830347
-# t2* 0.05515087  0.107969570   0.2340709
-
-booty$t0 # gives orig
-booty$t # gives all new
-
-plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
-plot(booty, index = 2) # here, index refers to p-val
-
-boot.ci(booty, index = 1, type = "perc")
-
-
-
-############
-## SW
-data <- as.data.frame(cbind(pipo_sw, d_v2)) %>% dplyr::select(pr, value)
-booty <- boot(data, fun.cor, R=1000)
-
-booty
-
-## orig gives orig (with full dataset), bias gives diff btwn mean of bootstrap realizations & orig. 
-# Bootstrap Statistics :
-#   original     bias    std. error
-# t1* -0.540689150 0.01027947  0.13975005
-# t2*  0.001644087 0.02136227  0.07223205
-
-booty$t0 # gives orig
-booty$t # gives all new
-
-plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
-plot(booty, index = 2) # here, index refers to p-val
-
-boot.ci(booty, index = 1, type = "perc")
 
 
 
@@ -775,34 +872,4 @@ pdf(paste0(out.dir,"pc_vs_recruitment_v",v,"_",currentDate,".pdf"),
 # do.call("grid.arrange", c(grobs, ncol = 1))
 grid.arrange(NR, SW)
 dev.off()
-
-# Or jut consider exporting from plot viewer; shrink from 8.5x11 to 8.5x6
-
-###########################################################
-
-## Plot both recruitment and dipole, facet by region
-# t <- ggplot() +
-#   # geom_hline(yintercept=0, col = palette[8], linetype="dashed") + 
-#   geom_line(data = pipo, aes(x = year, y = pr*3, col = region), cex = 1) +
-#   scale_fill_manual(c(palette[5], palette[6]), lab = NULL) +
-#   facet_wrap(~region, ncol = 1) + 
-#   geom_line(data = d_v2, aes(x = year, y = value), cex = 1, col = palette[8], linetype="dashed") +
-#   geom_point(data = d_v2[abs(d_v2$value)>1,],
-#              aes(x = year, y = value), col = palette[2], cex = 2) +
-#   labs(x = NULL,
-#        # y = "PC1") +
-#        y = expression(PC[dipole])) + # expression to set subscript of d
-#   scale_x_continuous(breaks = seq(1985, 2015, 5)) +
-#   scale_y_continuous(sec.axis = sec_axis(~./3), name = "test") +
-#   theme_bw(base_size = 18) +
-#   theme(panel.grid.major = element_blank(),
-#         panel.grid.minor = element_blank(),
-#         # axis.title.y = element_text(hjust = 0.5),
-#         legend.justification=c(1,0), 
-#         legend.position = "none",
-#         plot.margin=unit(c(0.25,0.5,0.25,0.5),"cm"))  #trbl
-# # annotate("text", x = 1982, y = 2.25, label = "b", size = 6)
-# dev.off()
-# t
-# 
 
