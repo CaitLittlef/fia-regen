@@ -18,7 +18,7 @@ library(ncdf4)
 ## Open connection to dataset & print info to see var names.
 # var names for z-scores are diff across .nc files
 # John's prior version (v2) are 1984-2018. Only loading pc2 in prior version
-# (pc1_v2 <- nc_open(paste0(wd, "/pc12/eightstate_pc1.nc"))) ; var_v2 <- "PC"
+(pc1_v2 <- nc_open(paste0(wd, "/pc12/eightstate_pc1.nc"))) ; var_v2 <- "PC"
 (pc2_v2 <- nc_open(paste0(wd, "/pc12/eightstate_pc2.nc"))) ; var_v2 <- "PC"
 # Newer version (v3) are from 1980-2019
 (pc1_v3 <- nc_open(paste0(wd, "/pc12.v2/pc1.nc"))) ; var_v3 <- "z"
@@ -27,8 +27,8 @@ library(ncdf4)
 
 
 ## Get lat/long for rasterizing
-lon_v2 <- ncvar_get(pc2_v2, "lon") ; dim(lon_v2) ; head(lon_v2)
-lat_v2 <- ncvar_get(pc2_v2, "lat") ; dim(lat_v2) ; head(lat_v2)
+lon_v2 <- ncvar_get(pc1_v2, "lon") ; dim(lon_v2) ; head(lon_v2)
+lat_v2 <- ncvar_get(pc1_v2, "lat") ; dim(lat_v2) ; head(lat_v2)
 
 lon_v3 <- ncvar_get(pc1_v3, "lon") ; dim(lon_v3) ; head(lon_v3) # same for other news
 lat_v3 <- ncvar_get(pc1_v3, "lat") ; dim(lat_v3) ; head(lat_v3) # same for other news
@@ -45,6 +45,13 @@ dim(pc2_v2.array) # Only spatial dimensions -- no time.
 nc_close(pc2_v2)
 ## Convert NetCDF fill values to NAs (standard for R)
 pc2_v2.array[pc2_v2.array == fillvalue$value] <- NA
+
+## pc1_v2
+pc1_v2.array <- ncvar_get(pc1_v2, var_v2)
+fillvalue <- ncatt_get(pc1_v2, var_v2, "_FillValue")
+dim(pc1_v2.array) # Only spatial dimensions -- no time.
+nc_close(pc1_v2)
+pc1_v2.array[pc1_v2.array == fillvalue$value] <- NA
 
 ## pc1_v3
 pc1_v3.array <- ncvar_get(pc1_v3, var_v3)
@@ -71,6 +78,11 @@ pc12_v3.array[pc1_v3.array == fillvalue$value] <- NA
 ## Rasterize
 # on sides hence t()
 # v3 have time dimension, hence brick, then stack (not sure what diff is, but I know stacks).
+
+pc1_v2.r <- raster(t(pc1_v2.array),
+                   xmn=min(lon_v2), xmx=max(lon_v2), ymn=min(lat_v2), ymx=max(lat_v2),
+                   crs=crs)
+plot(pc1_v2.r) #; zoom(pc1_v2.r)
 
 pc2_v2.r <- raster(t(pc2_v2.array),
                      xmn=min(lon_v2), xmx=max(lon_v2), ymn=min(lat_v2), ymx=max(lat_v2),
@@ -107,16 +119,17 @@ names(pc12_v3.r) <- paste0("pc12_", c(1980:2019))
 plot(pc12_v3.r$pc12_1980)
 
 
-
+##########################################################################################
 ##############################
 #### PCA & RECRUIT PROBS #####
 ##############################
 
-## Load Kim's pipo data
+## Load Kim's pipo data; 1981-2015
 pipo <- read.csv("pipo_recruitment_probabilities_bysite.csv", header = TRUE, sep = ",")
 pipo <- pipo %>% # some non-overlap btwn csvs so only pull out regions here. 
   dplyr::select(Site, year, recruit_prob) %>%
   rename(site = Site, pr = recruit_prob)
+range(pipo$year)
 
 ## Load Kim's site-specific data.
 sites <- read.csv("Davis_et_al_recruitment_plot_data.csv", header = TRUE, sep = ",")
@@ -127,9 +140,9 @@ sites <- sites %>%
   unique() # don't need multiple yrs.
 
 pipo <- left_join(sites, pipo, by = "site")
-# pipo_nr <- left_join(pipo_nr, deets, by = "site")
-# pipo_sw <- left_join(pipo_sw, deets, by = "site")
 
+# How many in each region?
+pipo %>% dplyr::select(site, region) %>% unique() %>% count(region)
 
 ## Extract values for each site and each year from 3 new rasters.
 # create empty vectors to drop values into
@@ -181,7 +194,7 @@ data.avg <- data %>%
   ungroup()
 
 
-
+##########################################################################################
 #######################################
 #### CORR: RECRUIT & SITE-LEVEL PC ####
 #######################################
@@ -228,7 +241,7 @@ mean(corrs_sw$cor_pc12) ; mean(corrs_sw$p.cor_pc12)
 
 
 
-
+##########################################################################################
 #####################################################
 #### CORR: RECRUIT & AVG'D SITE & DOMAIN-WIDE PC ####
 #####################################################
@@ -239,7 +252,6 @@ mean(corrs_sw$cor_pc12) ; mean(corrs_sw$p.cor_pc12)
 # d_v2 is domain-wide PCA vals based '84-'18 (otherwise hindcast) w/o linear combo of 1&2.
 d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",") %>%
   filter(year >= min(data.avg$year),  year <= max(data.avg$year)) %>% dplyr::select(year,pc1, pc2)
-
 
 
 ## MAke sure they hold up with bootstrapping?
@@ -276,31 +288,33 @@ cor.test(temp$pr.avg, d_v2$pc1, method = "spearman")
 
 # bootstrap for PC vals averaged across sites
 boo <- as.data.frame(cbind(temp$pr.avg, temp$pc1.avg)) 
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+(booty <- boot(boo, fun.cor, R=1000)) ; mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
 # Original gives orig (with full dataset); get with booty$t0; get al new with booty$t
 # Bias gives diff btwn mean of bootstrap realizations & original with full dataset.
 # Bootstrap Statistics :
 #   original      bias    std. error
-# t1* -0.6078431373 0.018828880  0.11964559
-# t2*  0.0001469972 0.007119107  0.03481685
-# 95%   (-0.7829, -0.3085 ) 
+# t1* -0.6078431373 0.014752475  0.11644482
+# t2*  0.0001469972 0.005678678  0.02995994
+# [1] -0.5981699
+# 95%   (-0.7863, -0.3399 ) 
 plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
-# bootstrap for domain-wide pc values
-boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc1))
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
-# Bootstrap Statistics :
-#   original      bias    std. error
-# t1* -0.63529411765 0.018611609  0.11087893
-# t2*  0.00006074087 0.002910884  0.01408498
-# 95%   (-0.8035, -0.3987 )
-plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
+# # bootstrap for domain-wide pc values
+# boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc1))
+# (booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
+# # Bootstrap Statistics :
+# #   original      bias    std. error
+# # t1* -0.63529411765 0.014785404  0.10781713
+# # t2*  0.00006074087 0.002539554  0.01298061
+# # 95%   (-0.8035, -0.3807 )  
+# plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 
 
 
 ################ NR PC2
-(c <- cor.test(temp$pr.avg, temp$pc2.avg, method = "spearman"))
+### *** NOTE THIS IS MULTIPLIED BY -! *** ###
+(c <- cor.test(temp$pr.avg, temp$pc2.avg*-1, method = "spearman"))
 (m <- lm(pc2.avg ~ log(pr.avg), data = temp))
 nr2 <- plot(log(temp$pr.avg), temp$pc2.avg,
             col = alpha(pal.ryb[1], 0.6), pch = 19, cex = 2,
@@ -308,26 +322,28 @@ nr2 <- plot(log(temp$pr.avg), temp$pc2.avg,
 abline(m)
 legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), bty = "n")
 # Test corr between avg recruit probs and domain-wide pc values
-cor.test(temp$pr.avg, d_v2$pc2, method = "spearman")
+cor.test(temp$pr.avg, d_v2$pc2, method = "spearman") # Signate is positive. Corr is weaker.
 
 # bootstrap for PC vals averaged across sites
-boo <- as.data.frame(cbind(temp$pr.avg, temp$pc2.avg)) 
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+boo <- as.data.frame(cbind(temp$pr.avg, temp$pc2.avg*-1)) 
+(booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 # Bootstrap Statistics :
 #   original     bias    std. error
-# t1* -0.38543417 0.01356734   0.1481252
-# t2*  0.02289188 0.07753115   0.1866583
-# 95%   (-0.6194, -0.0312 )
+# t1* -0.38543417 0.01577910   0.1520655
+# t2*  0.02289188 0.08095964   0.1744236
+# [1] -0.3780082
+# 95%   (-0.6440, -0.0767 )
 
-# bootstrap for domain-wide pc values
-boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc2))
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
-# Bootstrap Statistics :
-#   original      bias    std. error
-# t1* 0.2705882 -0.001089782   0.1721986
-# t2* 0.1158756  0.110537209   0.2678702
-# 95%   (-0.1084,  0.5651 )
-
+# # bootstrap for domain-wide pc values
+# boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc2))
+# (booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
+# # Bootstrap Statistics :
+# #   original      bias    std. error
+# # t1* 0.2705882 -0.001089782   0.1721986
+# # t2* 0.1158756  0.110537209   0.2678702
+# # 95%   (-0.1084,  0.5651 )
+# plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 ################ NR PC12
 (c <- cor.test(temp$pr.avg, temp$pc12.avg, method = "spearman"))
@@ -340,13 +356,14 @@ legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), 
 
 # bootstrap for PC vals averaged across sites (don't have domain-ide for pc12)
 boo <- as.data.frame(cbind(temp$pr.avg, temp$pc12.avg)) 
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+(booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
 # Bootstrap Statistics :
 #   original     bias    std. error
 # t1* -0.718207282913 0.020029709 0.090522876
 # t2*  0.000002837194 0.000319954 0.001834278
+# [1] -0.701892
 # 95%   (-0.8437, -0.4933 )
-
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 
 
@@ -368,23 +385,24 @@ cor.test(temp$pr.avg, d_v2$pc1, method = "spearman")
 
 # bootstrap for PC vals averaged across sites
 boo <- as.data.frame(cbind(temp$pr.avg, temp$pc1.avg)) 
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+(booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
 # Bootstrap Statistics :
 #   original      bias    std. error
-# t1* -0.38739496 0.01879107   0.1483031
-# t2*  0.02216301 0.08333934   0.1907745
-# 95%   (-0.6174, -0.0363 )   
+# t1* -0.38739496 0.01294236   0.1498376
+# t2*  0.02216301 0.07541543   0.1685742
+# [1] -0.3683832
+# 95%   (-0.6425, -0.0600 ) 
 plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
-# bootstrap for domain-wide pc values
-boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc1))
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
-# Bootstrap Statistics :
-#   original      bias    std. error
-# t1* -0.35882353 0.01362393   0.1548825
-# t2*  0.03493142 0.09868127   0.2079373
-# 95%   (-0.6271, -0.0312 )
-plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
+# # bootstrap for domain-wide pc values
+# boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc1))
+# (booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
+# # Bootstrap Statistics :
+# #   original      bias    std. error
+# # t1* -0.35882353 0.01362393   0.1548825
+# # t2*  0.03493142 0.09868127   0.2079373
+# # 95%   (-0.6271, -0.0312 )
+# plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 ################ SW PC2
 (c <- cor.test(temp$pr.avg, temp$pc2.avg, method = "spearman"))
@@ -399,21 +417,24 @@ cor.test(temp$pr.avg, d_v2$pc2, method = "spearman")
 
 # bootstrap for PC vals averaged across sites
 boo <- as.data.frame(cbind(temp$pr.avg, temp$pc2.avg)) 
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+(booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
 # Bootstrap Statistics :
 #   original     bias    std. error
 # t1* -0.455182073 0.003996809   0.1546509
 # t2*  0.006475758 0.050959701   0.1379573
+# [1] -0.4310694
 # 95%   (-0.7093, -0.1191 )
+plot(booty, index = 1)
 
-# bootstrap for domain-wide pc values
-boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc2))
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
-# Bootstrap Statistics :
-#   original      bias    std. error
-# t1* -0.5490196078 0.01278176  0.13954785
-# t2*  0.0007724593 0.01854940  0.07164676
-# 95%   (-0.7720, -0.2177 )  
+# # bootstrap for domain-wide pc values
+# boo <- as.data.frame(cbind(temp$pr.avg, d_v2$pc2))
+# (booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
+# # Bootstrap Statistics :
+# #   original      bias    std. error
+# # t1* -0.5490196078 0.01278176  0.13954785
+# # t2*  0.0007724593 0.01854940  0.07164676
+# # 95%   (-0.7720, -0.2177 )  
+# plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 
 
@@ -429,12 +450,14 @@ legend("topright", legend = paste0("R^2 = ",round(summary(m)$adj.r.squared,4)), 
 
 # bootstrap for PC vals averaged across sites (don't have domain-ide for pc12)
 boo <- as.data.frame(cbind(temp$pr.avg, temp$pc12.avg)) 
-(booty <- boot(boo, fun.cor, R=1000)) ; boot.ci(booty, index = 1, type = "perc")
+(booty <- boot(boo, fun.cor, R=1000)) ;  mean(booty$t[,1]); boot.ci(booty, index = 1, type = "perc")
 # Bootstrap Statistics :
 #   original     bias    std. error
 # t1* -0.700000000000 0.011167786 0.099842266
 # t2*  0.000005674013 0.001009157 0.009965444
+# [1] -0.6801437
 # 95%   (-0.8413, -0.4429 ) 
+plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
 
 
 # EXPORT FROM PLOT VIEWER TO SAVE.
@@ -445,117 +468,12 @@ par(mfrow=c(1,1))
 
 
 
+
+
+##########################################################################################
 ###################################
-#### TEST CORRS WITH BOOTSTRAP ####
+#### MAP DOMAIN-WIDE PC1 & PC2 ####
 ###################################
-
-
-
-## NR PC1
-
-
-############
-## SW
-data <- as.data.frame(cbind(pipo_sw, d_v2)) %>% dplyr::select(pr, value)
-booty <- boot(data, fun.cor, R=1000)
-
-booty
-
-## orig gives orig (with full dataset), bias gives diff btwn mean of bootstrap realizations & orig. 
-# Bootstrap Statistics :
-#   original     bias    std. error
-# t1* -0.540689150 0.01027947  0.13975005
-# t2*  0.001644087 0.02136227  0.07223205
-
-booty$t0 # gives orig
-booty$t # gives all new
-
-plot(booty, index = 1) # here, index referes to first output (corr coeff, here)
-plot(booty, index = 2) # here, index refers to p-val
-
-boot.ci(booty, index = 1, type = "perc")
-
-
-
-
-
-
-############################
-#### PLOT RECRUIT & PCS ####
-############################
-
-
-## Plot both recruitment and dipole. Incl. domain-wide (defined for 1984-2018) AND site-specifi PC vals averaged
-d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",") %>%
-  filter(year >= min(temp$year),  year <= max(temp$year)) %>% dplyr::select(year,pc1, pc2)
-
-display.brewer.pal(8, "Dark2")
-display.brewer.pal(8, "RdYlBu")
-display.brewer.pal(8, "PRGn")
-
-g <- ggplot() +
-  
-  ## Include or don't include original (only have pc1, pc2, not pc12)
-  geom_line(data = d_v2,
-            aes(x = year, y = pc1), cex = 0.5, col = pal.d2[8], alpha = 0.25, linetype="dotted") +
-            # aes(x = year, y = pc2), cex = 0.5, col = pal.d2[8], alpha = 0.25, linetype="dotted") +
-  
-  ########### Select NR or NR
-  # geom_line(data = data[data$region == "NR",],
-  geom_line(data = data[data$region == "SW",],
-            
-            ########### Select which PC
-            aes(x = year, y = pc1, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
-            # aes(x = year, y = pc2, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
-            # aes(x = year, y = pc12, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
-  
-  ########### Select NR or NR
-  # geom_line(data = temp[temp$region == "NR",],
-  geom_line(data = temp[temp$region == "SW",],
-            
-            ########### Select which PC
-            aes(x = year, y = pc1.avg), cex = 0.75, col = "dark grey") +
-            # aes(x = year, y = pc2.avg), cex = 0.75, col = "dark grey") +
-            # aes(x = year, y = pc12.avg), cex = 0.75, col = "dark grey") +
-  
-  ########### Select NR or NR
-  # geom_line(data = data[data$region == "NR",], aes(x = year, y = pr, group = site), cex = 0.5, col = pal.ryb[3], alpha = 0.25) +
-  geom_line(data = data[data$region == "SW",], aes(x = year, y = pr, group = site), cex = 0.5, col = pal.ryb[6], alpha = 0.25) +
-  
-  ########### Select NR or NR
-  # geom_line(data = temp[temp$region == "NR",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[1]) +
-  geom_line(data = temp[temp$region == "SW",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[8]) +
-  
-  
-  scale_x_continuous(breaks = seq(1980, 2016, 5)) +
-  # add secondary axis: must be 1:1 transformation of primary axis.
-  scale_y_continuous(limits = c(-2,2.5),
-                     sec.axis = sec_axis(~./4, name = "Annual recruitment probability")) +
-  theme_bw(base_size = 14) +
-  labs(x = NULL, y = "PC") + #expression(PC[dipole])) + # expression to set subscript of d
-  theme(axis.ticks.x=element_blank(),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        plot.margin=unit(c(0.25,0.25,0.25,0.25),"cm")) + #trbl; snug bottom towards SW plot
-  
-  ########### Select NR or NR and which PC
-  # annotate("text", x = 1985, y = 2.4, label = "NR & PC1", size = 6) ; name <- "NRvPC1"
-  # annotate("text", x = 1985, y = 2.4, label = "NR & PC2", size = 6) ; name <- "NRvPC2"
-  # annotate("text", x = 1985, y = 2.4, label = "NR & PC12", size = 6) ; name <- "NRvPC12"
-  annotate("text", x = 1985, y = 2.4, label = "SW & PC1", size = 6) ; name <- "SWvPC1"
-  # annotate("text", x = 1985, y = 2.4, label = "SW & PC2", size = 6) ; name <- "SWvPC2"
-  # annotate("text", x = 1985, y = 2.4, label = "SW & PC12", size = 6) ; name <- "SWvPC12"
-  dev.off()
-g
-# pdf(paste0(out.dir,name,".pdf"), width = 6, height = 3.5)
-g
-dev.off()
-
-
-
-#######################
-#### MAP PC1 & PC2 ####
-#######################
 
 ## Goal: project maps (Vs planar ggplot). Folks recommend ggplot-similar tmap.
 # refs:
@@ -568,8 +486,6 @@ display.brewer.pal(8, "RdYlBu") ; pal.ryb
 display.brewer.pal(8, "PiYG") ; pal.pg
 display.brewer.pal(8, "PRGn") ; pal.prgn
 
-
-
 # install.packages("tmap")
 # install.packages("shinyjs")
 library(tmap)
@@ -578,13 +494,12 @@ library(shinyjs)
 # FIXME: cannot add coordaintes. crs still stuck in m and tm_grid shows as such.
 # tm_graticules, which should add coords doesn't seem to exist anymore.
 
-
 ## Pick Albers equal area projection & transform all data.
 aea.proj <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83  +units=m"
 
 IntWsts.aea <- st_transform(IntWsts, crs = aea.proj)
 nonIntWest.aea <- st_transform(nonIntWest, crs = aea.proj)
-pc.aea <- projectRaster(pc.r, crs = aea.proj)
+pc.aea <- projectRaster(pc2_v2.r, crs = aea.proj)
 
 
 ## I'll want to control bounding box of map.
@@ -611,8 +526,8 @@ map <- # by default, set master to establish bbox, projection, etc (default = 1s
   # add in deficit values with reverse palette; may make transparent with alpha
   tm_shape(pc.aea) + tm_raster(palette = "-RdYlBu",
                               style = "cont",
-                              title = "PC1 (reg\naverage)") +
-                              # title = "PC2\n(dipole)") +
+                              # title = "PC1 (reg\naverage)") +
+                              title = "PC2\n(dipole)") +
   # add in non-Interior West states with light grey fill
   tm_shape(nonIntWest.aea) + tm_borders(lwd=1.5) + tm_fill("gray90") +
   # add in Interior West states with no fill
@@ -637,15 +552,30 @@ map
 dev.off()
 
 
+## What's the trend in PC1?
+m <- lm(data=d_v2, pc1 ~ year) ; summary(m)
+
+# install.packages("trend")
+library(trend)
+sens.slope(d_v2$pc1, conf.level = 0.95)
+# z = 0.9657, n = 35, p-value = 0.3342
+# Sen's slope 
+#  0.02371952 
+
+install.packages("zyp")
+library(zyp)
+zyp.sen(pc1 ~ year, data=d_v2)
+# Theil-Sen slope# -47.67897    0.02372 
+
+
+##########################################################################################
 ################################################
 #### PLOT TIME SERIES OF DOMAIN-WIDE DIPOLE ####
 ################################################
 
-## This has region-wide avg as PC1 and our dipole as PC2; clip to Kim's dates
+## This has region-wide avg as PC1 and our dipole as PC2; clip to min of Kim's dates.
 d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",")
-d_v2 <- d_v2 %>% rename(value = pc1) %>% dplyr::select(year,value)
-d_v2 <- d_v2 %>% rename(value = pc1) %>% dplyr::select(year,value)
-d_v2 <- d_v2 %>% filter(year > 1980 )#& year < 2016)
+d_v2 <- d_v2 %>% filter(year >= min(data.avg$year))
 
 # # Alt: west-wide new version has region-wide avg as PC1 and our dipole ALSO as pc1
 # d_v2_w <- read.csv("pc_westwide.csv", header = TRUE, sep = ",")
@@ -654,25 +584,32 @@ d_v2 <- d_v2 %>% filter(year > 1980 )#& year < 2016)
 
 
 ## How many years had strong dipole?
-count(d_v2, value > 1) # 7 true
-count(d_v2, value < -1) # 5 true
+count(d_v2, pc2 > 1) # 7 true
+count(d_v2, pc2 < -1) # 5 true
 12/35
-
-count(d_v2, value > 1.5) # 2 true
-count(d_v2, value < -1.5) # 3 true
-
 
 
 ## Generate plot
-t <- ggplot() +
-  geom_hline(yintercept=0, col = pal.d2[8], linetype="dashed") + 
-  geom_line(data = d_v2, aes(x = year, y = value), cex = 1) +
-  geom_point(data = d_v2[abs(d_v2$value)>1,],
-             aes(x = year, y = value), col = pal.prgn[7], cex = 2) +
+# t1 <- ggplot() +
+t2 <- ggplot() +
+  geom_hline(yintercept=0, col = pal.d2[8], alpha = 0.2, linetype="dashed") +
+  
+  # For PC1
+  # geom_smooth(data = d_v2, aes(x = year, y = pc1), method = "lm",
+  #             se = F, col = pal.prgn[7], cex = 0.5, linetype="dashed", alpha = 0.2)  +
+  # geom_line(data = d_v2, aes(x = year, y = pc1), cex = 1) +
+  
+
+  # For PC2  
+  geom_line(data = d_v2, aes(x = year, y = pc2), cex = 1) +
+  geom_point(data = d_v2[abs(d_v2$pc2)>1,],
+             aes(x = year, y = pc2), col = pal.prgn[7], cex = 1.5) +
+  
   labs(x = NULL,
        # y = "PC1") +
-       y = expression(PC[dipole])) + # expression to set subscript of d
-    scale_x_continuous(breaks = seq(1980, 2015, 5)) +
+       y = "PC2") + # alt: y = expression(PC[dipole])) to get subscript
+           
+  scale_x_continuous(breaks = seq(1980, 2015, 5)) +
   theme_bw(base_size = 12) +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -685,191 +622,161 @@ t <- ggplot() +
         legend.box = "horizontal",
         legend.text=element_text(size=12), #angle = 90),
         legend.background = element_rect(color = "transparent", fill = "transparent"),
-        plot.margin=unit(c(0.25,0.5,0.25,0.5),"cm")) #+ #trbl
-  # annotate("text", x = 1982, y = 2.25, label = "b", size = 6)
+        plot.margin=unit(c(0.25,0.5,0.25,0.5),"cm"))  #trbl
 dev.off()
-t
-
-## Save as png
-# png(paste0(out.dir,"pc1_time_series_",currentDate,".png"),
-#     width = 550, height = 250, units = "px")
-# t
-# dev.off()
-
+t1
+t2
 
 ## Save as pdf by version
 # v <- 1
-pdf(paste0(out.dir, "pc_time_v",v, "_", currentDate,".pdf"),
+pdf(paste0(out.dir, "pc1_time_v",v, "_", currentDate,".pdf"),
     width = 4, height = 1.5) ; v <- v+1
-t
+t1 ; dev.off()
+
+# v <- 1
+pdf(paste0(out.dir, "pc2_time_v",v, "_", currentDate,".pdf"),
+    width = 4, height = 1.5) ; v <- v+1
+t2
 dev.off()
-
-
-
-
-## To stack plots with aligned width, extract max width from each object.
-# Ref: https://stackoverflow.com/questions/36198451/specify-widths-and-heights-of-plots-with-grid-arrange
-
-plots <- list(pc, t)
-grobs <- list()
-widths <- list()
-
-## Collect the widths for each grob of each plot
-for (l in 1:length(plots)){
-  grobs[[l]] <- ggplotGrob(plots[[l]])
-  widths[[l]] <- grobs[[l]]$widths[2:5]
-}
-
-## Use do.call to get the max width
-maxwidth <- do.call(grid::unit.pmax, widths)
-
-## Assign the max width to each grob
-for (l in 1:length(grobs)){
-  grobs[[l]]$widths[2:5] <- as.list(maxwidth)
-}
-
-## Plot
-png(paste0(out.dir,"pc_time_series_",currentDate,".png"),
-    width = 550, height = 1000, units = "px")
-pdf(paste0(out.dir,"pc_time_series_",currentDate,".pdf"))
-# do.call("grid.arrange", c(grobs, ncol = 1))
-grid.arrange(grobs = grobs, ncol = 1, heights = c(5,2))
-dev.off()
-
-  
-
-################### Correlate PCdipole w/ Kim's recruitment rates
-
-# New version has region-wide avg as PC1 and our dipole as PC2
-d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",")
-# d_v2 <- d_v2 %>% rename(value = pc1) %>% dplyr::select(year,value)
-d_v2 <- d_v2 %>% rename(value = pc2) %>% dplyr::select(year,value)
-
-
-## Kim's recruitment data.
-# Her modeled projections run from '81-'15. Dipole is defined '84-'18 (and otherwise hindcast)
-# Clip both to ensure we're only using "real" years for both.
-pipo <- read.csv("PIPO_recruitment_prob.csv", header = TRUE, sep = ",")
-# pipo_nr <- pipo[,1:3] %>% dplyr::filter(region == "NR") %>% dplyr::select(-region)
-pipo_nr <- pipo[,1:3] %>% dplyr::filter(region == "NR", year > 1983) %>% dplyr::select(-region)
-# pipo_nr <- pipo[,1:3] %>% dplyr::filter(region == "NR", year > 1983) %>%
-#   dplyr::filter(region == "NR", year != 1997) %>%
-#   dplyr::select(-region)
-
-range(pipo_nr$year)
-
-pipo <- read.csv("PIPO_recruitment_prob.csv", header = TRUE, sep = ",")
-# pipo_sw <- pipo[,1:3] %>% dplyr::filter(region == "SW") %>% dplyr::select(-region)
-pipo_sw <- pipo[,1:3] %>% dplyr::filter(region == "SW", year > 1983) %>% dplyr::select(-region)
-range(pipo_sw$year)
-
-pipo <- pipo[,1:3] %>% filter(year > 1983)
-
-# d_v2 <- d_v2 %>% filter(year>1980 & year<2016)
-d_v2 <- d_v2 %>% filter(year>1983 & year<2016)
-# d_v2 <- d_v2 %>% filter(year>1983 & year<2016 & year!=1997)
-range(d_v2$year)
-
-## Any correlations btwn recruitment & dipoles?
-# cor.test(pipo_nr$pr, d_v1$value, method = "spearman")
-cor.test(pipo_nr$pr, d_v2$value, method = "spearman")
-# cor.test(pipo_nr$pr, d_v2_w$value, method = "spearman")
-
-temp <- temp %>% filter(region == "NR", year > 1983, year < 2016)
-cor.test(temp$pr.avg, d_v2$value, method = "spearman")
-
-# cor.test(pipo_sw$pr, d_v1$value, method = "spearman")
-cor.test(pipo_sw$pr, d_v2$value, method = "spearman")
-# cor.test(pipo_sw$pr, d_v2_w$value, method = "spearman") 
-
-temp <- temp %>% filter(region == "SW", year > 1983, year < 2016)
-cor.test(temp$pr.avg, d_v2$value, method = "spearman")
-
-# ## NR break-point 1996
-# cor.test(pipo_nr$pr[pipo_nr$year < 1996], d_v2$value[d_v2$year < 1996],
-#          method = "spearman")
-# cor.test(pipo_nr$pr[pipo_nr$year > 1995], d_v2$value[d_v2$year > 1995],
-#          method = "spearman")
-# ## SW break-point 1991
-# cor.test(pipo_sw$pr[pipo_sw$year < 1992], d_v2$value[d_v2$year < 1992],
-#          method = "spearman")
-# cor.test(pipo_sw$pr[pipo_sw$year > 1991], d_v2$value[d_v2$year > 1991],
-#          method = "spearman")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
 
 
 ##########################################################################################
+################################################
+#### PLOT TIME SERIES OF DOMAIN-WIDE DIPOLE ####
+################################################
 
+## Note margins are snugged for stacking.
 
-## Plot both recruitment and dipole
 NR <- ggplot() +
-  geom_vline(xintercept=d_v2$year[abs(d_v2$value)>1], col = pal.ryb[4], cex = 0.5, linetype="dotted") +
-  geom_line(data = d_v2, aes(x = year, y = value), cex = 1, col = pal.d2[8], linetype="dashed") +
-  geom_line(data = pipo[pipo$region == "NR",], aes(x = year, y = pr*4), cex = 1, col = pal.ryb[1]) +
-  geom_point(data = d_v2[abs(d_v2$value)>1,],
-             aes(x = year, y = value), col = pal.prgn[7], cex = 2) +
-
-  scale_x_continuous(breaks = seq(1985, 2015, 5)) +
+  geom_hline(yintercept=0, col = pal.d2[8], alpha = 0.2, linetype="dashed") +
+  geom_vline(xintercept=d_v2$year[abs(d_v2$pc2)>1], col = pal.ryb[4], cex = 0.5, linetype="dotted") +
+  geom_line(data = d_v2, aes(x = year, y = pc2), cex = 1, col = pal.d2[8], linetype="dashed") +
+  geom_line(data = data.avg[data.avg$region == "NR",], aes(x = year, y = pr.avg*4), cex = 1, col = pal.ryb[1]) +
+  geom_point(data = d_v2[abs(d_v2$pc2)>1,],
+             aes(x = year, y = pc2), col = pal.prgn[7], cex = 2) +
+  
+  # scale_x_continuous(breaks = seq(1980, 2015, 5)) +
   # add secondary axis: must be 1:1 transformation of primary axis.
-  scale_y_continuous(limits = c(-2.5,2.5),
+  scale_y_continuous(limits = c(-2.25,2.5),
                      sec.axis = sec_axis(~./4, name = "Annual recruitment\nprobability")) +
   theme_bw(base_size = 14) +
-  labs(x = NULL, y = expression(PC[dipole])) + # expression to set subscript of d
-  theme(axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        panel.grid.major = element_blank(),
+  labs(x = NULL, y = "PC2 (dipole)") + #expression(PC[dipole])) + # expression to set subscript of d
+  theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
-        plot.margin=unit(c(0.25,0.25,-0.25,0.25),"cm")) +  #trbl; snug bottom towards SW plot
-  annotate("text", x = 1984, y = 2.4, label = "NR", size = 6)
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.margin=unit(c(0.25,0.25,-0.25,0.25),"cm")) +  #trbl; snug top towards NR plot
+  annotate("text", x = 1982, y = 2.4, label = "NR", size = 6)
 dev.off()
 NR
 
 
-SW <- ggplot() +
-    geom_vline(xintercept=d_v2$year[abs(d_v2$value)>1], col = pal.ryb[4], cex = 0.5, linetype="dotted") + geom_line(data = d_v2, aes(x = year, y = value), cex = 1, col = pal.d2[8], linetype="dashed") +
-  geom_line(data = pipo[pipo$region == "SW",], aes(x = year, y = pr*4), cex = 1, col = pal.ryb[8]) +
-  geom_point(data = d_v2[abs(d_v2$value)>1,],
-             aes(x = year, y = value), col = pal.prgn[7], cex = 2) +
 
-  scale_x_continuous(breaks = seq(1985, 2015, 5)) +
+
+SW <- ggplot() +
+  geom_hline(yintercept=0, col = pal.d2[8], alpha = 0.2, linetype="dashed") +
+    geom_vline(xintercept=d_v2$year[abs(d_v2$pc2)>1], col = pal.ryb[4], cex = 0.5, linetype="dotted") +
+  geom_line(data = d_v2, aes(x = year, y = pc2), cex = 1, col = pal.d2[8], linetype="dashed") +
+  geom_line(data = data.avg[data.avg$region == "SW",], aes(x = year, y = pr.avg*4), cex = 1, col = pal.ryb[8]) +
+  geom_point(data = d_v2[abs(d_v2$pc2)>1,],
+             aes(x = year, y = pc2), col = pal.prgn[7], cex = 2) +
+
+  scale_x_continuous(breaks = seq(1980, 2015, 5)) +
   # add secondary axis: must be 1:1 transformation of primary axis.
-  scale_y_continuous(limits = c(-2.5,2.5),
+  scale_y_continuous(limits = c(-2.25,2.5),
                      sec.axis = sec_axis(~./4, name = "Annual recruitment\nprobability")) +
   theme_bw(base_size = 14) +
-  labs(x = NULL, y = expression(PC[dipole])) + # expression to set subscript of d
+  labs(x = NULL, y = "PC2 (dipole)") + #expression(PC[dipole])) + # expression to set subscript of d
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         plot.margin=unit(c(-0.25,0.25,0.25,0.25),"cm")) +  #trbl; snug top towards NR plot
-annotate("text", x = 1984, y = 2.4, label = "SW", size = 6)
+annotate("text", x = 1982, y = 2.4, label = "SW", size = 6)
 dev.off()
 SW
 
 
 # Save as pdf by version
 # v <- 1
-# png(paste0(out.dir,"pc_vs recruitment_",currentDate,".png"),
-#     width = 550, height = 450, units = "px")
 pdf(paste0(out.dir,"pc_vs_recruitment_v",v,"_",currentDate,".pdf"),
            width = 6, height = 6) ; v <- v+1
 # do.call("grid.arrange", c(grobs, ncol = 1))
 grid.arrange(NR, SW)
 dev.off()
+
+
+# ##########################################################################################
+# #####################################################
+# #### ALT PLOT RECRUIT & PCS W/ SITE-LEVEL TRACES ####
+# #####################################################
+# 
+# 
+# ## Plot both recruitment and PC with site-specific traces, avgs, AND domain-wide.
+# d_v2 <- read.csv("pc_8state.csv", header = TRUE, sep = ",") %>%
+#   filter(year >= min(data.avg$year),  year <= max(data.avg$year)) %>% dplyr::select(year,pc1, pc2)
+# 
+# display.brewer.pal(8, "Dark2")
+# display.brewer.pal(8, "RdYlBu")
+# display.brewer.pal(8, "PRGn")
+# 
+# g <- ggplot() +
+#   
+#   ## Include or don't include original (only have pc1, pc2, not pc12)
+#   geom_line(data = d_v2,
+#             # aes(x = year, y = pc1), cex = 0.5, col = pal.d2[8], alpha = 0.25, linetype="dotted") +
+#             aes(x = year, y = pc2), cex = 0.5, col = pal.d2[8], alpha = 0.25, linetype="dotted") +
+#   
+#   ########### Select NR or NR
+#   geom_line(data = data[data$region == "NR",],
+#   # geom_line(data = data[data$region == "SW",],
+#             
+#             ########### Select which PC
+#             # aes(x = year, y = pc1, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
+#             aes(x = year, y = pc2, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
+#             # aes(x = year, y = pc12, group = site), cex = 0.5, col = "light grey", alpha = 0.25) +
+#   
+#   ########### Select NR or NR
+#   geom_line(data = data.avg[data.avg$region == "NR",],
+#   # geom_line(data = data.avg[data.avg$region == "SW",],
+#             
+#             ########### Select which PC
+#             # aes(x = year, y = pc1.avg), cex = 0.75, col = "dark grey") +
+#             aes(x = year, y = pc2.avg), cex = 0.75, col = "dark grey") +
+#             # aes(x = year, y = pc12.avg), cex = 0.75, col = "dark grey") +
+#   
+#   ########### Select NR or NR
+#   geom_line(data = data[data$region == "NR",], aes(x = year, y = pr, group = site), cex = 0.5, col = pal.ryb[3], alpha = 0.25) +
+#   # geom_line(data = data[data$region == "SW",], aes(x = year, y = pr, group = site), cex = 0.5, col = pal.ryb[6], alpha = 0.25) +
+#   
+#   ########### Select NR or NR
+#   geom_line(data = data.avg[data.avg$region == "NR",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[1]) +
+#   # geom_line(data = data.avg[data.avg$region == "SW",], aes(x = year, y = pr.avg), cex = 0.75, col = pal.ryb[8]) +
+#   
+#   
+#   scale_x_continuous(breaks = seq(1980, 2016, 5)) +
+#   # add secondary axis: must be 1:1 transformation of primary axis.
+#   scale_y_continuous(limits = c(-2,2.5),
+#                      sec.axis = sec_axis(~./4, name = "Annual recruitment probability")) +
+#   theme_bw(base_size = 14) +
+#   labs(x = NULL, y = "PC") + #expression(PC[dipole])) + # expression to set subscript of d
+#   theme(axis.ticks.x=element_blank(),
+#         panel.grid.major = element_blank(),
+#         panel.grid.minor = element_blank(),
+#         plot.margin=unit(c(0.25,0.25,0.25,0.25),"cm")) + #trbl; snug bottom towards SW plot
+#   
+#   ########### Select NR or NR and which PC
+#   # annotate("text", x = 1985, y = 2.4, label = "NR & PC1", size = 6) ; name <- "NRvPC1"
+#   annotate("text", x = 1985, y = 2.4, label = "NR & PC2", size = 6) ; name <- "NRvPC2"
+#   # annotate("text", x = 1985, y = 2.4, label = "NR & PC12", size = 6) ; name <- "NRvPC12"
+#   # annotate("text", x = 1985, y = 2.4, label = "SW & PC1", size = 6) ; name <- "SWvPC1"
+# # annotate("text", x = 1985, y = 2.4, label = "SW & PC2", size = 6) ; name <- "SWvPC2"
+# # annotate("text", x = 1985, y = 2.4, label = "SW & PC12", size = 6) ; name <- "SWvPC12"
+# dev.off()
+# g
+# # pdf(paste0(out.dir,name,".pdf"), width = 6, height = 3.5)
+# g
+# dev.off()
+
 
